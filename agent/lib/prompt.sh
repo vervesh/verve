@@ -84,8 +84,8 @@ ${ACCEPTANCE_CRITERIA}"
 
     prompt+='
 
-As you work, periodically save your progress by running: git add -A && git commit -m "wip: <brief description>"
-This ensures your work can be recovered if the session is interrupted.
+As you work, periodically save your progress by running: git add -A && git commit -m "wip: <brief description>" && git push -u origin HEAD
+This ensures your work is pushed to the remote and can be recovered if the session is interrupted.
 
 IMPORTANT: Before you finish, output a status line in this exact format on its own line:
 VERVE_STATUS:{"files_modified":[],"tests_status":"pass|fail|skip","confidence":"high|medium|low","blockers":[],"criteria_met":[],"notes":"Any context for future retry attempts"}'
