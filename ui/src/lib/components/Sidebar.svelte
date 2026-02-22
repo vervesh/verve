@@ -5,7 +5,7 @@
 	const currentPath = $derived($page.url.pathname);
 	const isTasksActive = $derived(currentPath === '/' || currentPath.startsWith('/tasks'));
 	const isEpicsActive = $derived(currentPath.startsWith('/epics'));
-	const isAgentsActive = $derived(currentPath.startsWith('/agents'));
+	const isMetricsActive = $derived(currentPath.startsWith('/agents'));
 </script>
 
 <nav class="w-12 sm:w-44 border-r bg-card/50 flex flex-col shrink-0">
@@ -33,12 +33,12 @@
 		<a
 			href="/agents"
 			class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors
-				{isAgentsActive
+				{isMetricsActive
 				? 'bg-primary/10 text-primary'
 				: 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
 		>
 			<Activity class="w-4 h-4 shrink-0" />
-			<span class="hidden sm:inline">Agents</span>
+			<span class="hidden sm:inline">Metrics</span>
 		</a>
 	</div>
 </nav>
