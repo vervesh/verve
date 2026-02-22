@@ -101,6 +101,7 @@ type AgentConfig struct {
 	ClaudeModel                string
 	DryRun                     bool
 	GitHubInsecureSkipVerify   bool
+	StripAnthropicBetaHeaders  bool   // Pass through to agent container to run a local header-stripping proxy
 }
 
 // LogCallback is called for each log line from the container
@@ -134,6 +135,10 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 
 	if cfg.AnthropicBaseURL != "" {
 		env = append(env, "ANTHROPIC_BASE_URL="+cfg.AnthropicBaseURL)
+	}
+
+	if cfg.StripAnthropicBetaHeaders {
+		env = append(env, "STRIP_ANTHROPIC_BETA_HEADERS=true")
 	}
 
 	if workType == workTypeEpic {
@@ -231,21 +236,6 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 				}
 				hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, "host.docker.internal:host-gateway")
 			}
-		}
-	}
-
-	// When the Anthropic base URL uses host.docker.internal (e.g. the beta
-	// header stripping proxy), ensure the container can resolve it.
-	if strings.Contains(cfg.AnthropicBaseURL, "host.docker.internal") {
-		hasHostMapping := false
-		for _, h := range hostConfig.ExtraHosts {
-			if strings.HasPrefix(h, "host.docker.internal:") {
-				hasHostMapping = true
-				break
-			}
-		}
-		if !hasHostMapping {
-			hostConfig.ExtraHosts = append(hostConfig.ExtraHosts, "host.docker.internal:host-gateway")
 		}
 	}
 
