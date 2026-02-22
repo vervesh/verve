@@ -64,7 +64,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[500px]">
+	<Dialog.Content class="sm:max-w-[625px]">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
 				<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -118,10 +118,10 @@
 									{:else}
 										<Globe class="w-3 h-3 text-muted-foreground flex-shrink-0" />
 									{/if}
-									<span class="font-medium text-sm truncate">{repo.full_name}</span>
+									<span class="font-medium text-sm break-all">{repo.full_name}</span>
 								</div>
 								{#if repo.description}
-									<p class="text-xs text-muted-foreground mt-0.5 line-clamp-1 pl-5">
+									<p class="text-xs text-muted-foreground mt-0.5 line-clamp-2 pl-5">
 										{repo.description}
 									</p>
 								{/if}
