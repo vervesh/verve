@@ -27,7 +27,7 @@ type Config struct {
 	MaxConcurrentTasks        int    // Maximum concurrent tasks (default: 1)
 	DryRun                    bool   // Skip Claude and make a dummy change instead
 	GitHubInsecureSkipVerify  bool   // Disable TLS certificate verification for GitHub operations in agent containers
-	StripAnthropicBetaHeaders bool   // Strip anthropic-beta headers via a local reverse proxy (for Bedrock proxy compatibility)
+	StripAnthropicBetaHeaders bool   // Strip anthropic-beta headers via reverse proxy inside agent containers (for Bedrock proxy compatibility)
 }
 
 type Task struct {
@@ -73,9 +73,6 @@ type Worker struct {
 	logger       log.Logger
 	pollInterval time.Duration
 
-	// Beta header proxy (started when StripAnthropicBetaHeaders is enabled)
-	betaProxy *BetaHeaderProxy
-
 	// Unique identifier for this worker instance
 	workerID string
 
@@ -99,21 +96,12 @@ func New(cfg Config, logger log.Logger) (*Worker, error) {
 		maxConcurrent = 1
 	}
 
-	var betaProxy *BetaHeaderProxy
-	if cfg.StripAnthropicBetaHeaders {
-		betaProxy, err = StartBetaHeaderProxy(context.Background(), cfg.AnthropicBaseURL, logger)
-		if err != nil {
-			return nil, fmt.Errorf("failed to start beta header proxy: %w", err)
-		}
-	}
-
 	return &Worker{
 		config:        cfg,
 		docker:        docker,
 		client:        &http.Client{Timeout: 60 * time.Second},
 		logger:        logger,
 		pollInterval:  5 * time.Second,
-		betaProxy:     betaProxy,
 		workerID:      uuid.New().String(),
 		maxConcurrent: maxConcurrent,
 		semaphore:     make(chan struct{}, maxConcurrent),
@@ -121,9 +109,6 @@ func New(cfg Config, logger log.Logger) (*Worker, error) {
 }
 
 func (w *Worker) Close() error {
-	if w.betaProxy != nil {
-		_ = w.betaProxy.Stop(context.Background())
-	}
 	return w.docker.Close()
 }
 
@@ -516,16 +501,14 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 		ClaudeCodeOAuthToken:     w.config.ClaudeCodeOAuthToken,
 		ClaudeModel:              task.Model,
 		DryRun:                   w.config.DryRun,
-		GitHubInsecureSkipVerify: w.config.GitHubInsecureSkipVerify,
+		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
+		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
 		SkipPR:                   task.SkipPR,
 		Attempt:                  task.Attempt,
 		RetryReason:              task.RetryReason,
 		AcceptanceCriteria:       task.AcceptanceCriteria,
 		RetryContext:             task.RetryContext,
 		PreviousStatus:           task.AgentStatus,
-	}
-	if w.betaProxy != nil {
-		agentCfg.AnthropicBaseURL = w.betaProxy.URL()
 	}
 
 	// Create a cancellable context for the agent execution.
@@ -611,11 +594,9 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 		AnthropicAPIKey:          w.config.AnthropicAPIKey,
 		AnthropicBaseURL:         w.config.AnthropicBaseURL,
 		ClaudeCodeOAuthToken:     w.config.ClaudeCodeOAuthToken,
-		ClaudeModel:              ep.Model,
-		GitHubInsecureSkipVerify: w.config.GitHubInsecureSkipVerify,
-	}
-	if w.betaProxy != nil {
-		agentCfg.AnthropicBaseURL = w.betaProxy.URL()
+		ClaudeModel:               ep.Model,
+		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
+		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
 	}
 
 	// Start heartbeat goroutine

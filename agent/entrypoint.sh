@@ -11,6 +11,10 @@ source "${LIB_DIR}/github.sh"
 source "${LIB_DIR}/prompt.sh"
 source "${LIB_DIR}/claude.sh"
 source "${LIB_DIR}/dryrun.sh"
+source "${LIB_DIR}/proxy.sh"
+
+# ── Start beta header proxy (if enabled) ───────────────────────────
+start_beta_proxy
 
 # ── Branch on work type ─────────────────────────────────────────────
 if [ "${WORK_TYPE}" = "epic" ]; then

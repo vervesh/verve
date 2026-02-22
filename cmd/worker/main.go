@@ -48,7 +48,7 @@ func main() {
 	}
 
 	if cfg.StripAnthropicBetaHeaders {
-		logger.Info("STRIP_ANTHROPIC_BETA_HEADERS is enabled — anthropic-beta headers will be stripped from API requests via local reverse proxy")
+		logger.Info("STRIP_ANTHROPIC_BETA_HEADERS is enabled — agent containers will strip anthropic-beta headers via local reverse proxy")
 	}
 
 	logger.Info("worker configured",
