@@ -65,6 +65,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.POST("/tasks/:id/retry", h.RetryTask)
 	g.POST("/tasks/:id/start-over", h.StartOverTask)
 	g.POST("/tasks/:id/feedback", h.FeedbackTask)
+	g.POST("/tasks/:id/move-to-review", h.MoveToReview)
 	g.POST("/tasks/:id/sync", h.SyncTaskStatus)
 	g.GET("/tasks/:id/checks", h.GetTaskChecks)
 	g.GET("/tasks/:id/diff", h.GetTaskDiff)
@@ -753,6 +754,28 @@ func (h *HTTPHandler) RetryTask(c echo.Context) error {
 	ctx := c.Request().Context()
 
 	if err := h.store.ManualRetryTask(ctx, id, req.Instructions); err != nil {
+		return jsonError(c, err)
+	}
+
+	t, err := h.store.ReadTask(ctx, id)
+	if err != nil {
+		return jsonError(c, err)
+	}
+	return c.JSON(http.StatusOK, t)
+}
+
+// MoveToReview handles POST /tasks/:id/move-to-review
+// Transitions a failed task back to review status when it has an existing PR or branch.
+// This lets the user treat the existing PR as reviewable despite the agent failure.
+func (h *HTTPHandler) MoveToReview(c echo.Context) error {
+	id, err := task.ParseTaskID(c.Param("id"))
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, errorResponse("invalid task ID"))
+	}
+
+	ctx := c.Request().Context()
+
+	if err := h.store.MoveToReview(ctx, id); err != nil {
 		return jsonError(c, err)
 	}
 

@@ -895,6 +895,86 @@ func TestCloseTask_Success(t *testing.T) {
 	assert.Equal(t, task.StatusClosed, tsk.Status)
 }
 
+func TestMoveToReview_FailedWithPR(t *testing.T) {
+	handler, taskRepo, _, testRepo := setupHandler()
+	e := echo.New()
+
+	tsk := task.NewTask(testRepo.ID.String(), "title", "desc", nil, nil, 0, false, "sonnet", true)
+	tsk.Status = task.StatusFailed
+	tsk.PRNumber = 10
+	tsk.PullRequestURL = "https://github.com/org/repo/pull/10"
+	taskRepo.tasks[tsk.ID.String()] = tsk
+	taskRepo.taskStatuses[tsk.ID.String()] = tsk.Status
+
+	c, rec := newContext(e, http.MethodPost, "/tasks/"+tsk.ID.String()+"/move-to-review", "")
+	c.SetParamNames("id")
+	c.SetParamValues(tsk.ID.String())
+
+	err := handler.MoveToReview(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, task.StatusReview, tsk.Status)
+}
+
+func TestMoveToReview_FailedWithBranch(t *testing.T) {
+	handler, taskRepo, _, testRepo := setupHandler()
+	e := echo.New()
+
+	tsk := task.NewTask(testRepo.ID.String(), "title", "desc", nil, nil, 0, false, "sonnet", true)
+	tsk.Status = task.StatusFailed
+	tsk.BranchName = "verve/task-tsk_123"
+	taskRepo.tasks[tsk.ID.String()] = tsk
+	taskRepo.taskStatuses[tsk.ID.String()] = tsk.Status
+
+	c, rec := newContext(e, http.MethodPost, "/tasks/"+tsk.ID.String()+"/move-to-review", "")
+	c.SetParamNames("id")
+	c.SetParamValues(tsk.ID.String())
+
+	err := handler.MoveToReview(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, task.StatusReview, tsk.Status)
+}
+
+func TestMoveToReview_FailedNoPR_Rejected(t *testing.T) {
+	handler, taskRepo, _, testRepo := setupHandler()
+	e := echo.New()
+
+	tsk := task.NewTask(testRepo.ID.String(), "title", "desc", nil, nil, 0, false, "sonnet", true)
+	tsk.Status = task.StatusFailed
+	taskRepo.tasks[tsk.ID.String()] = tsk
+	taskRepo.taskStatuses[tsk.ID.String()] = tsk.Status
+
+	c, rec := newContext(e, http.MethodPost, "/tasks/"+tsk.ID.String()+"/move-to-review", "")
+	c.SetParamNames("id")
+	c.SetParamValues(tsk.ID.String())
+
+	err := handler.MoveToReview(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assert.Equal(t, task.StatusFailed, tsk.Status, "status should remain failed")
+}
+
+func TestMoveToReview_NotFailed_Rejected(t *testing.T) {
+	handler, taskRepo, _, testRepo := setupHandler()
+	e := echo.New()
+
+	tsk := task.NewTask(testRepo.ID.String(), "title", "desc", nil, nil, 0, false, "sonnet", true)
+	tsk.Status = task.StatusRunning
+	tsk.PRNumber = 10
+	taskRepo.tasks[tsk.ID.String()] = tsk
+	taskRepo.taskStatuses[tsk.ID.String()] = tsk.Status
+
+	c, rec := newContext(e, http.MethodPost, "/tasks/"+tsk.ID.String()+"/move-to-review", "")
+	c.SetParamNames("id")
+	c.SetParamValues(tsk.ID.String())
+
+	err := handler.MoveToReview(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusConflict, rec.Code)
+	assert.Equal(t, task.StatusRunning, tsk.Status, "status should remain running")
+}
+
 func TestListTasksByRepo_Success(t *testing.T) {
 	handler, taskRepo, _, testRepo := setupHandler()
 	e := echo.New()

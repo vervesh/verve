@@ -185,6 +185,7 @@
 	let showFeedbackForm = $state(false);
 	let feedbackText = $state('');
 	let togglingReady = $state(false);
+	let movingToReview = $state(false);
 	let startingOver = $state(false);
 	let showStartOverForm = $state(false);
 	let startOverTitle = $state('');
@@ -582,6 +583,18 @@
 			error = (e as Error).message;
 		} finally {
 			sendingFeedback = false;
+		}
+	}
+
+	async function handleMoveToReview() {
+		if (!task || movingToReview) return;
+		movingToReview = true;
+		try {
+			task = await client.moveToReview(task.id);
+		} catch (e) {
+			error = (e as Error).message;
+		} finally {
+			movingToReview = false;
 		}
 	}
 
@@ -1226,6 +1239,23 @@
 								</div>
 							{/if}
 						{/if}
+						<!-- Move to Review (failed tasks with PR) -->
+						{#if task.status === 'failed'}
+							<div class="px-5 py-3 border-t">
+								<div class="flex items-center gap-3">
+									<Button size="sm" variant="outline" onclick={handleMoveToReview} disabled={movingToReview} class="gap-2">
+										{#if movingToReview}
+											<Loader2 class="w-4 h-4 animate-spin" />
+											Moving...
+										{:else}
+											<GitPullRequest class="w-4 h-4" />
+											Move to Review
+										{/if}
+									</Button>
+									<span class="text-xs text-muted-foreground">Mark this task as in review to track the existing PR.</span>
+								</div>
+							</div>
+						{/if}
 					</div>
 				{/if}
 
@@ -1330,6 +1360,22 @@
 											<span class="text-xs text-muted-foreground">The agent will update this branch based on your instructions.</span>
 										</div>
 									{/if}
+								</div>
+							{/if}
+							{#if task.status === 'failed'}
+								<div class="pt-3 border-t mt-3">
+									<div class="flex items-center gap-3">
+										<Button size="sm" variant="outline" onclick={handleMoveToReview} disabled={movingToReview} class="gap-2">
+											{#if movingToReview}
+												<Loader2 class="w-4 h-4 animate-spin" />
+												Moving...
+											{:else}
+												<GitBranch class="w-4 h-4" />
+												Move to Review
+											{/if}
+										</Button>
+										<span class="text-xs text-muted-foreground">Mark this task as in review to track the existing branch.</span>
+									</div>
 								</div>
 							{/if}
 						</Card.Content>
