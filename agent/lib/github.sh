@@ -93,7 +93,7 @@ update_pr() {
     json_body=$(printf '%s' "$body" | jq -Rs .)
 
     local response
-    response=$(curl -s -w "\n%{http_code}" -X PATCH \
+    response=$(curl -s -w "\n%{http_code}" $(_curl_opts) -X PATCH \
         -H "Authorization: token ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         "https://api.github.com/repos/${GITHUB_REPO}/pulls/${pr_number}" \
@@ -128,7 +128,7 @@ generate_and_update_pr() {
 
     # Get the current PR title and body
     local pr_response
-    pr_response=$(curl -s -w "\n%{http_code}" \
+    pr_response=$(curl -s -w "\n%{http_code}" $(_curl_opts) \
         -H "Authorization: token ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         "https://api.github.com/repos/${GITHUB_REPO}/pulls/${pr_number}")
