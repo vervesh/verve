@@ -376,7 +376,9 @@
 			{/if}
 		</div>
 
-		<!-- Full-width Diff Viewer — no horizontal padding so it stretches edge to edge -->
-		<DiffViewer taskId={task.id} hasPR={true} prUrl={task.pull_request_url} autoExpand={true} />
+		<!-- Diff Viewer with same padding as above sections -->
+		<div class="px-4 sm:px-6 pb-4 sm:pb-6">
+			<DiffViewer taskId={task.id} hasPR={true} prUrl={task.pull_request_url} autoExpand={true} />
+		</div>
 	{/if}
 </div>

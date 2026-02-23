@@ -240,7 +240,7 @@
 </script>
 
 {#if hasPR}
-	<div class="border-t border-border overflow-hidden {autoExpand ? '' : 'rounded-xl border shadow-sm'}">
+	<div class="rounded-xl border shadow-sm overflow-hidden">
 		<!-- Toggle Button -->
 		<button
 			type="button"
