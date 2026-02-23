@@ -328,7 +328,7 @@
 	const isStopped = $derived(task && !task.ready && task.status === 'pending' && task.close_reason === 'Stopped by user');
 	const canStop = $derived(task?.status === 'running');
 	const canClose = $derived(task && !['closed', 'merged', 'failed'].includes(task.status));
-	const canStartOver = $derived(task?.status === 'review' || task?.status === 'failed');
+	const canStartOver = $derived(task?.status === 'review' || task?.status === 'failed' || task?.status === 'closed');
 	const canRetry = $derived(task?.status === 'failed');
 	const canProvideFeedback = $derived(task?.status === 'review');
 	const isRetrying = $derived(task?.pull_request_url && (task?.status === 'running' || task?.status === 'pending'));

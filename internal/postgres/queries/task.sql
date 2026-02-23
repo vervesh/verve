@@ -143,7 +143,7 @@ UPDATE task SET
   branch_name = NULL,
   started_at = NULL,
   updated_at = NOW()
-WHERE id = $1 AND status IN ('review', 'failed');
+WHERE id = $1 AND status IN ('review', 'failed', 'closed');
 
 -- name: StopTask :execrows
 UPDATE task SET status = 'pending', ready = false, close_reason = $2,

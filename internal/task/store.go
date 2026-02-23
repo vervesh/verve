@@ -421,7 +421,7 @@ func (s *Store) UpdatePendingTask(ctx context.Context, id TaskID, params UpdateP
 	return nil
 }
 
-// StartOverTask resets a task from review or failed back to pending, clearing
+// StartOverTask resets a task from review, failed, or closed back to pending, clearing
 // all metadata (logs, PR, branch, agent status, cost) and optionally updating
 // the task details (title, description, acceptance criteria). Returns the task
 // before reset so the caller can close the PR if needed.
@@ -437,7 +437,7 @@ func (s *Store) StartOverTask(ctx context.Context, id TaskID, params StartOverTa
 		return nil, err
 	}
 	if !ok {
-		return nil, nil // task was not in review or failed status
+		return nil, nil // task was not in review, failed, or closed status
 	}
 
 	// Delete all logs for a clean slate.
