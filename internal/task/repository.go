@@ -66,10 +66,10 @@ type TaskRepository interface {
 	// UpdatePendingTask atomically updates a pending task's editable fields.
 	// Returns false if the task was not in pending status.
 	UpdatePendingTask(ctx context.Context, id TaskID, params UpdatePendingTaskParams) (bool, error)
-	// StartOverTask resets a task from review or failed back to pending with
+	// StartOverTask resets a task from review, failed, or closed back to pending with
 	// fresh metadata. Clears logs, PR, branch, agent status, cost, and retry
 	// state. Optionally updates title, description, and acceptance criteria.
-	// Returns false if the task was not in review or failed status.
+	// Returns false if the task was not in review, failed, or closed status.
 	StartOverTask(ctx context.Context, id TaskID, params StartOverTaskParams) (bool, error)
 	// StopTask atomically transitions a task from running → pending with ready=false,
 	// recording the stop reason. Returns false if the task was not in running status.

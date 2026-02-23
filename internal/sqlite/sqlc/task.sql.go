@@ -954,7 +954,7 @@ UPDATE task SET
   branch_name = NULL,
   started_at = NULL,
   updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-WHERE id = ? AND status IN ('review', 'failed')
+WHERE id = ? AND status IN ('review', 'failed', 'closed')
 `
 
 type StartOverTaskParams struct {
