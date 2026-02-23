@@ -409,7 +409,7 @@
 
 </script>
 
-<div class="p-4 sm:p-6 flex-1 min-h-0 flex flex-col max-w-6xl mx-auto w-full">
+<div class="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
 	<div class="mb-4">
 		<button
 			onclick={() => goto('/epics')}
@@ -534,7 +534,7 @@
 
 		{#if epic.description}
 			<Card.Root class="mb-6 bg-[oklch(0.18_0.005_285.823)]">
-				<Card.Content class="p-4">
+				<Card.Content class="p-4 max-h-48 overflow-y-auto overscroll-contain">
 					<p class="text-sm text-muted-foreground whitespace-pre-wrap">{epic.description}</p>
 				</Card.Content>
 			</Card.Root>
