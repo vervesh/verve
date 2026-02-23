@@ -376,6 +376,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 	var noChanges bool
 	var rateLimited bool
 	var transientError bool
+	var authError bool
 	var markerMu sync.Mutex
 
 	// Log callback - called from Docker log streaming goroutine
@@ -486,6 +487,14 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			markerMu.Unlock()
 			taskLogger.Warn("detected transient infrastructure error", "line", line)
 		}
+
+		// Detect authentication errors (expired/invalid API key)
+		if isAuthError(line) {
+			markerMu.Lock()
+			authError = true
+			markerMu.Unlock()
+			taskLogger.Warn("detected authentication error", "line", line)
+		}
 	}
 
 	// Create agent config from worker config + server-provided credentials
@@ -549,6 +558,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 	capturedNoChanges := noChanges
 	capturedRateLimited := rateLimited
 	capturedTransientError := transientError
+	capturedAuthError := authError
 	markerMu.Unlock()
 
 	// Report completion with PR info, agent status, and cost
@@ -558,12 +568,26 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 		taskLogger.Error("task failed", "error", result.Error, "retryable", retryable)
 		_ = w.completeTask(ctx, task.ID, false, result.Error.Error(), "", 0, "", capturedAgentStatus, capturedCostUSD, capturedPrereqFailed, false, retryable)
 	case result.Success:
-		if capturedNoChanges {
+		// Defense-in-depth: if the agent exited successfully but we detected
+		// authentication or rate-limit errors in the logs and no actual work
+		// was done (no PR, no branch, no changes), treat it as a failure.
+		// This catches the scenario where Claude fails mid-session (e.g. expired
+		// API key) but the agent container still exits 0 with "no changes".
+		switch {
+		case capturedNoChanges && (capturedAuthError || capturedRateLimited):
+			errMsg := "agent completed with no changes due to API errors"
+			if capturedAuthError {
+				errMsg = "agent completed with no changes due to authentication error (check API key)"
+			}
+			taskLogger.Error("task failed — no changes due to API error", "auth_error", capturedAuthError, "rate_limited", capturedRateLimited)
+			_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, "", false, capturedRateLimited)
+		case capturedNoChanges:
 			taskLogger.Info("task completed — no changes needed")
-		} else {
+			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
+		default:
 			taskLogger.Info("task completed successfully")
+			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
 		}
-		_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
 	default:
 		errMsg := fmt.Sprintf("exit code %d", result.ExitCode)
 		if capturedPrereqFailed != "" {
@@ -851,6 +875,35 @@ var transientErrorPatterns = []string{
 func isTransientError(line string) bool {
 	lower := strings.ToLower(line)
 	for _, pattern := range transientErrorPatterns {
+		if strings.Contains(lower, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// authErrorPatterns are substrings in agent output that indicate authentication
+// errors (expired or invalid API keys). These are NOT retryable automatically
+// since the user needs to fix their credentials.
+var authErrorPatterns = []string{
+	"authentication_error",
+	"invalid x-api-key",
+	"invalid api key",
+	"invalid_api_key",
+	"api key expired",
+	"api key is invalid",
+	"api key not found",
+	"unauthorized",
+	"invalid auth",
+	"authentication failed",
+	"credit balance is too low",
+}
+
+// isAuthError checks if a log line indicates an authentication or
+// authorization error (expired API key, invalid credentials, etc.).
+func isAuthError(line string) bool {
+	lower := strings.ToLower(line)
+	for _, pattern := range authErrorPatterns {
 		if strings.Contains(lower, pattern) {
 			return true
 		}

@@ -16,10 +16,26 @@ run_claude() {
     log_blank
     log_agent "Using model: ${CLAUDE_MODEL}"
 
+    # Use pipefail so we capture claude's exit code through the pipe.
+    # Without this, a claude failure (e.g. auth error) is masked by _parse_stream
+    # succeeding, and the script continues as if nothing went wrong.
+    # We temporarily disable set -e to capture the exit code ourselves.
+    local claude_exit=0
+    set -o pipefail
+    set +e
     claude --output-format stream-json --verbose --dangerously-skip-permissions \
         --model "${CLAUDE_MODEL}" "${prompt}" 2>&1 | _parse_stream
+    claude_exit=$?
+    set -e
+    set +o pipefail
 
     log_blank
+
+    if [ "$claude_exit" -ne 0 ]; then
+        log_agent "Claude Code session failed with exit code ${claude_exit}"
+        return "$claude_exit"
+    fi
+
     log_agent "Claude Code session completed"
 }
 
