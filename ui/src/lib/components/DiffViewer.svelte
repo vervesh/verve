@@ -6,7 +6,11 @@
 		AlertTriangle,
 		FileText,
 		ExternalLink,
-		ChevronRight
+		ChevronRight,
+		FilePlus,
+		FileX,
+		FileEdit,
+		List
 	} from 'lucide-svelte';
 
 	interface DiffLine {
@@ -26,6 +30,8 @@
 		newPath: string;
 		hunks: DiffHunk[];
 		expanded: boolean;
+		additions: number;
+		deletions: number;
 	}
 
 	interface ParsedDiff {
@@ -40,6 +46,7 @@
 	let error = $state<string | null>(null);
 	let parsedDiff = $state<ParsedDiff | null>(null);
 	let fetched = $state(false);
+	let showFileNav = $state(true);
 
 	function parseDiff(raw: string): ParsedDiff {
 		if (!raw || !raw.trim()) {
@@ -64,6 +71,8 @@
 			let currentHunk: DiffHunk | null = null;
 			let oldLine = 0;
 			let newLine = 0;
+			let fileAdditions = 0;
+			let fileDeletions = 0;
 
 			for (let i = 1; i < lines.length; i++) {
 				const line = lines[i];
@@ -117,6 +126,7 @@
 					});
 					newLine++;
 					totalLines++;
+					fileAdditions++;
 				} else if (line.startsWith('-')) {
 					currentHunk.lines.push({
 						type: 'deletion',
@@ -126,6 +136,7 @@
 					});
 					oldLine++;
 					totalLines++;
+					fileDeletions++;
 				} else if (line.startsWith(' ') || line === '') {
 					// Context line (or empty trailing line)
 					if (line === '' && i === lines.length - 1) continue;
@@ -148,7 +159,9 @@
 				oldPath,
 				newPath,
 				hunks,
-				expanded: true
+				expanded: true,
+				additions: fileAdditions,
+				deletions: fileDeletions
 			});
 		}
 
@@ -183,6 +196,34 @@
 		}
 	}
 
+	function scrollToFile(index: number) {
+		const el = document.getElementById(`diff-file-${index}`);
+		if (el) {
+			el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+		}
+		// Ensure the file is expanded
+		if (parsedDiff && !parsedDiff.files[index].expanded) {
+			parsedDiff.files[index].expanded = true;
+		}
+	}
+
+	function getFileName(filePath: string): string {
+		const parts = filePath.split('/');
+		return parts[parts.length - 1];
+	}
+
+	function getFileDir(filePath: string): string {
+		const parts = filePath.split('/');
+		if (parts.length <= 1) return '';
+		return parts.slice(0, -1).join('/') + '/';
+	}
+
+	function getFileStatus(file: DiffFile): 'added' | 'deleted' | 'modified' {
+		if (file.deletions === 0 && file.additions > 0 && file.oldPath === 'unknown') return 'added';
+		if (file.additions === 0 && file.deletions > 0) return 'deleted';
+		return 'modified';
+	}
+
 	const isLargeDiff = $derived(
 		parsedDiff && (parsedDiff.files.length > 100 || parsedDiff.totalLines > 10000)
 	);
@@ -199,7 +240,7 @@
 </script>
 
 {#if hasPR}
-	<div class="rounded-xl border border-border shadow-sm overflow-hidden">
+	<div class="rounded-xl border shadow-sm overflow-hidden">
 		<!-- Toggle Button -->
 		<button
 			type="button"
@@ -280,100 +321,151 @@
 {/if}
 
 {#snippet diffContent()}
-	<div class="divide-y divide-border">
-		{#each parsedDiff!.files as file, fileIndex}
-			<div>
-				<!-- File Header -->
-				<button
-					type="button"
-					class="w-full flex items-center gap-2 px-4 py-2 text-left bg-muted/30 hover:bg-muted/50 transition-colors text-xs font-mono"
-					onclick={() => toggleFile(fileIndex)}
-				>
-					<ChevronRight
-						class="w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform {file.expanded
-							? 'rotate-90'
-							: ''}"
-					/>
-					<span class="text-muted-foreground truncate">
-						{#if file.oldPath === file.newPath}
-							{file.newPath}
-						{:else}
-							{file.oldPath} &rarr; {file.newPath}
-						{/if}
-					</span>
-				</button>
-
-				<!-- File Content -->
-				{#if file.expanded}
-					<div class="overflow-x-auto">
-						<table class="w-full text-xs font-mono border-collapse">
-							<tbody>
-								{#each file.hunks as hunk}
-									{#each hunk.lines as line}
-										{#if line.type === 'hunk-header'}
-											<tr class="bg-muted/40">
-												<td
-													class="px-2 py-0.5 text-right text-muted-foreground select-none w-[1%] whitespace-nowrap border-r border-border"
-													colspan="2"
-												></td>
-												<td
-													class="px-3 py-1 text-muted-foreground italic"
-												>
-													{line.content}
-												</td>
-											</tr>
-										{:else if line.type === 'addition'}
-											<tr class="bg-green-500/15 dark:bg-green-500/10">
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-border"
-												></td>
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-green-500/30"
-												>
-													{line.newLineNum}
-												</td>
-												<td
-													class="px-3 py-0 whitespace-pre border-l-2 border-green-500"
-												><span class="text-green-700 dark:text-green-400 select-none">+</span>{line.content}</td>
-											</tr>
-										{:else if line.type === 'deletion'}
-											<tr class="bg-red-500/15 dark:bg-red-500/10">
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-red-500/30"
-												>
-													{line.oldLineNum}
-												</td>
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-border"
-												></td>
-												<td
-													class="px-3 py-0 whitespace-pre border-l-2 border-red-500"
-												><span class="text-red-700 dark:text-red-400 select-none">-</span>{line.content}</td>
-											</tr>
-										{:else}
-											<tr class="hover:bg-muted/30">
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-border"
-												>
-													{line.oldLineNum}
-												</td>
-												<td
-													class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-border"
-												>
-													{line.newLineNum}
-												</td>
-												<td
-													class="px-3 py-0 whitespace-pre border-l-2 border-transparent"
-												><span class="select-none">&nbsp;</span>{line.content}</td>
-											</tr>
-										{/if}
-									{/each}
-								{/each}
-							</tbody>
-						</table>
-					</div>
-				{/if}
+	<div class="flex">
+		<!-- File Navigator Sidebar -->
+		{#if showFileNav && parsedDiff && parsedDiff.files.length > 0}
+			<div class="w-64 shrink-0 border-r border-border bg-muted/20 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-0">
+				<div class="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
+					<span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Files</span>
+					<span class="text-xs text-muted-foreground">{parsedDiff.files.length}</span>
+				</div>
+				<nav class="py-1">
+					{#each parsedDiff.files as file, fileIndex}
+						<button
+							type="button"
+							class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors flex items-center gap-2 group"
+							onclick={() => scrollToFile(fileIndex)}
+						>
+							{#if getFileStatus(file) === 'added'}
+								<FilePlus class="w-3.5 h-3.5 text-green-600 dark:text-green-400 shrink-0" />
+							{:else if getFileStatus(file) === 'deleted'}
+								<FileX class="w-3.5 h-3.5 text-red-600 dark:text-red-400 shrink-0" />
+							{:else}
+								<FileEdit class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+							{/if}
+							<span class="truncate font-mono">
+								<span class="text-muted-foreground/60">{getFileDir(file.newPath)}</span><span class="text-foreground">{getFileName(file.newPath)}</span>
+							</span>
+							<span class="ml-auto shrink-0 flex items-center gap-1 text-[10px] opacity-0 group-hover:opacity-100 transition-opacity">
+								{#if file.additions > 0}
+									<span class="text-green-600 dark:text-green-400">+{file.additions}</span>
+								{/if}
+								{#if file.deletions > 0}
+									<span class="text-red-600 dark:text-red-400">-{file.deletions}</span>
+								{/if}
+							</span>
+						</button>
+					{/each}
+				</nav>
 			</div>
-		{/each}
+		{/if}
+
+		<!-- Diff Content -->
+		<div class="flex-1 min-w-0 divide-y divide-border">
+			<!-- Sidebar toggle -->
+			{#if parsedDiff && parsedDiff.files.length > 0}
+				<div class="flex items-center px-3 py-1.5 bg-muted/20 border-b border-border">
+					<button
+						type="button"
+						class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+						onclick={() => (showFileNav = !showFileNav)}
+					>
+						<List class="w-3.5 h-3.5" />
+						{showFileNav ? 'Hide' : 'Show'} file tree
+					</button>
+				</div>
+			{/if}
+
+			{#each parsedDiff!.files as file, fileIndex}
+				<div id="diff-file-{fileIndex}">
+					<!-- File Header -->
+					<button
+						type="button"
+						class="w-full flex items-center gap-2 px-4 py-2 text-left bg-muted/30 hover:bg-muted/50 transition-colors text-xs font-mono"
+						onclick={() => toggleFile(fileIndex)}
+					>
+						<ChevronRight
+							class="w-3.5 h-3.5 text-muted-foreground shrink-0 transition-transform {file.expanded
+								? 'rotate-90'
+								: ''}"
+						/>
+						<span class="text-muted-foreground truncate">
+							{#if file.oldPath === file.newPath}
+								{file.newPath}
+							{:else}
+								{file.oldPath} &rarr; {file.newPath}
+							{/if}
+						</span>
+						<span class="ml-auto shrink-0 flex items-center gap-2 text-[11px]">
+							{#if file.additions > 0}
+								<span class="text-green-600 dark:text-green-400">+{file.additions}</span>
+							{/if}
+							{#if file.deletions > 0}
+								<span class="text-red-600 dark:text-red-400">-{file.deletions}</span>
+							{/if}
+						</span>
+					</button>
+
+					<!-- File Content -->
+					{#if file.expanded}
+						<div class="overflow-x-auto">
+							<table class="w-full text-xs font-mono border-collapse">
+								<tbody>
+									{#each file.hunks as hunk}
+										{#each hunk.lines as line}
+											{#if line.type === 'hunk-header'}
+												<tr class="bg-muted/40">
+													<td
+														class="px-2 py-0.5 text-right text-muted-foreground select-none w-[1%] whitespace-nowrap border-r border-border"
+													></td>
+													<td
+														class="px-3 py-1 text-muted-foreground italic"
+													>
+														{line.content}
+													</td>
+												</tr>
+											{:else if line.type === 'addition'}
+												<tr class="bg-green-500/15 dark:bg-green-500/10">
+													<td
+														class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-green-500/30"
+													>
+														{line.newLineNum}
+													</td>
+													<td
+														class="px-3 py-0 whitespace-pre border-l-2 border-green-500"
+													><span class="text-green-700 dark:text-green-400 select-none">+</span>{line.content}</td>
+												</tr>
+											{:else if line.type === 'deletion'}
+												<tr class="bg-red-500/15 dark:bg-red-500/10">
+													<td
+														class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-red-500/30"
+													>
+														{line.oldLineNum}
+													</td>
+													<td
+														class="px-3 py-0 whitespace-pre border-l-2 border-red-500"
+													><span class="text-red-700 dark:text-red-400 select-none">-</span>{line.content}</td>
+												</tr>
+											{:else}
+												<tr class="hover:bg-muted/30">
+													<td
+														class="px-2 py-0 text-right text-muted-foreground/60 select-none w-[1%] whitespace-nowrap border-r border-border"
+													>
+														{line.newLineNum}
+													</td>
+													<td
+														class="px-3 py-0 whitespace-pre border-l-2 border-transparent"
+													><span class="select-none">&nbsp;</span>{line.content}</td>
+												</tr>
+											{/if}
+										{/each}
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+			{/each}
+		</div>
 	</div>
 {/snippet}
