@@ -312,6 +312,36 @@ func TestIsTransientError(t *testing.T) {
 	}
 }
 
+func TestIsAuthError(t *testing.T) {
+	tests := []struct {
+		line     string
+		expected bool
+	}{
+		{"Error: authentication_error: invalid x-api-key", true},
+		{"API error: authentication_error", true},
+		{"Invalid x-api-key provided", true},
+		{"Your API key is invalid", true},
+		{"invalid_api_key: the key you provided is expired", true},
+		{"Error: API key expired, please renew", true},
+		{"authentication failed for the provided credentials", true},
+		{"401 Unauthorized response from API", true},
+		{"credit balance is too low to proceed", true},
+		{"Invalid auth token", true},
+		// Non-auth errors
+		{"normal log line about building code", false},
+		{"successfully compiled the project", false},
+		{"rate limit exceeded", false},
+		{"connection refused", false},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isAuthError(tt.line), "line: %s", tt.line)
+		})
+	}
+}
+
 func TestIsDockerInfraError(t *testing.T) {
 	tests := []struct {
 		name     string
