@@ -573,17 +573,18 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 		// was done (no PR, no branch, no changes), treat it as a failure.
 		// This catches the scenario where Claude fails mid-session (e.g. expired
 		// API key) but the agent container still exits 0 with "no changes".
-		if capturedNoChanges && (capturedAuthError || capturedRateLimited) {
+		switch {
+		case capturedNoChanges && (capturedAuthError || capturedRateLimited):
 			errMsg := "agent completed with no changes due to API errors"
 			if capturedAuthError {
 				errMsg = "agent completed with no changes due to authentication error (check API key)"
 			}
 			taskLogger.Error("task failed — no changes due to API error", "auth_error", capturedAuthError, "rate_limited", capturedRateLimited)
 			_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, "", false, capturedRateLimited)
-		} else if capturedNoChanges {
+		case capturedNoChanges:
 			taskLogger.Info("task completed — no changes needed")
 			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
-		} else {
+		default:
 			taskLogger.Info("task completed successfully")
 			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
 		}
