@@ -540,22 +540,12 @@ func (h *HTTPHandler) CompleteTask(c echo.Context) error {
 			return c.JSON(http.StatusOK, statusOK())
 		}
 
-		// Check if this task already has a PR or branch from a previous
-		// attempt (e.g. feedback retry). If so, return it to review
-		// instead of marking as failed — the existing PR still needs
-		// attention regardless of whether this attempt succeeded.
-		t, readErr := h.store.ReadTask(ctx, id)
-		if readErr != nil {
-			return jsonError(c, readErr)
-		}
-		if req.PrereqFailed == "" && (t.PRNumber > 0 || t.BranchName != "") {
-			if err := h.store.UpdateTaskStatus(ctx, id, task.StatusReview); err != nil {
-				return jsonError(c, err)
-			}
-		} else {
-			if err := h.store.UpdateTaskStatus(ctx, id, task.StatusFailed); err != nil {
-				return jsonError(c, err)
-			}
+		// Non-retryable failure: mark as failed. Even if a PR or branch
+		// exists from a previous attempt, the agent explicitly failed so
+		// the status should reflect that. The PR/branch data is preserved
+		// on the task record for the user to inspect.
+		if err := h.store.UpdateTaskStatus(ctx, id, task.StatusFailed); err != nil {
+			return jsonError(c, err)
 		}
 	case req.PullRequestURL != "":
 		if err := h.store.SetTaskPullRequest(ctx, id, req.PullRequestURL, req.PRNumber); err != nil {

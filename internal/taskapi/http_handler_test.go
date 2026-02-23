@@ -727,7 +727,7 @@ func TestCompleteTask_Failure(t *testing.T) {
 	assert.Equal(t, task.StatusFailed, tsk.Status)
 }
 
-func TestCompleteTask_FailureWithExistingPR_ReviewInsteadOfFailed(t *testing.T) {
+func TestCompleteTask_FailureWithExistingPR_FailedNotReview(t *testing.T) {
 	handler, taskRepo, _, testRepo := setupHandler()
 	e := echo.New()
 
@@ -746,10 +746,10 @@ func TestCompleteTask_FailureWithExistingPR_ReviewInsteadOfFailed(t *testing.T) 
 	err := handler.CompleteTask(c)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, task.StatusReview, tsk.Status, "expected review (not failed) when task has existing PR")
+	assert.Equal(t, task.StatusFailed, tsk.Status, "expected failed even when task has existing PR")
 }
 
-func TestCompleteTask_FailureWithExistingBranch_ReviewInsteadOfFailed(t *testing.T) {
+func TestCompleteTask_FailureWithExistingBranch_FailedNotReview(t *testing.T) {
 	handler, taskRepo, _, testRepo := setupHandler()
 	e := echo.New()
 
@@ -767,7 +767,7 @@ func TestCompleteTask_FailureWithExistingBranch_ReviewInsteadOfFailed(t *testing
 	err := handler.CompleteTask(c)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Equal(t, task.StatusReview, tsk.Status, "expected review (not failed) when task has existing branch")
+	assert.Equal(t, task.StatusFailed, tsk.Status, "expected failed even when task has existing branch")
 }
 
 func TestCompleteTask_FailureWithPrereqFailed_FailedEvenWithPR(t *testing.T) {
