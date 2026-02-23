@@ -312,6 +312,27 @@ func (s *Store) FeedbackRetryTask(ctx context.Context, id TaskID, feedback strin
 	return nil
 }
 
+// MoveToReview transitions a failed task back to review status. This is only
+// allowed when the task has a PR or branch from a previous attempt — the user
+// wants to treat the existing PR as reviewable despite the agent failure.
+func (s *Store) MoveToReview(ctx context.Context, id TaskID) error {
+	t, err := s.repo.ReadTask(ctx, id)
+	if err != nil {
+		return err
+	}
+	if t.Status != StatusFailed {
+		return ErrTaskNotFailed
+	}
+	if t.PRNumber == 0 && t.BranchName == "" {
+		return ErrTaskNoPR
+	}
+	if err := s.repo.UpdateTaskStatus(ctx, id, StatusReview); err != nil {
+		return err
+	}
+	s.publishTaskUpdated(ctx, id)
+	return nil
+}
+
 // SetAgentStatus stores the structured agent status JSON.
 func (s *Store) SetAgentStatus(ctx context.Context, id TaskID, status string) error {
 	if err := s.repo.SetAgentStatus(ctx, id, status); err != nil {

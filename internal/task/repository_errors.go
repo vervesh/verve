@@ -22,6 +22,27 @@ func (e ErrTagTaskNotPending) Unwrap() error {
 	return errtag.Tag[errtag.Conflict](e.Cause())
 }
 
+// ErrTaskNotFailed is returned when a move-to-review is attempted on a task
+// that is not in failed status.
+var ErrTaskNotFailed = errtag.Tag[ErrTagTaskConflict](
+	errors.New("task is not in failed status"),
+)
+
+// ErrTaskNoPR is returned when a move-to-review is attempted on a failed task
+// that has no PR or branch.
+var ErrTaskNoPR = errtag.Tag[ErrTagTaskNoPR](
+	errors.New("task has no pull request or branch"),
+)
+
+// ErrTagTaskNoPR indicates a task has no PR or branch to move to review.
+type ErrTagTaskNoPR struct{ errtag.InvalidArgument }
+
+func (ErrTagTaskNoPR) Msg() string { return "task has no pull request or branch" }
+
+func (e ErrTagTaskNoPR) Unwrap() error {
+	return errtag.Tag[errtag.InvalidArgument](e.Cause())
+}
+
 // ErrTagTaskNotFound indicates a task was not found.
 type ErrTagTaskNotFound struct{ errtag.NotFound }
 

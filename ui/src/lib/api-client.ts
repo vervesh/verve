@@ -213,6 +213,18 @@ export class VerveClient {
 		return res.json();
 	}
 
+	async moveToReview(id: string): Promise<Task> {
+		const res = await fetch(`${this.baseUrl}/tasks/${id}/move-to-review`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
+		if (!res.ok) {
+			const body = await res.json().catch(() => null);
+			throw new Error(body?.error || 'Failed to move task to review');
+		}
+		return res.json();
+	}
+
 	async startOverTask(
 		id: string,
 		updates?: { title?: string; description?: string; acceptance_criteria?: string[] }
