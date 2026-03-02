@@ -1,22 +1,16 @@
-# Build:
-#   make build-agent-dev
 FROM ghcr.io/joshjon/verve:base
 
 USER root
 
-# Install Go from official image (match version in go.mod)
+# Install Go from official image
 COPY --from=golang:1.25-alpine /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:${PATH}"
 
 # Install make (used by Makefile targets)
 RUN apk add --no-cache make
 
-# Install pnpm
-RUN npm install -g pnpm
+USER agent
 
-# Set up GOPATH with correct ownership for agent user
+# Set GOPATH for agent user
 ENV GOPATH="/home/agent/go"
 ENV PATH="${GOPATH}/bin:${PATH}"
-RUN mkdir -p /home/agent/go/bin && chown -R agent:agent /home/agent/go
-
-USER agent

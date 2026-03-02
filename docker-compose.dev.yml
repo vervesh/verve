@@ -28,7 +28,7 @@ services:
     env_file:
       - .env.worker
     environment:
-      AGENT_IMAGE: verve-agent:dev
+      AGENT_IMAGE: verve:dev
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 

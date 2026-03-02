@@ -141,7 +141,7 @@ func TestConfig_Defaults(t *testing.T) {
 	cfg := Config{
 		APIURL:          "http://localhost:7400",
 		AnthropicAPIKey: "sk-ant-test",
-		AgentImage:      "verve-agent:latest",
+		AgentImage:      "verve:base",
 	}
 	assert.Equal(t, 0, cfg.MaxConcurrentTasks, "expected default max concurrent tasks to be 0 (unset)")
 	assert.False(t, cfg.DryRun, "expected DryRun default to be false")
@@ -246,7 +246,7 @@ func TestAgentConfig(t *testing.T) {
 }
 
 func TestDefaultAgentImage(t *testing.T) {
-	assert.Equal(t, "verve-agent:latest", DefaultAgentImage)
+	assert.Equal(t, "verve:base", DefaultAgentImage)
 }
 
 func TestIsRateLimitError(t *testing.T) {
@@ -349,8 +349,8 @@ func TestIsDockerInfraError(t *testing.T) {
 		expected bool
 	}{
 		{"nil error", nil, false},
-		{"container create failure", fmt.Errorf("failed to create container verve-agent-tsk_123: connection refused"), true},
-		{"container start failure", fmt.Errorf("failed to start container verve-agent-tsk_123: OCI runtime error"), true},
+		{"container create failure", fmt.Errorf("failed to create container verve-task-tsk_123: connection refused"), true},
+		{"container start failure", fmt.Errorf("failed to start container verve-task-tsk_123: OCI runtime error"), true},
 		{"log attach failure", fmt.Errorf("failed to attach logs: context canceled"), true},
 		{"container wait error", fmt.Errorf("error waiting for container: unexpected EOF"), true},
 		{"container conflict", fmt.Errorf("Conflict. The container name is already in use"), true},

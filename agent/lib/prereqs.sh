@@ -211,9 +211,9 @@ _generate_dockerfile_suggestion() {
 Look at the project files (e.g. go.mod, requirements.txt, Cargo.toml, package.json, Makefile, etc.) to determine the exact language versions, build tools, and system dependencies required.
 
 Rules:
-- Start with: FROM ghcr.io/joshjon/verve-agent:latest
+- Start with: FROM ghcr.io/joshjon/verve:base
 - The base image is Alpine Linux (node:22-alpine based). Node.js and npm are already available.
-- Where official language images exist (e.g. golang, rust, python), prefer COPY --from to copy the toolchain. For example: COPY --from=golang:1.23-alpine /usr/local/go /usr/local/go
+- Where official language images exist (e.g. golang, rust, python), prefer COPY --from to copy the toolchain. For example: COPY --from=golang:1.25-alpine /usr/local/go /usr/local/go
 - Use 'apk add' for system packages, not apt-get
 - Switch to USER root for installs, then back to USER agent at the end
 - The non-root user is called 'agent' with home dir /home/agent

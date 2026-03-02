@@ -15,7 +15,7 @@ const MOCK_REPO = {
 const SAMPLE_LOGS_RUNNING: Record<number, string[]> = {
 	1: [
 		'[system] Task tsk_running01 claimed by worker w_abc123',
-		'[system] Spinning up agent container verve-agent:latest',
+		'[system] Spinning up agent container verve:base',
 		'[system] Container started in 2.4s — attached to stdout/stderr',
 		'',
 		'[agent] Analyzing codebase structure...',
@@ -57,7 +57,7 @@ const SAMPLE_LOGS_RUNNING: Record<number, string[]> = {
 const SAMPLE_LOGS_REVIEW: Record<number, string[]> = {
 	1: [
 		'[system] Task tsk_review01 claimed by worker w_xyz789',
-		'[system] Container verve-agent:latest ready',
+		'[system] Container verve:base ready',
 		'',
 		'[agent] Starting work on dark mode support',
 		'[agent] Scanning project for existing theme infrastructure',
@@ -122,7 +122,7 @@ const SAMPLE_LOGS_RETRY_RUNNING: Record<number, string[]> = {
 	],
 	2: [
 		'[system] Retry attempt 2 — task tsk_retry_running01 claimed by worker w_def456',
-		'[system] Container verve-agent:latest ready',
+		'[system] Container verve:base ready',
 		'',
 		'[agent] Re-analyzing test failures from attempt 1',
 		'[agent] Reading CI logs from previous run',

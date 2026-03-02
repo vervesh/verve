@@ -33,9 +33,9 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
     files:
-      - LICENSE+
-      - README+
-      - CHANGELOG+
+      - LICENSE*
+      - README*
+      - CHANGELOG*
 
 checksum:
   name_template: 'checksums.txt'

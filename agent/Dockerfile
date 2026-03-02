@@ -1,7 +1,7 @@
 FROM node:22-alpine
 
-LABEL org.opencontainers.image.title="Verve Agent"
-LABEL org.opencontainers.image.description="Base agent image for Verve AI task orchestrator"
+LABEL org.opencontainers.image.title="Verve Base"
+LABEL org.opencontainers.image.description="Base agent image (verve:base) for Verve AI task orchestrator"
 LABEL org.opencontainers.image.source="https://github.com/joshjon/verve"
 LABEL org.opencontainers.image.vendor="Verve"
 LABEL verve.extensible="true"

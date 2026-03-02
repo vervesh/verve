@@ -23,7 +23,7 @@ type Config struct {
 	AnthropicAPIKey           string // API key auth (pay-per-use)
 	AnthropicBaseURL          string // Custom base URL for Anthropic API (e.g. for proxies or self-hosted endpoints)
 	ClaudeCodeOAuthToken      string // OAuth token auth (subscription-based, alternative to API key)
-	AgentImage                string // Docker image for agent - defaults to verve-agent:latest
+	AgentImage                string // Docker image for agent — defaults to verve:base
 	MaxConcurrentTasks        int    // Maximum concurrent tasks (default: 1)
 	DryRun                    bool   // Skip Claude and make a dummy change instead
 	GitHubInsecureSkipVerify  bool   // Disable TLS certificate verification for GitHub operations in agent containers

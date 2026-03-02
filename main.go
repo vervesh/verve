@@ -119,7 +119,7 @@ func main() {
 		&cli.StringFlag{
 			Name:    "agent-image",
 			EnvVars: []string{"AGENT_IMAGE"},
-			Value:   "verve-agent:latest",
+			Value:   "verve:base",
 		},
 		&cli.IntFlag{
 			Name:    "max-concurrent-tasks",

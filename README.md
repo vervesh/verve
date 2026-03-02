@@ -80,10 +80,10 @@ The base agent image includes Node.js and common tools. If your project needs ad
 etc.), create a custom Dockerfile:
 
 ```dockerfile
-FROM ghcr.io/joshjon/verve-agent:latest
+FROM ghcr.io/joshjon/verve:base
 
 USER root
-COPY --from=golang:1.23-alpine /usr/local/go /usr/local/go
+COPY --from=golang:1.25-alpine /usr/local/go /usr/local/go
 ENV PATH="/usr/local/go/bin:${PATH}"
 USER agent
 ```

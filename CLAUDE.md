@@ -251,7 +251,7 @@ Uses Docker-in-Docker approach:
 - Each task spawns an isolated Docker container
 - Container receives task via environment variables (TASK_ID, TASK_DESCRIPTION)
 - Container is automatically removed after execution
-- Agent image: `verve-agent:latest`
+- Agent image: `verve:base` (stack variants: `verve:golang`, `verve:python`, etc.)
 
 ## Important Notes
 

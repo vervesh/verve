@@ -1354,7 +1354,7 @@ func TestCompleteTask_TransientFailure_SchedulesRetry(t *testing.T) {
 	taskRepo.tasks[tsk.ID.String()] = tsk
 	taskRepo.taskStatuses[tsk.ID.String()] = tsk.Status
 
-	body := `{"success":false,"error":"failed to create container verve-agent-tsk_123: connection refused","retryable":true}`
+	body := `{"success":false,"error":"failed to create container verve-task-tsk_123: connection refused","retryable":true}`
 	c, rec := newContext(e, http.MethodPost, "/tasks/"+tsk.ID.String()+"/complete", body)
 	c.SetParamNames("id")
 	c.SetParamValues(tsk.ID.String())

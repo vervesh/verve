@@ -1,4 +1,4 @@
-AGENT_IMAGE = ghcr.io/joshjon/verve-agent
+AGENT_IMAGE = ghcr.io/joshjon/verve
 
 # Build all components
 .PHONY: all
@@ -12,30 +12,30 @@ build:
 # Build agent Docker image
 .PHONY: build-agent
 build-agent:
-	docker build -t verve-agent:latest ./agent
+	docker build -t verve:base ./agent
 
 .PHONY: build-agent-dev
 build-agent-dev: build-agent
-	docker build -f agent/Dockerfile.dev -t verve-agent:dev ./agent
+	docker build -f agent/Dockerfile.dev -t verve:dev ./agent
 
 .PHONY: build-agent-no-cache
 build-agent-no-cache:
-	docker build --no-cache -t verve-agent:latest ./agent
+	docker build --no-cache -t verve:base ./agent
 
 # Push agent image to GitHub Container Registry
 # Usage:
-#   make push-agent              # pushes :latest
-#   make push-agent TAG=v0.1.0   # pushes :v0.1.0 and :latest
+#   make push-agent                  # pushes :base
+#   make push-agent TAG=base-0.2.0   # pushes :base-0.2.0 and :base
 .PHONY: push-agent
 push-agent: build-agent
 ifdef TAG
-	docker tag verve-agent:latest $(AGENT_IMAGE):$(TAG)
-	docker tag verve-agent:latest $(AGENT_IMAGE):latest
+	docker tag verve:base $(AGENT_IMAGE):$(TAG)
+	docker tag verve:base $(AGENT_IMAGE):base
 	docker push $(AGENT_IMAGE):$(TAG)
-	docker push $(AGENT_IMAGE):latest
+	docker push $(AGENT_IMAGE):base
 else
-	docker tag verve-agent:latest $(AGENT_IMAGE):latest
-	docker push $(AGENT_IMAGE):latest
+	docker tag verve:base $(AGENT_IMAGE):base
+	docker push $(AGENT_IMAGE):base
 endif
 
 # Lint
@@ -88,7 +88,7 @@ down:
 logs:
 	docker compose logs -f
 
-# Docker Compose (dev stack — uses verve-agent:dev)
+# Docker Compose (dev stack — uses verve:dev)
 .PHONY: dev
 dev: build-agent-dev
 	docker compose -f docker-compose.dev.yml up -d
@@ -132,7 +132,7 @@ tidy:
 clean:
 	rm -rf bin/
 	rm -rf ui/dist/
-	docker rmi verve-agent:latest 2>/dev/null || true
+	docker rmi verve:base 2>/dev/null || true
 
 # UI commands
 .PHONY: ui-install

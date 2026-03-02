@@ -18,7 +18,7 @@ import (
 	"github.com/joshjon/kit/log"
 )
 
-const DefaultAgentImage = "verve-agent:latest"
+const DefaultAgentImage = "verve:base"
 
 type DockerRunner struct {
 	client     *client.Client
@@ -56,7 +56,7 @@ func (d *DockerRunner) EnsureImage(ctx context.Context) error {
 		}
 	}
 
-	return fmt.Errorf("agent image %s not found - run 'make build-agent' or 'docker pull %s'", d.agentImage, d.agentImage)
+	return fmt.Errorf("agent image %s not found — run 'make build-agent' or 'docker pull %s'", d.agentImage, d.agentImage)
 }
 
 // AgentImage returns the configured agent image name
@@ -190,11 +190,11 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	}
 
 	// Container name
-	containerName := "verve-agent-"
+	containerName := "verve-"
 	if workType == workTypeEpic {
 		containerName += "epic-" + cfg.EpicID
 	} else {
-		containerName += cfg.TaskID
+		containerName += "task-" + cfg.TaskID
 	}
 
 	hostConfig := &container.HostConfig{
