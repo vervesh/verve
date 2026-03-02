@@ -163,7 +163,7 @@ release:
 
 .PHONY: install-dev
 install-dev:
-	GOBIN=$(HOME)/.local/bin go install github.com/joshjon/verve@main
+	GOBIN=$(HOME)/.local/bin GOPROXY=direct go install github.com/joshjon/verve@main
 
 # Deploy to Fly.io (builds UI into Go binary, then deploys)
 .PHONY: deploy
