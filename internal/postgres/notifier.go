@@ -60,7 +60,7 @@ func (n *EventNotifier) listen(ctx context.Context, broker *task.Broker) error {
 		return err
 	}
 
-	n.logger.Info("pg listen started", "channel", pgChannel)
+	n.logger.Info("pg listen started", "pg.channel", pgChannel)
 
 	for {
 		notification, err := conn.Conn().WaitForNotification(ctx)

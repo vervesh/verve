@@ -15,13 +15,42 @@ Key constraint: User source code and secrets never leave their network. We send 
 
 - **Never build binaries to the project root.** Always use `make build` or output to `bin/` (e.g. `go build -o bin/ ./cmd/...`). The `bin/` directory is git-ignored.
 
+## Commit Convention
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/). Goreleaser uses these prefixes to generate changelogs.
+
+**Format:** `type: short description`
+
+| Prefix | Purpose | Changelog |
+|--------|---------|-----------|
+| `feat:` | New feature | Features |
+| `fix:` | Bug fix | Bug fixes |
+| `refactor:` | Code restructuring (no behavior change) | Others |
+| `docs:` | Documentation only | Excluded |
+| `test:` | Adding/updating tests | Excluded |
+| `chore:` | Maintenance (deps, configs, scripts) | Excluded |
+| `ci:` | CI/CD changes | Excluded |
+
+Examples:
+- `feat: add epic planning support`
+- `fix: prevent stale tasks from blocking queue`
+- `chore: bump Go to 1.25`
+
+## Run Modes
+
+Verve builds a single `verve` CLI binary with three run modes:
+
+- **`verve`** (default): Runs both API server + worker in one process. Best for local development. Auto-enables UI, auto-generates encryption key, uses file-backed SQLite at `~/.local/share/verve/`.
+- **`verve api`**: Runs only the API server. Use for distributed deployments or when running the worker separately.
+- **`verve worker`**: Runs only the worker. Connects to a remote API server via `--api-url`.
+
+All flags can also be set via environment variables (e.g. `--port` / `PORT`).
+
 ## Development Commands
 
 ```bash
 # Build
-make build                        # Build server and worker binaries
-make build-server                 # Build API server only
-make build-worker                 # Build worker only
+make build                        # Build verve binary
 make build-agent                  # Build agent Docker image
 
 # UI
@@ -34,14 +63,20 @@ make ui-build-go                  # Build UI into internal/frontend/dist for Go 
 make generate                     # Generate sqlc code for postgres and sqlite
 
 # Run
-make run-server                   # Start API server (port 7400, in-memory SQLite)
-make run-server-pg                # Start API server with PostgreSQL
-make run-worker                   # Start worker (connects to localhost:7400)
+make run                          # Start both API server + worker (combined mode)
+make run-api                      # Start API server only
+make run-api-pg                   # Start API server with PostgreSQL
+make run-worker                   # Start worker only (connects to localhost:7400)
 
 # Test
 make test-task                    # Create a test task via curl
 make list-tasks                   # List all tasks
 make get-task ID=tsk_xxx          # Get specific task details
+
+# Release
+make release                      # Tag patch release and publish via goreleaser
+make release BUMP=minor           # Tag minor release
+make release BUMP=major           # Tag major release
 
 # Clean
 make clean                        # Remove binaries and Docker image
@@ -51,6 +86,7 @@ make tidy                         # Run go mod tidy
 ## Technology Stack
 
 - **Language**: Go 1.25+
+- **CLI Framework**: urfave/cli/v2
 - **HTTP Framework**: Echo v4
 - **Database**: PostgreSQL (production) / SQLite in-memory (dev)
 - **SQL Generation**: sqlc (via `go tool sqlc`)
@@ -68,17 +104,19 @@ Internal Cloud                          User Environment
 └─────────────────────────┘            └─────────────────────────┘
 ```
 
+Local development runs both sides in a single process via `verve` (default mode).
+
 ## Package Structure
 
 ```
 verve/
-├── cmd/
-│   ├── server/main.go              # API server entrypoint
-│   └── worker/main.go              # Worker entrypoint
+├── main.go                            # Unified CLI entrypoint (api, worker, combined)
 ├── internal/
 │   ├── app/
 │   │   ├── config.go               # Config, PostgresConfig, GitHubConfig
 │   │   └── run.go                  # Run (auto-selects postgres or sqlite)
+│   ├── keymanager/
+│   │   └── keymanager.go           # Encryption key auto-management (~/.config/verve/)
 │   ├── task/
 │   │   ├── id.go                   # TaskID typed ID (kit/id + typeid)
 │   │   ├── task.go                 # Task struct, Status enum, NewTask

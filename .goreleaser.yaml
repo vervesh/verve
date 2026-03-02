@@ -1,0 +1,78 @@
+version: 2
+
+before:
+  hooks:
+    - make ui-build-go
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: verve
+    dir: .
+    binary: verve
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: verv
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE+
+      - README+
+      - CHANGELOG+
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+  groups:
+    - title: 'Features'
+      regexp: '^feat:'
+    - title: 'Bug fixes'
+      regexp: '^fix:'
+    - title: 'Others'
+      order: 999
+
+release:
+  github:
+    owner: joshjon
+    name: verve
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+  extra_files:
+    - glob: scripts/install.sh
+  header: |
+    ## Verve v{{.Version}}
+
+    ### Install
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/joshjon/verve/main/scripts/install.sh | sh
+    ```

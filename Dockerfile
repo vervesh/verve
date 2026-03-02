@@ -5,15 +5,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o /bin/server ./cmd/server
-RUN CGO_ENABLED=0 go build -o /bin/worker ./cmd/worker
+RUN CGO_ENABLED=0 go build -o /bin/verve .
 
 FROM alpine:3.21 AS server
 RUN apk add --no-cache ca-certificates
-COPY --from=build /bin/server /usr/local/bin/server
-ENTRYPOINT ["server"]
+COPY --from=build /bin/verve /usr/local/bin/verve
+ENTRYPOINT ["verve", "api"]
 
 FROM alpine:3.21 AS worker
 RUN apk add --no-cache ca-certificates
-COPY --from=build /bin/worker /usr/local/bin/worker
-ENTRYPOINT ["worker"]
+COPY --from=build /bin/verve /usr/local/bin/verve
+ENTRYPOINT ["verve", "worker"]

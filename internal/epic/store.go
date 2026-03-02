@@ -394,7 +394,7 @@ func (s *Store) CheckAndCompleteEpic(ctx context.Context, id EpicID) error {
 	}
 
 	// All tasks are in terminal success state — complete the epic
-	s.logger.Info("all tasks completed, marking epic as completed", "epic_id", id.String())
+	s.logger.Info("all tasks completed, marking epic as completed", "epic.id", id.String())
 	return s.repo.UpdateEpicStatus(ctx, id, StatusCompleted)
 }
 
@@ -455,7 +455,7 @@ func (s *Store) CheckActiveEpicsCompletion(ctx context.Context) (int, error) {
 			continue
 		}
 		if err := s.CheckAndCompleteEpic(ctx, e.ID); err != nil {
-			s.logger.Error("failed to check epic completion", "epic_id", e.ID.String(), "error", err)
+			s.logger.Error("failed to check epic completion", "epic.id", e.ID.String(), "error", err)
 			continue
 		}
 		// Re-read to check if status changed

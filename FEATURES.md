@@ -1,5 +1,15 @@
 # Features
 
+## Unified CLI Binary
+
+- **Single binary**: One `verve` binary serves as both API server and worker
+- **Combined mode** (`verve`): Runs API + worker together for single-command local development
+- **API-only mode** (`verve api`): Runs just the API server for distributed deployments
+- **Worker-only mode** (`verve worker`): Runs just the worker, connects to a remote API server
+- **Auto-managed encryption key**: Generates and stores encryption key at `~/.config/verve/config.json` in combined mode
+- **Persistent SQLite**: Combined mode defaults to file-backed SQLite at `~/.local/share/verve/`
+- **Flag/env parity**: Every flag has an env var equivalent (e.g. `--port` / `PORT`)
+
 ## Task Management
 
 - **Six-state lifecycle**: `pending` → `running` → `review` → `merged` / `closed` / `failed`

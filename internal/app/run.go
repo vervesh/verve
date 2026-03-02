@@ -59,9 +59,9 @@ func Run(ctx context.Context, logger log.Logger, cfg Config) error {
 
 	if s.githubToken != nil {
 		if err := s.githubToken.Load(ctx); err != nil {
-			logger.Error("failed to load GitHub token from database", "error", err)
+			logger.Error("failed to load github token from database", "error", err)
 		} else if s.githubToken.HasToken() {
-			logger.Info("GitHub token loaded from database")
+			logger.Info("github token loaded from database")
 		}
 	}
 
@@ -77,9 +77,9 @@ func Run(ctx context.Context, logger log.Logger, cfg Config) error {
 func initStores(ctx context.Context, logger log.Logger, cfg Config, encryptionKey []byte) (stores, func(), error) {
 	if !cfg.Postgres.IsSet() {
 		if cfg.SQLiteDir != "" {
-			logger.Info("Postgres not configured, using file-backed SQLite", "dir", cfg.SQLiteDir)
+			logger.Info("postgres not configured, using file-backed sqlite", "sqlite.dir", cfg.SQLiteDir)
 		} else {
-			logger.Warn("Postgres not configured, using in-memory SQLite (data will not persist)")
+			logger.Warn("postgres not configured, using in-memory sqlite (data will not persist)")
 		}
 		return initSQLite(ctx, cfg.SQLiteDir, encryptionKey, cfg.GitHubInsecureSkipVerify, logger)
 	}
@@ -214,7 +214,7 @@ func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 
 	// Background log retention cleanup.
 	if cfg.LogRetention > 0 {
-		logger.Info("log retention enabled", "retention", cfg.LogRetention.String())
+		logger.Info("log retention enabled", "log.retention", cfg.LogRetention.String())
 		go backgroundLogRetention(ctx, logger, s, 1*time.Hour, cfg.LogRetention)
 	}
 
@@ -225,7 +225,7 @@ func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 func Serve(ctx context.Context, logger log.Logger, srv *server.Server) error {
 	errs := make(chan error)
 
-	logger.Info("starting server", "address", srv.Address())
+	logger.Info("starting server", "server.address", srv.Address())
 	go func() {
 		defer close(errs)
 		if err := srv.Start(); err != nil {
@@ -347,14 +347,14 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 					}
 					prURL, prNumber, findErr := gh.FindPRForBranch(ctx, r.Owner, r.Name, t.BranchName)
 					if findErr != nil {
-						logger.Error("failed to find PR for branch", "task_id", t.ID, "branch", t.BranchName, "error", findErr)
+						logger.Error("failed to find pr for branch", "task.id", t.ID, "task.branch", t.BranchName, "error", findErr)
 						continue
 					}
 					if prNumber > 0 {
 						if err := s.task.SetTaskPullRequest(ctx, t.ID, prURL, prNumber); err != nil {
-							logger.Error("failed to link PR to task", "task_id", t.ID, "error", err)
+							logger.Error("failed to link pr to task", "task.id", t.ID, "error", err)
 						} else {
-							logger.Info("linked PR to branch-only task", "task_id", t.ID, "pr_number", prNumber)
+							logger.Info("linked pr to branch-only task", "task.id", t.ID, "pr.number", prNumber)
 						}
 					}
 				}
@@ -368,7 +368,7 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 			for _, r := range repos {
 				tasks, err := s.task.ListTasksInReviewByRepo(ctx, r.ID.String())
 				if err != nil {
-					logger.Error("failed to list review tasks", "repo", r.FullName, "error", err)
+					logger.Error("failed to list review tasks", "repo.full_name", r.FullName, "error", err)
 					continue
 				}
 				for _, t := range tasks {
@@ -379,14 +379,14 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 					// 1. Check if merged (terminal positive).
 					merged, err := gh.IsPRMerged(ctx, r.Owner, r.Name, t.PRNumber)
 					if err != nil {
-						logger.Error("failed to check PR merged", "task_id", t.ID, "error", err)
+						logger.Error("failed to check pr merged", "task.id", t.ID, "error", err)
 						continue
 					}
 					if merged {
 						if err := s.task.UpdateTaskStatus(ctx, t.ID, task.StatusMerged); err != nil {
-							logger.Error("failed to update task status", "task_id", t.ID, "error", err)
+							logger.Error("failed to update task status", "task.id", t.ID, "error", err)
 						} else {
-							logger.Info("task PR merged", "task_id", t.ID)
+							logger.Info("task pr merged", "task.id", t.ID)
 						}
 						continue
 					}
@@ -394,14 +394,14 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 					// 2. Check for merge conflicts.
 					mergeability, err := gh.GetPRMergeability(ctx, r.Owner, r.Name, t.PRNumber)
 					if err != nil {
-						logger.Error("failed to check mergeability", "task_id", t.ID, "error", err)
+						logger.Error("failed to check mergeability", "task.id", t.ID, "error", err)
 						continue
 					}
 					if mergeability.HasConflicts {
-						logger.Info("PR has merge conflicts, retrying", "task_id", t.ID, "attempt", t.Attempt)
+						logger.Info("pr has merge conflicts, retrying", "task.id", t.ID, "task.attempt", t.Attempt)
 						reason := "merge_conflict: PR has conflicts with base branch"
 						if err := s.task.RetryTask(ctx, t.ID, "merge_conflict", reason); err != nil {
-							logger.Error("failed to retry task", "task_id", t.ID, "error", err)
+							logger.Error("failed to retry task", "task.id", t.ID, "error", err)
 						}
 						continue
 					}
@@ -412,19 +412,19 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 					}
 					checkResult, err := gh.GetPRCheckStatus(ctx, r.Owner, r.Name, t.PRNumber)
 					if err != nil {
-						logger.Error("failed to check CI status", "task_id", t.ID, "error", err)
+						logger.Error("failed to check ci status", "task.id", t.ID, "error", err)
 						continue
 					}
 					if checkResult.Status == github.CheckStatusFailure {
-						logger.Info("PR checks failed, retrying", "task_id", t.ID, "attempt", t.Attempt, "summary", checkResult.Summary)
+						logger.Info("pr checks failed, retrying", "task.id", t.ID, "task.attempt", t.Attempt, "check.summary", checkResult.Summary)
 
 						// Fetch actual CI failure logs for targeted retry
 						failureLogs, logErr := gh.GetFailedCheckLogs(ctx, r.Owner, r.Name, t.PRNumber)
 						if logErr != nil {
-							logger.Warn("failed to fetch CI logs", "task_id", t.ID, "error", logErr)
+							logger.Warn("failed to fetch ci logs", "task.id", t.ID, "error", logErr)
 						} else if failureLogs != "" {
 							if err := s.task.SetRetryContext(ctx, t.ID, failureLogs); err != nil {
-								logger.Warn("failed to set retry context", "task_id", t.ID, "error", err)
+								logger.Warn("failed to set retry context", "task.id", t.ID, "error", err)
 							}
 						}
 
@@ -439,7 +439,7 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 						}
 						reason := fmt.Sprintf("%s: %s", category, checkResult.Summary)
 						if err := s.task.RetryTask(ctx, t.ID, category, reason); err != nil {
-							logger.Error("failed to retry task", "task_id", t.ID, "error", err)
+							logger.Error("failed to retry task", "task.id", t.ID, "error", err)
 						}
 						continue
 					}
@@ -480,7 +480,7 @@ func backgroundLogRetention(ctx context.Context, logger log.Logger, s stores, in
 		if err != nil {
 			logger.Error("failed to delete expired logs", "error", err)
 		} else if count > 0 {
-			logger.Info("deleted expired logs", "count", count, "retention", retention.String())
+			logger.Info("deleted expired logs", "count", count, "log.retention", retention.String())
 		}
 	}
 

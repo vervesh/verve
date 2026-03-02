@@ -20,28 +20,52 @@ Your Cloud                              User Environment
 5. Logs stream back in real-time and PR status is monitored automatically
 6. If CI fails, the task is automatically retried with failure context
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/joshjon/verve/main/scripts/install.sh | sh
+```
+
+Or install a specific version:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/joshjon/verve/main/scripts/install.sh | sh -s 0.1.0
+```
+
+By default this installs to `~/.local/bin/verve`. Set `INSTALL_DIR` to override:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/joshjon/verve/main/scripts/install.sh | INSTALL_DIR=/usr/local/bin sh
+```
+
 ## Quick Start
 
 ### Prerequisites
 
 - Docker
-- [GitHub Personal Access Token](https://github.com/settings/tokens) (with `repo` scope)
-- [Anthropic API Key](https://console.anthropic.com)
+- [Anthropic API Key](https://console.anthropic.com) (or Claude Code OAuth token)
 
-### 1. Set credentials
-
-Copy `.env.example` to `.env` and fill in your keys.
-
-### 2. Start the stack
+### 1. Build the agent image and start Verve
 
 ```bash
 make build-agent  # Build the agent Docker image
-make up           # Start PostgreSQL, API server, and worker
+ANTHROPIC_API_KEY=sk-... verve
 ```
 
-### 3. Open the dashboard
+This starts the API server and worker together, with the UI at [http://localhost:7400](http://localhost:7400).
 
-Go to [http://localhost:7400](http://localhost:7400) to create tasks, monitor agents, and view logs.
+### 2. Add a repository and create a task
+
+Open the dashboard, connect a GitHub repo, and create your first task.
+
+### Docker Compose (distributed mode)
+
+For production deployments with PostgreSQL:
+
+```bash
+cp .env.example .env   # Fill in your keys
+make up                # Start PostgreSQL, API server, and worker
+```
 
 ### Useful commands
 

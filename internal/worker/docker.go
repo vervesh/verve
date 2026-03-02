@@ -213,7 +213,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	var networkConfig *network.NetworkingConfig
 	if workType == workTypeEpic {
 		if netName := d.detectNetwork(ctx); netName != "" {
-			d.logger.Info("attaching epic container to worker network", "network", netName)
+			d.logger.Info("attaching epic container to worker network", "container.network", netName)
 			networkConfig = &network.NetworkingConfig{
 				EndpointsConfig: map[string]*network.EndpointSettings{
 					netName: {},
@@ -226,7 +226,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 			// extra host mapping so Docker resolves it to the host.
 			rewritten := rewriteLocalhostURL(cfg.APIURL)
 			if rewritten != cfg.APIURL {
-				d.logger.Info("rewriting API URL for container access", "original", cfg.APIURL, "rewritten", rewritten)
+				d.logger.Info("rewriting api url for container access", "api.original_url", cfg.APIURL, "api.rewritten_url", rewritten)
 				// Update the API_URL in the env slice
 				for i, e := range env {
 					if strings.HasPrefix(e, "API_URL=") {
@@ -252,13 +252,13 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		return RunResult{Error: fmt.Errorf("failed to create container %s: %w", containerName, err)}
 	}
 	containerID := resp.ID
-	d.logger.Info("container created", "container", containerName, "id", containerID[:12])
+	d.logger.Info("container created", "container.name", containerName, "container.id", containerID[:12])
 
 	// Ensure cleanup
 	defer func() {
 		// Remove container
 		if err := d.client.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true}); err != nil {
-			d.logger.Warn("failed to remove container", "container", containerName, "error", err)
+			d.logger.Warn("failed to remove container", "container.name", containerName, "error", err)
 		}
 	}()
 
@@ -266,7 +266,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	if err := d.client.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
 		return RunResult{Error: fmt.Errorf("failed to start container %s: %w", containerName, err)}
 	}
-	d.logger.Info("container started", "container", containerName)
+	d.logger.Info("container started", "container.name", containerName)
 
 	// Attach to logs with Follow=true for real-time streaming
 	logReader, err := d.client.ContainerLogs(ctx, containerID, container.LogsOptions{
@@ -300,7 +300,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		return RunResult{Error: ctx.Err()}
 	}
 
-	d.logger.Info("container exited", "container", containerName, "exit_code", exitCode)
+	d.logger.Info("container exited", "container.name", containerName, "container.exit_code", exitCode)
 
 	// Wait for log streaming to complete
 	wg.Wait()

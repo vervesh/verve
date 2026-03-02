@@ -113,18 +113,18 @@ func (w *Worker) Close() error {
 }
 
 func (w *Worker) Run(ctx context.Context) error {
-	w.logger.Info("worker starting", "max_concurrent", w.maxConcurrent)
+	w.logger.Info("worker starting", "worker.max_concurrent", w.maxConcurrent)
 
 	// Warn if API URL is not HTTPS (tokens will be sent in plaintext)
 	if !strings.HasPrefix(w.config.APIURL, "https://") {
-		w.logger.Warn("API URL is not HTTPS — GitHub tokens will be sent in plaintext, use HTTPS in production", "api_url", w.config.APIURL)
+		w.logger.Warn("api url is not https, github tokens will be sent in plaintext", "worker.api_url", w.config.APIURL)
 	}
 
 	// Ensure agent image exists
 	if err := w.docker.EnsureImage(ctx); err != nil {
 		return err
 	}
-	w.logger.Info("agent image verified", "image", w.docker.AgentImage())
+	w.logger.Info("agent image verified", "agent.image", w.docker.AgentImage())
 
 	for {
 		select {
@@ -172,19 +172,19 @@ func (w *Worker) Run(ctx context.Context) error {
 			switch p.Type {
 			case workTypeEpic:
 				w.logger.Info("claimed epic",
-					"epic_id", p.Epic.ID,
-					"repo", p.RepoFullName,
-					"active", activeCount,
-					"title", p.Epic.Title,
+					"epic.id", p.Epic.ID,
+					"repo.full_name", p.RepoFullName,
+					"worker.active_tasks", activeCount,
+					"epic.title", p.Epic.Title,
 				)
 				w.executeEpicPlanning(ctx, p.Epic, p.GitHubToken, p.RepoFullName)
 			default:
 				w.logger.Info("claimed task",
-					"task_id", p.Task.ID,
-					"repo", p.RepoFullName,
-					"active", activeCount,
-					"max_concurrent", w.maxConcurrent,
-					"description", p.Task.Description,
+					"task.id", p.Task.ID,
+					"repo.full_name", p.RepoFullName,
+					"worker.active_tasks", activeCount,
+					"worker.max_concurrent", w.maxConcurrent,
+					"task.description", p.Task.Description,
 				)
 				w.executeTask(ctx, p.Task, p.GitHubToken, p.RepoFullName)
 			}
@@ -351,17 +351,17 @@ func (ls *logStreamer) flush() {
 	// Send to API server
 	if ls.taskID != "" {
 		if err := ls.worker.sendLogs(ls.ctx, ls.taskID, ls.attempt, toSend); err != nil {
-			ls.worker.logger.Error("failed to send logs", "task_id", ls.taskID, "error", err)
+			ls.worker.logger.Error("failed to send logs", "task.id", ls.taskID, "error", err)
 		}
 	} else if ls.epicID != "" {
 		if err := ls.worker.sendEpicLogs(ls.ctx, ls.epicID, toSend); err != nil {
-			ls.worker.logger.Error("failed to send epic logs", "epic_id", ls.epicID, "error", err)
+			ls.worker.logger.Error("failed to send epic logs", "epic.id", ls.epicID, "error", err)
 		}
 	}
 }
 
 func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoFullName string) {
-	taskLogger := w.logger.With("task_id", task.ID)
+	taskLogger := w.logger.With("task.id", task.ID)
 
 	// Create log streamer for real-time log streaming
 	streamer := newLogStreamer(ctx, w, task.ID, task.Attempt)
@@ -381,7 +381,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 
 	// Log callback - called from Docker log streaming goroutine
 	onLog := func(line string) {
-		taskLogger.Debug("agent output", "line", line)
+		taskLogger.Debug("agent output", "agent.line", line)
 		streamer.AddLine(line)
 
 		// Strip markdown formatting (e.g. **bold**) that the agent
@@ -400,7 +400,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 				prURL = prInfo.URL
 				prNumber = prInfo.Number
 				markerMu.Unlock()
-				taskLogger.Info("captured PR", "url", prURL, "number", prNumber)
+				taskLogger.Info("captured pr", "pr.url", prURL, "pr.number", prNumber)
 			}
 		}
 
@@ -416,7 +416,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 				prURL = prInfo.URL
 				prNumber = prInfo.Number
 				markerMu.Unlock()
-				taskLogger.Info("captured PR update", "url", prURL, "number", prNumber)
+				taskLogger.Info("captured pr update", "pr.url", prURL, "pr.number", prNumber)
 			}
 		}
 
@@ -430,7 +430,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 				markerMu.Lock()
 				branchName = branchInfo.Branch
 				markerMu.Unlock()
-				taskLogger.Info("captured branch", "branch", branchName)
+				taskLogger.Info("captured branch", "task.branch", branchName)
 			}
 		}
 
@@ -457,7 +457,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			markerMu.Lock()
 			prereqFailed = jsonStr
 			markerMu.Unlock()
-			taskLogger.Warn("prerequisite check failed", "details", jsonStr)
+			taskLogger.Warn("prerequisite check failed", "prereq.details", jsonStr)
 		}
 
 		// Parse cost marker
@@ -468,7 +468,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 				markerMu.Lock()
 				costUSD = cost
 				markerMu.Unlock()
-				taskLogger.Info("captured cost", "cost_usd", cost)
+				taskLogger.Info("captured cost", "task.cost_usd", cost)
 			}
 		}
 
@@ -477,7 +477,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			markerMu.Lock()
 			rateLimited = true
 			markerMu.Unlock()
-			taskLogger.Warn("detected Claude rate limit or max usage error")
+			taskLogger.Warn("detected claude rate limit or max usage error")
 		}
 
 		// Detect transient infrastructure errors (network, DNS, timeouts)
@@ -485,7 +485,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			markerMu.Lock()
 			transientError = true
 			markerMu.Unlock()
-			taskLogger.Warn("detected transient infrastructure error", "line", line)
+			taskLogger.Warn("detected transient infrastructure error", "agent.line", line)
 		}
 
 		// Detect authentication errors (expired/invalid API key)
@@ -493,7 +493,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			markerMu.Lock()
 			authError = true
 			markerMu.Unlock()
-			taskLogger.Warn("detected authentication error", "line", line)
+			taskLogger.Warn("detected authentication error", "agent.line", line)
 		}
 	}
 
@@ -565,7 +565,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 	switch {
 	case result.Error != nil:
 		retryable := capturedRateLimited || capturedTransientError || isDockerInfraError(result.Error)
-		taskLogger.Error("task failed", "error", result.Error, "retryable", retryable)
+		taskLogger.Error("task failed", "error", result.Error, "task.retryable", retryable)
 		_ = w.completeTask(ctx, task.ID, false, result.Error.Error(), "", 0, "", capturedAgentStatus, capturedCostUSD, capturedPrereqFailed, false, retryable)
 	case result.Success:
 		// Defense-in-depth: if the agent exited successfully but we detected
@@ -579,10 +579,10 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			if capturedAuthError {
 				errMsg = "agent completed with no changes due to authentication error (check API key)"
 			}
-			taskLogger.Error("task failed — no changes due to API error", "auth_error", capturedAuthError, "rate_limited", capturedRateLimited)
+			taskLogger.Error("task failed, no changes due to api error", "task.auth_error", capturedAuthError, "task.rate_limited", capturedRateLimited)
 			_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, "", false, capturedRateLimited)
 		case capturedNoChanges:
-			taskLogger.Info("task completed — no changes needed")
+			taskLogger.Info("task completed, no changes needed")
 			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
 		default:
 			taskLogger.Info("task completed successfully")
@@ -594,14 +594,14 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 			errMsg = "prerequisite check failed"
 		}
 		retryable := capturedRateLimited || capturedTransientError
-		taskLogger.Error("task failed", "exit_code", result.ExitCode, "retryable", retryable)
+		taskLogger.Error("task failed", "container.exit_code", result.ExitCode, "task.retryable", retryable)
 		_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, capturedPrereqFailed, false, retryable)
 	}
 }
 
 func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken, repoFullName string) {
-	epicLogger := w.logger.With("epic_id", ep.ID)
-	epicLogger.Info("starting epic planning", "title", ep.Title)
+	epicLogger := w.logger.With("epic.id", ep.ID)
+	epicLogger.Info("starting epic planning", "epic.title", ep.Title)
 
 	// Create log streamer for real-time log streaming
 	streamer := newEpicLogStreamer(ctx, w, ep.ID)
@@ -631,7 +631,7 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 	// Log callback for epic planning — log at INFO level so agent output
 	// is visible in worker logs (helps diagnose issues)
 	onLog := func(line string) {
-		epicLogger.Info("epic agent", "line", line)
+		epicLogger.Info("epic agent", "agent.line", line)
 		streamer.AddLine(line)
 	}
 
@@ -649,7 +649,7 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 	case result.Success:
 		epicLogger.Info("epic planning container exited successfully")
 	default:
-		epicLogger.Error("epic planning container failed", "exit_code", result.ExitCode)
+		epicLogger.Error("epic planning container failed", "container.exit_code", result.ExitCode)
 	}
 }
 
@@ -701,7 +701,7 @@ func (w *Worker) taskHeartbeatLoop(ctx context.Context, taskID string, cancelExe
 
 	// Send initial heartbeat immediately
 	if stopped := w.sendTaskHeartbeat(ctx, taskID); stopped {
-		w.logger.Info("task was stopped, cancelling execution", "task_id", taskID)
+		w.logger.Info("task was stopped, cancelling execution", "task.id", taskID)
 		cancelExecution()
 		return
 	}
@@ -712,7 +712,7 @@ func (w *Worker) taskHeartbeatLoop(ctx context.Context, taskID string, cancelExe
 			return
 		case <-ticker.C:
 			if stopped := w.sendTaskHeartbeat(ctx, taskID); stopped {
-				w.logger.Info("task was stopped, cancelling execution", "task_id", taskID)
+				w.logger.Info("task was stopped, cancelling execution", "task.id", taskID)
 				cancelExecution()
 				return
 			}
