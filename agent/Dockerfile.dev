@@ -1,6 +1,9 @@
+# Verve development agent for working on the Verve project itself
+# Builds on top of the LOCAL base agent image (not ghcr.io)
+#
 # Build:
 #   make build-agent-dev
-FROM ghcr.io/joshjon/verve:base
+FROM verve:base
 
 USER root
 
