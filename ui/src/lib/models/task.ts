@@ -1,8 +1,10 @@
 export type TaskStatus = 'pending' | 'running' | 'review' | 'merged' | 'closed' | 'failed';
+export type TaskType = 'task' | 'setup';
 
 export interface Task {
 	id: string;
 	repo_id: string;
+	type: TaskType;
 	title: string;
 	description: string;
 	status: TaskStatus;

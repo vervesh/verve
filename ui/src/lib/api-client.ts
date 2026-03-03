@@ -55,6 +55,33 @@ export class VerveClient {
 		return this.request<GitHubRepo[]>(res, 'Failed to list available repos');
 	}
 
+	// --- Repo Setup APIs ---
+
+	async getRepoSetup(repoId: string): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup`);
+		return this.request<Repo>(res, 'Failed to fetch repo setup');
+	}
+
+	async updateRepoExpectations(
+		repoId: string,
+		expectations: string,
+		markReady?: boolean
+	): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/expectations`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ expectations, mark_ready: markReady ?? false })
+		});
+		return this.request<Repo>(res, 'Failed to update expectations');
+	}
+
+	async rescanRepo(repoId: string): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/rescan`, {
+			method: 'POST'
+		});
+		return this.request<Repo>(res, 'Failed to trigger rescan');
+	}
+
 	// --- Repo-scoped Task APIs ---
 
 	async listTasksByRepo(repoId: string): Promise<Task[]> {
