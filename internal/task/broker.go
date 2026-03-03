@@ -12,9 +12,10 @@ const (
 	EventTaskUpdated  = "task_updated"
 	EventTaskDeleted  = "task_deleted"
 	EventLogsAppended = "logs_appended"
+	EventRepoUpdated  = "repo_updated"
 )
 
-// Event represents a task mutation broadcast to SSE subscribers.
+// Event represents a task or repo mutation broadcast to SSE subscribers.
 type Event struct {
 	Type    string   `json:"type"`
 	RepoID  string   `json:"repo_id,omitempty"`
@@ -22,6 +23,7 @@ type Event struct {
 	TaskID  TaskID   `json:"task_id,omitempty"`
 	Logs    []string `json:"logs,omitempty"`
 	Attempt int      `json:"attempt,omitempty"`
+	Repo    any      `json:"repo,omitempty"`
 }
 
 // Notifier sends event payloads to an external notification system (e.g.,

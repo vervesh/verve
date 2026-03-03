@@ -16,11 +16,13 @@ import (
 	"github.com/joshjon/verve/internal/repo"
 	"github.com/joshjon/verve/internal/repoapi"
 	"github.com/joshjon/verve/internal/sqlite"
+	"github.com/joshjon/verve/internal/task"
 )
 
 type fixture struct {
 	Server    *server.Server
 	RepoStore *repo.Store
+	TaskStore *task.Store
 	t         *testing.T
 }
 
@@ -31,7 +33,11 @@ func newFixture(t *testing.T) *fixture {
 	repoRepo := sqlite.NewRepoRepository(db)
 	repoStore := repo.NewStore(repoRepo)
 
-	handler := repoapi.NewHTTPHandler(repoStore, nil)
+	broker := task.NewBroker(nil)
+	taskRepo := sqlite.NewTaskRepository(db)
+	taskStore := task.NewStore(taskRepo, broker)
+
+	handler := repoapi.NewHTTPHandler(repoStore, taskStore, nil)
 
 	srv, err := server.NewServer(testutil.GetFreePort(t))
 	require.NoError(t, err)
@@ -46,6 +52,7 @@ func newFixture(t *testing.T) *fixture {
 	return &fixture{
 		Server:    srv,
 		RepoStore: repoStore,
+		TaskStore: taskStore,
 		t:         t,
 	}
 }
@@ -64,6 +71,18 @@ func (f *fixture) reposURL() string {
 
 func (f *fixture) repoURL(id repo.RepoID) string {
 	return fmt.Sprintf("%s/%s", f.reposURL(), id)
+}
+
+func (f *fixture) repoSetupURL(id repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/repos/%s/setup", f.Server.Address(), id)
+}
+
+func (f *fixture) repoExpectationsURL(id repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/repos/%s/setup/expectations", f.Server.Address(), id)
+}
+
+func (f *fixture) repoRescanURL(id repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/repos/%s/setup/rescan", f.Server.Address(), id)
 }
 
 func (f *fixture) availableReposURL() string {

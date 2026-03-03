@@ -201,7 +201,7 @@ func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 	workerReg := workertracker.New()
 	epicLister := planningEpicListerAdapter(s.epic)
 
-	srv.Register("/api/v1", repoapi.NewHTTPHandler(s.repo, s.githubToken))
+	srv.Register("/api/v1", repoapi.NewHTTPHandler(s.repo, s.task, s.githubToken))
 	srv.Register("/api/v1", metricapi.NewHTTPHandler(s.task, epicLister, workerReg))
 	srv.Register("/api/v1", settingapi.NewHTTPHandler(s.githubToken, s.setting, cfg.EffectiveModels()))
 	srv.Register("/api/v1", eventapi.NewHTTPHandler(s.task, s.repo))

@@ -30,3 +30,23 @@ type RemoveRepoRequest struct {
 func (r RemoveRepoRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
+
+// RepoIDRequest captures just the repo_id path parameter.
+type RepoIDRequest struct {
+	RepoID string `param:"repo_id" json:"-"`
+}
+
+func (r RepoIDRequest) Validate() error {
+	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}
+
+// UpdateExpectationsRequest is the request body for updating repo expectations.
+type UpdateExpectationsRequest struct {
+	RepoID       string `param:"repo_id" json:"-"`
+	Expectations string `json:"expectations"`
+	MarkReady    bool   `json:"mark_ready"`
+}
+
+func (r UpdateExpectationsRequest) Validate() error {
+	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}

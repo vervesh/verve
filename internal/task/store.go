@@ -876,3 +876,9 @@ func (s *Store) publishTaskUpdated(ctx context.Context, id TaskID) {
 	t.Logs = nil
 	s.broker.Publish(ctx, Event{Type: EventTaskUpdated, RepoID: t.RepoID, Task: t})
 }
+
+// PublishRepoEvent publishes a repo_updated SSE event so the UI can react
+// in real-time when setup status changes.
+func (s *Store) PublishRepoEvent(ctx context.Context, repoID string, repoData any) {
+	s.broker.Publish(ctx, Event{Type: EventRepoUpdated, RepoID: repoID, Repo: repoData})
+}

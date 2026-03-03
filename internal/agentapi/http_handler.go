@@ -53,6 +53,9 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.POST("/epics/:id/complete", h.EpicComplete)
 	g.POST("/epics/:id/heartbeat", h.EpicHeartbeat)
 	g.POST("/epics/:id/logs", h.EpicAppendLogs)
+
+	// Repo setup agent endpoint
+	g.POST("/repos/:repo_id/setup-complete", h.RepoSetupComplete)
 }
 
 // Poll handles GET /poll — unified long-poll for available work.
@@ -328,6 +331,54 @@ func (h *HTTPHandler) EpicAppendLogs(c echo.Context) error {
 	if err := h.epicStore.AppendSessionLog(c.Request().Context(), id, req.Lines); err != nil {
 		return err
 	}
+	return c.NoContent(http.StatusNoContent)
+}
+
+// --- Repo Setup Agent Endpoint ---
+
+// RepoSetupComplete handles POST /repos/:repo_id/setup-complete
+func (h *HTTPHandler) RepoSetupComplete(c echo.Context) error {
+	req, err := server.BindRequest[RepoSetupCompleteRequest](c)
+	if err != nil {
+		return err
+	}
+
+	repoID := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, repoID.String())
+
+	ctx := c.Request().Context()
+
+	if !req.Success {
+		// On failure, leave status as scanning so the user can rescan later.
+		return c.NoContent(http.StatusNoContent)
+	}
+
+	// Determine the target setup status.
+	setupStatus := repo.SetupStatusReady
+	if req.NeedsSetup {
+		setupStatus = repo.SetupStatusNeedsSetup
+	}
+
+	result := repo.SetupScanResult{
+		Summary:     req.Summary,
+		TechStack:   req.TechStack,
+		HasCode:     req.HasCode,
+		HasCLAUDEMD: req.HasClaudeMD,
+		HasREADME:   req.HasREADME,
+		SetupStatus: setupStatus,
+	}
+
+	if err := h.repoStore.UpdateRepoSetupScan(ctx, repoID, result); err != nil {
+		return err
+	}
+
+	// Read updated repo and publish SSE event.
+	r, err := h.repoStore.ReadRepo(ctx, repoID)
+	if err != nil {
+		return err
+	}
+	h.taskStore.PublishRepoEvent(ctx, repoID.String(), r)
+
 	return c.NoContent(http.StatusNoContent)
 }
 
