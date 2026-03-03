@@ -33,7 +33,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[700px] max-h-[85vh] overflow-y-auto">
+	<Dialog.Content class="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
 				<div class="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center">

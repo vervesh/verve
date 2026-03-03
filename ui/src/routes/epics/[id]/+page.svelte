@@ -655,7 +655,7 @@
 				<!-- Left: Proposed Tasks -->
 				<div class="lg:col-span-2 flex flex-col min-h-0">
 					<div class="flex items-center justify-between mb-3">
-						<h2 class="text-sm font-semibold flex items-center gap-2">
+						<h2 class="text-md font-semibold flex items-center gap-2">
 							Proposed Tasks
 							{#if epic.proposed_tasks.length > 0}
 								<span class="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">
@@ -695,19 +695,35 @@
 					{:else}
 						<div class="space-y-2 overflow-y-auto overscroll-contain flex-1 min-h-0 max-h-[60vh]">
 							{#each epic.proposed_tasks as task, idx (task.temp_id)}
-								<Card.Root class="bg-[oklch(0.18_0.005_285.823)] {isPlanning ? 'opacity-60' : ''} hover:bg-accent/50 hover:border-accent transition-all duration-200 hover:shadow-md cursor-pointer">
-									<Card.Content class="p-3">
-										<button
-											type="button"
-											class="w-full text-left"
-											onclick={() => openPreviewTask(idx)}
-										>
+								<button
+									type="button"
+									class="w-full text-left"
+									onclick={() => openPreviewTask(idx)}
+								>
+									<Card.Root class="relative bg-[oklch(0.18_0.005_285.823)] {isPlanning ? 'opacity-60' : ''} hover:bg-accent/50 hover:border-accent transition-all duration-200 hover:shadow-md cursor-pointer">
+										{#if isEditable && !isPlanning}
+											<div class="absolute top-2 right-2 flex items-center gap-0.5">
+												<button
+													class="p-1.5 hover:bg-accent rounded-md transition-colors text-muted-foreground hover:text-foreground"
+													onclick={(e) => { e.stopPropagation(); e.preventDefault(); openEditTask(idx); }}
+													title="Edit task"
+												>
+													<Edit3 class="w-4 h-4" />
+												</button>
+												<button
+													class="p-1.5 hover:bg-destructive/10 hover:text-destructive rounded-md transition-colors text-muted-foreground"
+													onclick={(e) => { e.stopPropagation(); e.preventDefault(); removeTask(idx); }}
+													title="Remove task"
+												>
+													<Trash2 class="w-4 h-4" />
+												</button>
+											</div>
+										{/if}
+										<Card.Content class="p-3">
 											<div class="flex items-start gap-2">
 												<span class="text-xs text-muted-foreground font-mono mt-0.5 shrink-0">{idx + 1}.</span>
-												<div class="flex-1 min-w-0">
-													<div class="flex items-start justify-between gap-2">
-														<p class="text-sm font-medium">{task.title}</p>
-													</div>
+												<div class="flex-1 min-w-0 {isEditable && !isPlanning ? 'pr-16' : ''}">
+													<p class="text-sm font-medium">{task.title}</p>
 													{#if task.description}
 														<p class="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
 													{/if}
@@ -727,29 +743,9 @@
 													</div>
 												</div>
 											</div>
-										</button>
-										{#if isEditable && !isPlanning}
-											<div class="flex items-center gap-1 justify-end mt-2 pt-2 border-t border-border/30">
-												<button
-													class="p-1.5 hover:bg-accent rounded transition-colors flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-													onclick={(e) => { e.stopPropagation(); openEditTask(idx); }}
-													title="Edit task"
-												>
-													<Edit3 class="w-3.5 h-3.5" />
-													Edit
-												</button>
-												<button
-													class="p-1.5 hover:bg-destructive/10 hover:text-destructive rounded transition-colors flex items-center gap-1 text-xs text-muted-foreground"
-													onclick={(e) => { e.stopPropagation(); removeTask(idx); }}
-													title="Remove task"
-												>
-													<Trash2 class="w-3.5 h-3.5" />
-													Remove
-												</button>
-											</div>
-										{/if}
-									</Card.Content>
-								</Card.Root>
+										</Card.Content>
+									</Card.Root>
+								</button>
 							{/each}
 						</div>
 					{/if}
@@ -795,7 +791,7 @@
 
 				<!-- Right: Session Terminal -->
 				<div class="flex flex-col min-h-0">
-					<h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
+					<h2 class="text-md font-semibold mt-1 mb-3 flex items-center gap-2">
 						<Terminal class="w-4 h-4 text-violet-400" />
 						Planning Log
 						{#if isPlanning && isClaimed}
@@ -804,8 +800,8 @@
 					</h2>
 
 					<!-- Terminal-style log view -->
-					<Card.Root class="bg-[oklch(0.13_0.005_285.823)] flex-1 flex flex-col min-h-[300px] border-border/50">
-						<Card.Content class="p-0 flex-1 flex flex-col min-h-0">
+					<Card.Root class="mt-1 bg-[oklch(0.13_0.005_285.823)] flex flex-col min-h-[300px] max-h-[60vh] border-border/50">
+						<Card.Content class="p-0 flex-1 flex flex-col min-h-0 overflow-hidden">
 							{#if epic.planning_prompt}
 								<div class="text-xs text-muted-foreground px-3 py-2 border-b border-border/30">
 									<span class="font-medium text-violet-400">Planning prompt:</span>
@@ -818,7 +814,7 @@
 								bind:this={logContainer}
 								onscroll={handleLogScroll}
 								onwheel={handleLogWheel}
-								class="flex-1 overflow-y-auto overscroll-contain min-h-0 p-3 font-mono text-xs space-y-0.5 max-h-[50vh]"
+								class="flex-1 overflow-y-auto overscroll-contain min-h-0 p-3 font-mono text-xs space-y-0.5"
 							>
 								{#each epic.session_log as line, i}
 									<div class="{getLogLineClass(line)} leading-relaxed">
@@ -844,7 +840,7 @@
 
 							<!-- Request changes input (when in draft/ready state) -->
 							{#if isDraft && epic.proposed_tasks.length > 0}
-								<div class="border-t border-border/30 p-3">
+								<div class="mt-auto border-t border-border/30 p-3">
 									<p class="text-[10px] text-muted-foreground mb-2">
 										Not happy with the plan? Describe what should change and the agent will re-plan.
 									</p>
