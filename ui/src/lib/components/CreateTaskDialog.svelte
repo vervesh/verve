@@ -5,7 +5,7 @@
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Badge } from '$lib/components/ui/badge';
-	import { FileText, Link2, Search, X, Loader2, Sparkles, ChevronDown, ChevronRight, Target, DollarSign, GitBranch, Plus, Type, Cpu } from 'lucide-svelte';
+	import { FileText, Link2, Search, X, Loader2, Sparkles, ChevronDown, ChevronRight, Target, DollarSign, GitBranch, GitPullRequestDraft, Plus, Type, Cpu } from 'lucide-svelte';
 
 	let {
 		open = $bindable(false),
@@ -21,6 +21,7 @@
 	let acceptanceCriteria = $state<string[]>([]);
 	let maxCostUsd = $state<number | undefined>(undefined);
 	let skipPr = $state(false);
+	let draftPr = $state(false);
 	let notReady = $state(false);
 	let showAdvanced = $state(false);
 	let selectedModel = $state('');
@@ -79,6 +80,7 @@
 				filteredCriteria.length > 0 ? filteredCriteria : undefined,
 				maxCostUsd,
 				skipPr || undefined,
+				draftPr || undefined,
 				selectedModel || undefined,
 				notReady || undefined
 			);
@@ -88,6 +90,7 @@
 			acceptanceCriteria = [];
 			maxCostUsd = undefined;
 			skipPr = false;
+			draftPr = false;
 			notReady = false;
 			selectedModel = '';
 			showAdvanced = false;
@@ -108,6 +111,7 @@
 		acceptanceCriteria = [];
 		maxCostUsd = undefined;
 		skipPr = false;
+		draftPr = false;
 		notReady = false;
 		selectedModel = '';
 		showAdvanced = false;
@@ -372,14 +376,15 @@
 							</div>
 							<label
 								for="skip-pr"
-								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors"
+								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors {draftPr ? 'opacity-50' : ''}"
 							>
 								<input
 									id="skip-pr"
 									type="checkbox"
 									bind:checked={skipPr}
+									onchange={() => { if (skipPr) draftPr = false; }}
 									class="w-4 h-4 rounded border-input accent-primary"
-									disabled={loading}
+									disabled={loading || draftPr}
 								/>
 								<div class="flex-1">
 									<div class="text-sm font-medium flex items-center gap-1.5">
@@ -388,6 +393,28 @@
 									</div>
 									<p class="text-xs text-muted-foreground mt-0.5">
 										Skip PR creation. You can create the PR manually and it will be detected on sync.
+									</p>
+								</div>
+							</label>
+							<label
+								for="draft-pr"
+								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors {skipPr ? 'opacity-50' : ''}"
+							>
+								<input
+									id="draft-pr"
+									type="checkbox"
+									bind:checked={draftPr}
+									onchange={() => { if (draftPr) skipPr = false; }}
+									class="w-4 h-4 rounded border-input accent-primary"
+									disabled={loading || skipPr}
+								/>
+								<div class="flex-1">
+									<div class="text-sm font-medium flex items-center gap-1.5">
+										<GitPullRequestDraft class="w-3.5 h-3.5 text-muted-foreground" />
+										Create as draft PR
+									</div>
+									<p class="text-xs text-muted-foreground mt-0.5">
+										Open the pull request as a draft. Useful for work-in-progress or early review.
 									</p>
 								</div>
 							</label>
