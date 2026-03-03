@@ -1,0 +1,55 @@
+name: UI Screenshots Cleanup
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    name: Remove PR Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete screenshots for closed PR
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+
+          # Check if screenshots branch exists
+          if ! git ls-remote --exit-code --heads "$REPO_URL" screenshots >/dev/null 2>&1; then
+            echo "No screenshots branch found, nothing to clean up"
+            exit 0
+          fi
+
+          TMPDIR=$(mktemp -d)
+          git clone --depth 1 --branch screenshots "$REPO_URL" "$TMPDIR"
+
+          # Check if directory exists for this PR
+          if [ ! -d "$TMPDIR/pr/${PR_NUMBER}" ]; then
+            echo "No screenshots directory for PR #${PR_NUMBER}, nothing to clean up"
+            rm -rf "$TMPDIR"
+            exit 0
+          fi
+
+          git -C "$TMPDIR" config user.name "github-actions[bot]"
+          git -C "$TMPDIR" config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git -C "$TMPDIR" rm -rf "pr/${PR_NUMBER}"
+          git -C "$TMPDIR" commit -m "ci: remove screenshots for PR #${PR_NUMBER} [skip ci]"
+
+          # Retry push with rebase to handle concurrent pushes
+          for i in 1 2 3; do
+            if git -C "$TMPDIR" push origin screenshots; then
+              echo "Cleaned up screenshots for PR #${PR_NUMBER}"
+              rm -rf "$TMPDIR"
+              exit 0
+            fi
+            echo "Push attempt $i failed, pulling with rebase..."
+            git -C "$TMPDIR" pull --rebase origin screenshots
+          done
+
+          echo "Failed to push cleanup after 3 attempts"
+          rm -rf "$TMPDIR"

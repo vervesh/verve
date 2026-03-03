@@ -53,40 +53,84 @@ jobs:
           pnpm exec playwright test --project=desktop 2>&1 | tee playwright-output.txt
           exit ${PIPESTATUS[0]}
 
-      - name: Push screenshots to branch
+      - name: Push screenshots to orphan branch
         if: always()
         id: push-screenshots
         working-directory: .
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           if [ ! -d ui/screenshots ] || [ -z "$(ls -A ui/screenshots/*.png 2>/dev/null)" ]; then
             echo "pushed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          REPO_URL="https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          TMPDIR=$(mktemp -d)
 
-          # Force-add screenshots (overrides .gitignore)
-          git add -f ui/screenshots/*.png
-
-          # Only commit if there are actual changes
-          if git diff --cached --quiet; then
-            echo "No screenshot changes to commit"
-            echo "pushed=false" >> $GITHUB_OUTPUT
+          # Clone or create the screenshots branch
+          CREATED_BRANCH=false
+          if git ls-remote --exit-code --heads "$REPO_URL" screenshots >/dev/null 2>&1; then
+            git clone --depth 1 --branch screenshots "$REPO_URL" "$TMPDIR"
           else
-            git commit -m "ci: update UI screenshots [skip ci]"
-            git push
-            echo "pushed=true" >> $GITHUB_OUTPUT
+            CREATED_BRANCH=true
+            git init "$TMPDIR"
+            git -C "$TMPDIR" config user.name "github-actions[bot]"
+            git -C "$TMPDIR" config user.email "github-actions[bot]@users.noreply.github.com"
+            git -C "$TMPDIR" checkout --orphan screenshots
+            echo "# UI Screenshots" > "$TMPDIR/README.md"
+            git -C "$TMPDIR" add README.md
+            git -C "$TMPDIR" commit -m "chore: initialize screenshots branch"
+            git -C "$TMPDIR" remote add origin "$REPO_URL"
           fi
 
-          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          git -C "$TMPDIR" config user.name "github-actions[bot]"
+          git -C "$TMPDIR" config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Copy screenshots into pr/{number}/
+          mkdir -p "$TMPDIR/pr/${PR_NUMBER}"
+          cp ui/screenshots/*.png "$TMPDIR/pr/${PR_NUMBER}/"
+          git -C "$TMPDIR" add "pr/${PR_NUMBER}"
+
+          if git -C "$TMPDIR" diff --cached --quiet; then
+            echo "No screenshot changes to commit"
+            echo "pushed=false" >> $GITHUB_OUTPUT
+            rm -rf "$TMPDIR"
+            exit 0
+          fi
+
+          git -C "$TMPDIR" commit -m "ci: update screenshots for PR #${PR_NUMBER} [skip ci]"
+
+          # First push of a new orphan branch — no rebase needed
+          if [ "$CREATED_BRANCH" = "true" ]; then
+            if git -C "$TMPDIR" push -u origin screenshots; then
+              echo "pushed=true" >> $GITHUB_OUTPUT
+            else
+              echo "pushed=false" >> $GITHUB_OUTPUT
+            fi
+            rm -rf "$TMPDIR"
+            exit 0
+          fi
+
+          # Retry push with rebase to handle concurrent pushes
+          for i in 1 2 3; do
+            if git -C "$TMPDIR" push origin screenshots; then
+              echo "pushed=true" >> $GITHUB_OUTPUT
+              rm -rf "$TMPDIR"
+              exit 0
+            fi
+            echo "Push attempt $i failed, pulling with rebase..."
+            git -C "$TMPDIR" pull --rebase origin screenshots
+          done
+
+          echo "pushed=false" >> $GITHUB_OUTPUT
+          rm -rf "$TMPDIR"
 
       - name: Post screenshot comment on PR
         if: always()
         uses: actions/github-script@v7
         env:
           SCREENSHOTS_PUSHED: ${{ steps.push-screenshots.outputs.pushed }}
-          SCREENSHOTS_SHA: ${{ steps.push-screenshots.outputs.sha }}
         with:
           script: |
             const fs = require('fs');
@@ -101,8 +145,7 @@ jobs:
 
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const marker = '<!-- ui-screenshots-bot -->';
-            const branch = context.payload.pull_request.head.ref;
-            const sha = process.env.SCREENSHOTS_SHA || context.sha;
+            const prNumber = context.payload.pull_request.number;
             const pushed = process.env.SCREENSHOTS_PUSHED === 'true';
             let body = marker + '\n';
 
@@ -135,7 +178,7 @@ jobs:
                 groups[groupKey].push({ file, name, category, device });
               }
 
-              const rawBase = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/${sha}/ui/screenshots`;
+              const rawBase = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/screenshots/pr/${prNumber}`;
 
               for (const [group, items] of Object.entries(groups)) {
                 const groupTitle = group.charAt(0).toUpperCase() + group.slice(1);
@@ -155,7 +198,7 @@ jobs:
             }
 
             body += `\n---\n`;
-            body += `*Commit: ${sha.substring(0, 7)} | [Workflow run](${runUrl})*`;
+            body += `*[Workflow run](${runUrl})*`;
 
             // Find and update existing comment or create new one.
             const { data: comments } = await github.rest.issues.listComments({
@@ -189,7 +232,7 @@ jobs:
         working-directory: ui
         env:
           SCREENSHOTS_PUSHED: ${{ steps.push-screenshots.outputs.pushed }}
-          SCREENSHOTS_SHA: ${{ steps.push-screenshots.outputs.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           echo "## UI Screenshots" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -199,8 +242,7 @@ jobs:
             echo "Captured **${COUNT} screenshots** from this PR." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
-            SHA="${SCREENSHOTS_SHA:-${{ github.sha }}}"
-            RAW_BASE="https://raw.githubusercontent.com/${{ github.repository }}/${SHA}/ui/screenshots"
+            RAW_BASE="https://raw.githubusercontent.com/${{ github.repository }}/screenshots/pr/${PR_NUMBER}"
 
             if [ "$SCREENSHOTS_PUSHED" = "true" ]; then
               for f in screenshots/*.png; do
