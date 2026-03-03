@@ -5,6 +5,7 @@
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import TaskColumn from '$lib/components/TaskColumn.svelte';
 	import CreateTaskDialog from '$lib/components/CreateTaskDialog.svelte';
+	import RepoSetupBanner from '$lib/components/RepoSetupBanner.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import {
 		Plus,
@@ -217,6 +218,8 @@
 				</Button>
 			</div>
 		</header>
+
+		<RepoSetupBanner />
 
 		{#if taskStore.error}
 			<div
