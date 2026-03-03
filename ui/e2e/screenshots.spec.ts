@@ -898,9 +898,6 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 	await page.route('**/api/v1/epics/*/session-message', (route) =>
 		route.fulfill({ json: { data: MOCK_EPIC_PLANNING } })
 	);
-	await page.route('**/api/v1/epics/*/finish-planning', (route) =>
-		route.fulfill({ json: { data: MOCK_EPIC_READY } })
-	);
 	await page.route('**/api/v1/epics/*/confirm', (route) =>
 		route.fulfill({ json: { data: MOCK_EPIC_ACTIVE } })
 	);

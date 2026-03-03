@@ -143,45 +143,6 @@ func (r SetReadyRequest) Validate() error {
 	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
 }
 
-// LogsRequest is the request body for appending logs.
-type LogsRequest struct {
-	ID      string   `param:"id" json:"-"`
-	Logs    []string `json:"logs"`
-	Attempt int      `json:"attempt,omitempty"`
-}
-
-func (r LogsRequest) Validate() error {
-	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
-}
-
-// CompleteRequest is the request body for completing a task.
-type CompleteRequest struct {
-	ID             string  `param:"id" json:"-"`
-	Success        bool    `json:"success"`
-	Error          string  `json:"error,omitempty"`
-	PullRequestURL string  `json:"pull_request_url,omitempty"`
-	PRNumber       int     `json:"pr_number,omitempty"`
-	AgentStatus    string  `json:"agent_status,omitempty"`
-	CostUSD        float64 `json:"cost_usd,omitempty"`
-	PrereqFailed   string  `json:"prereq_failed,omitempty"`
-	BranchName     string  `json:"branch_name,omitempty"`
-	NoChanges      bool    `json:"no_changes,omitempty"`
-	Retryable      bool    `json:"retryable,omitempty"`
-}
-
-func (r CompleteRequest) Validate() error {
-	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
-}
-
-// HeartbeatRequest captures the :id path parameter for the heartbeat endpoint.
-type HeartbeatRequest struct {
-	ID string `param:"id" json:"-"`
-}
-
-func (r HeartbeatRequest) Validate() error {
-	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
-}
-
 // BulkDeleteTasksRequest is the request body for bulk-deleting tasks.
 type BulkDeleteTasksRequest struct {
 	TaskIDs []string `json:"task_ids"`
@@ -219,11 +180,3 @@ type DiffResponse struct {
 	Diff string `json:"diff"`
 }
 
-// PollTaskResponse wraps a claimed task with the credentials and repo info
-// needed by the worker to execute it. The GitHub token is included so that
-// workers don't need their own token configuration.
-type PollTaskResponse struct {
-	Task         *task.Task `json:"task"`
-	GitHubToken  string     `json:"github_token"`
-	RepoFullName string     `json:"repo_full_name"`
-}

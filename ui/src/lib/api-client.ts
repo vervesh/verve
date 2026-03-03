@@ -360,13 +360,6 @@ export class VerveClient {
 		return this.request<Epic>(res, 'Failed to send message');
 	}
 
-	async finishPlanning(id: string): Promise<Epic> {
-		const res = await fetch(`${this.baseUrl}/epics/${id}/finish-planning`, {
-			method: 'POST'
-		});
-		return this.request<Epic>(res, 'Failed to finish planning');
-	}
-
 	async confirmEpic(id: string, notReady?: boolean): Promise<Epic> {
 		const res = await fetch(`${this.baseUrl}/epics/${id}/confirm`, {
 			method: 'POST',

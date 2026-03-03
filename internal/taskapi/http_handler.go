@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
-	"time"
 
 	"github.com/joshjon/kit/server"
 	"github.com/labstack/echo/v4"
@@ -43,9 +41,6 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	// Task operations (globally unique IDs)
 	g.GET("/tasks/:id", h.GetTask)
 	g.GET("/tasks/:id/logs", h.StreamLogs)
-	g.POST("/tasks/:id/logs", h.AppendLogs)
-	g.POST("/tasks/:id/heartbeat", h.Heartbeat)
-	g.POST("/tasks/:id/complete", h.CompleteTask)
 	g.POST("/tasks/:id/close", h.CloseTask)
 	g.POST("/tasks/:id/stop", h.StopTask)
 	g.POST("/tasks/:id/retry", h.RetryTask)
@@ -60,9 +55,6 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.PATCH("/tasks/:id", h.UpdateTask)
 	g.DELETE("/tasks/:id", h.DeleteTask)
 	g.POST("/tasks/bulk-delete", h.BulkDeleteTasks)
-
-	// Worker polling
-	g.GET("/tasks/poll", h.PollTask)
 }
 
 // --- Task Handlers ---
@@ -191,165 +183,6 @@ func (h *HTTPHandler) UpdateTask(c echo.Context) error {
 		return err
 	}
 	return server.SetResponse(c, http.StatusOK, t)
-}
-
-// PollTask handles GET /tasks/poll
-// Long-polls for a pending task, claiming it atomically.
-func (h *HTTPHandler) PollTask(c echo.Context) error {
-	timeout := 30 * time.Second
-	deadline := time.Now().Add(timeout)
-
-	ctx := c.Request().Context()
-
-	for {
-		t, err := h.store.ClaimPendingTask(ctx, nil)
-		if err != nil {
-			return err
-		}
-		if t != nil {
-			repoID, parseErr := repo.ParseRepoID(t.RepoID)
-			if parseErr != nil {
-				return parseErr
-			}
-			r, readErr := h.repoStore.ReadRepo(ctx, repoID)
-			if readErr != nil {
-				return readErr
-			}
-
-			var token string
-			if h.githubTokenService != nil {
-				token = h.githubTokenService.GetToken()
-			}
-
-			return server.SetResponse(c, http.StatusOK, PollTaskResponse{
-				Task:         t,
-				GitHubToken:  token,
-				RepoFullName: r.FullName,
-			})
-		}
-
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return c.NoContent(http.StatusNoContent)
-		}
-
-		select {
-		case <-h.store.WaitForPending():
-		case <-time.After(remaining):
-			return c.NoContent(http.StatusNoContent)
-		case <-ctx.Done():
-			return c.NoContent(http.StatusNoContent)
-		}
-	}
-}
-
-// AppendLogs handles POST /tasks/:id/logs
-func (h *HTTPHandler) AppendLogs(c echo.Context) error {
-	req, err := server.BindRequest[LogsRequest](c)
-	if err != nil {
-		return err
-	}
-	id := task.MustParseTaskID(req.ID)
-	c.Set(logkey.TaskID, id.String())
-
-	attempt := req.Attempt
-	if attempt == 0 {
-		attempt = 1
-	}
-
-	if err := h.store.AppendTaskLogs(c.Request().Context(), id, attempt, req.Logs); err != nil {
-		return err
-	}
-	return c.NoContent(http.StatusNoContent)
-}
-
-// Heartbeat handles POST /tasks/:id/heartbeat.
-func (h *HTTPHandler) Heartbeat(c echo.Context) error {
-	req, err := server.BindRequest[HeartbeatRequest](c)
-	if err != nil {
-		return err
-	}
-	id := task.MustParseTaskID(req.ID)
-	c.Set(logkey.TaskID, id.String())
-
-	stillRunning, err := h.store.Heartbeat(c.Request().Context(), id)
-	if err != nil {
-		return err
-	}
-	return server.SetResponse(c, http.StatusOK, map[string]bool{"stopped": !stillRunning})
-}
-
-// CompleteTask handles POST /tasks/:id/complete
-func (h *HTTPHandler) CompleteTask(c echo.Context) error {
-	req, err := server.BindRequest[CompleteRequest](c)
-	if err != nil {
-		return err
-	}
-	id := task.MustParseTaskID(req.ID)
-	c.Set(logkey.TaskID, id.String())
-
-	ctx := c.Request().Context()
-
-	if req.AgentStatus != "" {
-		if err := h.store.SetAgentStatus(ctx, id, req.AgentStatus); err != nil {
-			return err
-		}
-	}
-	if req.CostUSD > 0 {
-		if err := h.store.AddCost(ctx, id, req.CostUSD); err != nil {
-			return err
-		}
-	}
-
-	switch {
-	case !req.Success:
-		if req.PrereqFailed != "" {
-			if err := h.store.SetCloseReason(ctx, id, req.PrereqFailed); err != nil {
-				return err
-			}
-		}
-
-		if req.Retryable && req.PrereqFailed == "" {
-			reason := ClassifyRetryReason(req.Error)
-			if err := h.store.ScheduleRetry(ctx, id, reason); err != nil {
-				return err
-			}
-			return c.NoContent(http.StatusNoContent)
-		}
-
-		if err := h.store.UpdateTaskStatus(ctx, id, task.StatusFailed); err != nil {
-			return err
-		}
-	case req.PullRequestURL != "":
-		if err := h.store.SetTaskPullRequest(ctx, id, req.PullRequestURL, req.PRNumber); err != nil {
-			return err
-		}
-	case req.BranchName != "":
-		if err := h.store.SetTaskBranch(ctx, id, req.BranchName); err != nil {
-			return err
-		}
-	default:
-		t, readErr := h.store.ReadTask(ctx, id)
-		if readErr != nil {
-			return readErr
-		}
-		if t.PRNumber > 0 || t.BranchName != "" {
-			if err := h.store.UpdateTaskStatus(ctx, id, task.StatusReview); err != nil {
-				return err
-			}
-		} else {
-			if req.NoChanges {
-				if err := h.store.SetCloseReason(ctx, id, "No changes needed — the codebase already meets the required criteria"); err != nil {
-					return err
-				}
-			}
-			if err := h.store.UpdateTaskStatus(ctx, id, task.StatusClosed); err != nil {
-				return err
-			}
-		}
-	}
-
-	return c.NoContent(http.StatusNoContent)
 }
 
 // SyncTaskStatus handles POST /tasks/:id/sync
@@ -924,33 +757,3 @@ func writeSSE(w *echo.Response, event string, data any) error {
 	return nil
 }
 
-// ClassifyRetryReason categorizes a retryable error message into a reason
-// string with a category prefix.
-func ClassifyRetryReason(errMsg string) string {
-	lower := strings.ToLower(errMsg)
-
-	rateLimitPatterns := []string{"rate limit", "rate_limit", "too many requests", "max usage", "overloaded_error"}
-	for _, p := range rateLimitPatterns {
-		if strings.Contains(lower, p) {
-			return "rate_limit: " + errMsg
-		}
-	}
-
-	infraPatterns := []string{
-		"could not resolve host", "unable to access", "unable to look up",
-		"connection refused", "connection timed out", "connection reset",
-		"no such host", "network is unreachable", "temporary failure in name resolution",
-		"tls handshake timeout", "i/o timeout", "unexpected disconnect",
-		"the remote end hung up unexpectedly", "early eof",
-		"ssl_error", "gnutls_handshake", "failed to connect",
-		"failed to create container", "failed to start container",
-		"error waiting for container",
-	}
-	for _, p := range infraPatterns {
-		if strings.Contains(lower, p) {
-			return "transient: " + errMsg
-		}
-	}
-
-	return "transient: " + errMsg
-}
