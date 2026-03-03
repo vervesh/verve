@@ -112,6 +112,10 @@ func (f *fixture) workersURL() string {
 	return fmt.Sprintf("%s/api/v1/agent/workers", f.Server.Address())
 }
 
+func (f *fixture) repoSetupCompleteURL(repoID repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/agent/repos/%s/setup-complete", f.Server.Address(), repoID)
+}
+
 // --- Seed helpers ---
 
 func (f *fixture) seedRunningTask() *task.Task {

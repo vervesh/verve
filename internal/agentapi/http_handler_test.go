@@ -8,6 +8,7 @@ import (
 	"github.com/joshjon/kit/server"
 	"github.com/joshjon/kit/testutil"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/joshjon/verve/internal/agentapi"
 	"github.com/joshjon/verve/internal/epic"
@@ -178,6 +179,86 @@ func TestEpicAppendLogs(t *testing.T) {
 	stored, err := f.EpicStore.ReadEpic(context.Background(), e.ID)
 	assert.NoError(t, err)
 	assert.Contains(t, stored.SessionLog, "agent: analyzing repo")
+}
+
+// --- Repo Setup Agent Endpoint ---
+
+func TestRepoSetupComplete_Success(t *testing.T) {
+	f := newFixture(t)
+
+	// Set repo to scanning status first (pending → scanning)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, f.Repo.ID, "scanning"))
+
+	req := agentapi.RepoSetupCompleteRequest{
+		Success:     true,
+		Summary:     "Go web application using Echo",
+		TechStack:   []string{"Go", "Echo v4", "PostgreSQL"},
+		HasCode:     true,
+		HasClaudeMD: true,
+		HasREADME:   true,
+		NeedsSetup:  false,
+	}
+	postNoContent(t, f.repoSetupCompleteURL(f.Repo.ID), req)
+
+	// Verify scan results were stored
+	r, err := f.RepoStore.ReadRepo(ctx, f.Repo.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Go web application using Echo", r.Summary)
+	assert.Equal(t, []string{"Go", "Echo v4", "PostgreSQL"}, r.TechStack)
+	assert.True(t, r.HasCode)
+	assert.True(t, r.HasCLAUDEMD)
+	assert.True(t, r.HasREADME)
+	assert.Equal(t, "ready", r.SetupStatus, "should be ready when needs_setup=false")
+}
+
+func TestRepoSetupComplete_NeedsSetup(t *testing.T) {
+	f := newFixture(t)
+
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, f.Repo.ID, "scanning"))
+
+	req := agentapi.RepoSetupCompleteRequest{
+		Success:     true,
+		Summary:     "Empty repo",
+		TechStack:   []string{},
+		HasCode:     false,
+		HasClaudeMD: false,
+		HasREADME:   false,
+		NeedsSetup:  true,
+	}
+	postNoContent(t, f.repoSetupCompleteURL(f.Repo.ID), req)
+
+	r, err := f.RepoStore.ReadRepo(ctx, f.Repo.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "needs_setup", r.SetupStatus, "should be needs_setup when needs_setup=true")
+}
+
+func TestRepoSetupComplete_Failure(t *testing.T) {
+	f := newFixture(t)
+
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, f.Repo.ID, "scanning"))
+
+	req := agentapi.RepoSetupCompleteRequest{
+		Success: false,
+	}
+	postNoContent(t, f.repoSetupCompleteURL(f.Repo.ID), req)
+
+	// Should remain in scanning status
+	r, err := f.RepoStore.ReadRepo(ctx, f.Repo.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "scanning", r.SetupStatus, "should remain scanning on failure")
+}
+
+func TestRepoSetupComplete_InvalidID(t *testing.T) {
+	f := newFixture(t)
+
+	url := f.Server.Address() + "/api/v1/agent/repos/bad-id/setup-complete"
+	req := agentapi.RepoSetupCompleteRequest{Success: true}
+	httpRes := doJSON(t, http.MethodPost, url, req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode)
 }
 
 // --- Worker Observability ---
