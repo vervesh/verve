@@ -22,12 +22,6 @@ else
 	docker push $(AGENT_IMAGE):base
 endif
 
-# ── Git Hooks ────────────────────────────────────────────────
-
-.PHONY: hooks
-hooks:
-	git config core.hooksPath .githooks
-
 # ── Code Generation ──────────────────────────────────────────
 
 .PHONY: generate

@@ -68,9 +68,6 @@ make ui-dev                       # Start UI dev server
 make ui-build                     # Build UI for standalone use
 make ui-build-go                  # Build UI into internal/frontend/dist for Go embed
 
-# Git Hooks
-make hooks                        # Install commit-msg hook (conventional commits)
-
 # Code Generation
 make generate                     # Generate sqlc code for postgres and sqlite
 
