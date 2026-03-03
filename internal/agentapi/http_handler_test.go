@@ -86,6 +86,35 @@ func TestTaskComplete_Failure(t *testing.T) {
 	assert.Equal(t, task.StatusFailed, stored.Status)
 }
 
+func TestTaskComplete_MergesFilesModifiedAcrossRetries(t *testing.T) {
+	f := newFixture(t)
+	tsk := f.seedRunningTask()
+
+	// Simulate a previous attempt having set agent_status with files_modified
+	err := f.taskRepo.SetAgentStatus(context.Background(), tsk.ID,
+		`{"files_modified":["main.go","config.go"],"tests_status":"fail","confidence":"medium"}`)
+	assert.NoError(t, err)
+
+	// Complete task with new agent status (retry attempt only reports its own files)
+	req := agentapi.TaskCompleteRequest{
+		Success:        true,
+		PullRequestURL: "https://github.com/owner/repo/pull/42",
+		PRNumber:       42,
+		AgentStatus:    `{"files_modified":["main.go","handler.go"],"tests_status":"pass","confidence":"high"}`,
+	}
+	postNoContent(t, f.taskCompleteURL(tsk.ID), req)
+
+	// Verify merged agent_status includes files from both attempts
+	stored, err := f.taskRepo.ReadTask(context.Background(), tsk.ID)
+	assert.NoError(t, err)
+	assert.Contains(t, stored.AgentStatus, `main.go`)
+	assert.Contains(t, stored.AgentStatus, `handler.go`)
+	assert.Contains(t, stored.AgentStatus, `config.go`)
+	// New status fields should take precedence
+	assert.Contains(t, stored.AgentStatus, `pass`)
+	assert.Contains(t, stored.AgentStatus, `high`)
+}
+
 // --- Epic Agent Endpoints ---
 
 func TestEpicComplete_Success(t *testing.T) {

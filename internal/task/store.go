@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -325,13 +326,84 @@ func (s *Store) MoveToReview(ctx context.Context, id TaskID) error {
 	return nil
 }
 
-// SetAgentStatus stores the structured agent status JSON.
+// SetAgentStatus stores the structured agent status JSON. When the task already
+// has an agent status from a previous attempt, files_modified from the previous
+// status are merged with the new one so the UI shows all files changed across
+// all retry attempts (i.e. the full branch diff, not just the last attempt).
 func (s *Store) SetAgentStatus(ctx context.Context, id TaskID, status string) error {
-	if err := s.repo.SetAgentStatus(ctx, id, status); err != nil {
+	merged := mergeAgentStatusFiles(ctx, s.repo, id, status)
+	if err := s.repo.SetAgentStatus(ctx, id, merged); err != nil {
 		return err
 	}
 	s.publishTaskUpdated(ctx, id)
 	return nil
+}
+
+// mergeAgentStatusFiles merges files_modified from the previous agent status
+// into the new status JSON. The new status takes precedence for all fields
+// except files_modified, which is a union of both old and new entries.
+func mergeAgentStatusFiles(ctx context.Context, repo Repository, id TaskID, newStatus string) string {
+	t, err := repo.ReadTask(ctx, id)
+	if err != nil || t.AgentStatus == "" {
+		return newStatus
+	}
+
+	var oldMap map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(t.AgentStatus), &oldMap); err != nil {
+		return newStatus
+	}
+
+	var newMap map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(newStatus), &newMap); err != nil {
+		return newStatus
+	}
+
+	// Extract files_modified from both statuses.
+	oldFiles := extractStringSlice(oldMap["files_modified"])
+	newFiles := extractStringSlice(newMap["files_modified"])
+
+	if len(oldFiles) == 0 {
+		return newStatus
+	}
+
+	// Build a set from new files, then add old files that aren't already present.
+	seen := make(map[string]bool, len(newFiles))
+	for _, f := range newFiles {
+		seen[f] = true
+	}
+	merged := make([]string, len(newFiles))
+	copy(merged, newFiles)
+	for _, f := range oldFiles {
+		if !seen[f] {
+			merged = append(merged, f)
+			seen[f] = true
+		}
+	}
+
+	// Replace files_modified in the new status with the merged list.
+	mergedJSON, err := json.Marshal(merged)
+	if err != nil {
+		return newStatus
+	}
+	newMap["files_modified"] = mergedJSON
+
+	result, err := json.Marshal(newMap)
+	if err != nil {
+		return newStatus
+	}
+	return string(result)
+}
+
+// extractStringSlice parses a JSON array of strings from a raw JSON value.
+func extractStringSlice(raw json.RawMessage) []string {
+	if raw == nil {
+		return nil
+	}
+	var s []string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return nil
+	}
+	return s
 }
 
 // SetRetryContext stores detailed failure context (e.g. CI logs) for retries.

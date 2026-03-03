@@ -2,6 +2,7 @@ package task
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"sync"
 	"testing"
@@ -287,8 +288,16 @@ func (m *mockRepository) ScheduleRetryFromRunning(_ context.Context, id TaskID, 
 	return true, nil
 }
 
-func (m *mockRepository) SetAgentStatus(_ context.Context, _ TaskID, _ string) error {
-	return m.setAgentStatusErr
+func (m *mockRepository) SetAgentStatus(_ context.Context, id TaskID, status string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.setAgentStatusErr != nil {
+		return m.setAgentStatusErr
+	}
+	if t, ok := m.tasks[id.String()]; ok {
+		t.AgentStatus = status
+	}
+	return nil
 }
 
 func (m *mockRepository) SetRetryContext(_ context.Context, _ TaskID, _ string) error {
@@ -1206,4 +1215,143 @@ func TestStore_DeleteTask_RemovesDependencies(t *testing.T) {
 
 	// Verify the dependency was removed from the dependent task
 	assert.Empty(t, dependent.DependsOn, "expected dependency to be removed")
+}
+
+func TestStore_SetAgentStatus_MergesFilesAcrossRetries(t *testing.T) {
+	repo := newMockRepo()
+	broker := NewBroker(nil)
+	store := NewStore(repo, broker)
+
+	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
+	tsk.Status = StatusRunning
+	tsk.AgentStatus = `{"files_modified":["main.go","config.go"],"tests_status":"fail","confidence":"medium"}`
+	repo.tasks[tsk.ID.String()] = tsk
+	repo.taskStatuses[tsk.ID.String()] = StatusRunning
+
+	// Simulate retry attempt reporting new agent status with only the files it changed
+	newStatus := `{"files_modified":["main.go","handler.go"],"tests_status":"pass","confidence":"high"}`
+	err := store.SetAgentStatus(context.Background(), tsk.ID, newStatus)
+	require.NoError(t, err)
+
+	// The stored status should have merged files from both attempts
+	assert.Contains(t, tsk.AgentStatus, `"main.go"`)
+	assert.Contains(t, tsk.AgentStatus, `"handler.go"`)
+	assert.Contains(t, tsk.AgentStatus, `"config.go"`)
+	// New status fields should take precedence
+	assert.Contains(t, tsk.AgentStatus, `"pass"`)
+	assert.Contains(t, tsk.AgentStatus, `"high"`)
+}
+
+func TestStore_SetAgentStatus_NoPreviousStatus(t *testing.T) {
+	repo := newMockRepo()
+	broker := NewBroker(nil)
+	store := NewStore(repo, broker)
+
+	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
+	tsk.Status = StatusRunning
+	repo.tasks[tsk.ID.String()] = tsk
+	repo.taskStatuses[tsk.ID.String()] = StatusRunning
+
+	newStatus := `{"files_modified":["main.go"],"tests_status":"pass","confidence":"high"}`
+	err := store.SetAgentStatus(context.Background(), tsk.ID, newStatus)
+	require.NoError(t, err)
+
+	assert.Equal(t, newStatus, tsk.AgentStatus)
+}
+
+func TestStore_SetAgentStatus_EmptyNewFiles(t *testing.T) {
+	repo := newMockRepo()
+	broker := NewBroker(nil)
+	store := NewStore(repo, broker)
+
+	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
+	tsk.Status = StatusRunning
+	tsk.AgentStatus = `{"files_modified":["main.go","config.go"],"tests_status":"fail"}`
+	repo.tasks[tsk.ID.String()] = tsk
+	repo.taskStatuses[tsk.ID.String()] = StatusRunning
+
+	// New status has empty files_modified — old files should still be merged in
+	newStatus := `{"files_modified":[],"tests_status":"pass","confidence":"high"}`
+	err := store.SetAgentStatus(context.Background(), tsk.ID, newStatus)
+	require.NoError(t, err)
+
+	assert.Contains(t, tsk.AgentStatus, `"main.go"`)
+	assert.Contains(t, tsk.AgentStatus, `"config.go"`)
+}
+
+func TestStore_SetAgentStatus_InvalidJSON(t *testing.T) {
+	repo := newMockRepo()
+	broker := NewBroker(nil)
+	store := NewStore(repo, broker)
+
+	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
+	tsk.Status = StatusRunning
+	tsk.AgentStatus = `not valid json`
+	repo.tasks[tsk.ID.String()] = tsk
+	repo.taskStatuses[tsk.ID.String()] = StatusRunning
+
+	// Invalid old JSON should not break — new status used as-is
+	newStatus := `{"files_modified":["main.go"],"tests_status":"pass"}`
+	err := store.SetAgentStatus(context.Background(), tsk.ID, newStatus)
+	require.NoError(t, err)
+
+	assert.Equal(t, newStatus, tsk.AgentStatus)
+}
+
+func TestMergeAgentStatusFiles(t *testing.T) {
+	tests := []struct {
+		name      string
+		oldStatus string
+		newStatus string
+		wantFiles []string
+	}{
+		{
+			name:      "merges unique files from old and new",
+			oldStatus: `{"files_modified":["a.go","b.go"],"tests_status":"fail"}`,
+			newStatus: `{"files_modified":["b.go","c.go"],"tests_status":"pass"}`,
+			wantFiles: []string{"b.go", "c.go", "a.go"},
+		},
+		{
+			name:      "no old files",
+			oldStatus: `{"files_modified":[],"tests_status":"fail"}`,
+			newStatus: `{"files_modified":["a.go"],"tests_status":"pass"}`,
+			wantFiles: []string{"a.go"},
+		},
+		{
+			name:      "no old status",
+			oldStatus: "",
+			newStatus: `{"files_modified":["a.go"],"tests_status":"pass"}`,
+			wantFiles: []string{"a.go"},
+		},
+		{
+			name:      "identical files",
+			oldStatus: `{"files_modified":["a.go","b.go"]}`,
+			newStatus: `{"files_modified":["a.go","b.go"]}`,
+			wantFiles: []string{"a.go", "b.go"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := newMockRepo()
+			tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
+			tsk.AgentStatus = tt.oldStatus
+			repo.tasks[tsk.ID.String()] = tsk
+
+			result := mergeAgentStatusFiles(context.Background(), repo, tsk.ID, tt.newStatus)
+
+			// Parse result and check files_modified
+			var parsed map[string]interface{}
+			err := json.Unmarshal([]byte(result), &parsed)
+			require.NoError(t, err)
+
+			filesRaw, ok := parsed["files_modified"].([]interface{})
+			require.True(t, ok)
+			var files []string
+			for _, f := range filesRaw {
+				files = append(files, f.(string))
+			}
+			assert.Equal(t, tt.wantFiles, files)
+		})
+	}
 }
