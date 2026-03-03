@@ -14,6 +14,50 @@ configure_git() {
         log_agent "TLS certificate verification disabled for git (GITHUB_INSECURE_SKIP_VERIFY=true)"
         git config --global http.sslVerify false
     fi
+
+    # Install a global commit-msg hook that enforces Conventional Commits
+    # (https://www.conventionalcommits.org/en/v1.0.0/) on every repository
+    # the agent works with.
+    _install_conventional_commit_hook
+}
+
+_install_conventional_commit_hook() {
+    local hooks_dir="/home/agent/.config/git/hooks"
+    mkdir -p "$hooks_dir"
+
+    cat > "${hooks_dir}/commit-msg" << 'HOOK'
+#!/bin/sh
+# Verve agent global commit-msg hook — enforces Conventional Commits.
+# https://www.conventionalcommits.org/en/v1.0.0/
+
+commit_msg=$(head -1 "$1")
+
+# Allow merge and revert commits
+case "$commit_msg" in
+    Merge\ *|Revert\ *) exit 0 ;;
+esac
+
+# Conventional Commits: type(optional scope)!: description
+# Allowed types: feat, fix, refactor, docs, test, chore, ci, wip
+if ! echo "$commit_msg" | grep -qE '^(feat|fix|refactor|docs|test|chore|ci|wip)(\(.+\))?!?: .+'; then
+    echo >&2 "ERROR: Commit message does not follow Conventional Commits."
+    echo >&2 ""
+    echo >&2 "  Format: type(scope)?: description"
+    echo >&2 "  Allowed types: feat, fix, refactor, docs, test, chore, ci"
+    echo >&2 ""
+    echo >&2 "  Examples:"
+    echo >&2 "    feat: add epic planning support"
+    echo >&2 "    fix: prevent stale tasks from blocking queue"
+    echo >&2 "    feat(worker): add retry logic"
+    echo >&2 ""
+    echo >&2 "  Your message: $commit_msg"
+    exit 1
+fi
+HOOK
+
+    chmod +x "${hooks_dir}/commit-msg"
+    git config --global core.hooksPath "$hooks_dir"
+    log_agent "Conventional commit hook installed globally"
 }
 
 clone_repo() {
@@ -93,7 +137,7 @@ ensure_base_branch() {
 
     git checkout --orphan "${DEFAULT_BRANCH}"
     git rm -rf . >/dev/null 2>&1 || true
-    git commit --allow-empty -m "Initial commit"
+    git commit --allow-empty --no-verify -m "Initial commit"
     git push -u origin "${DEFAULT_BRANCH}" 2>&1
     git checkout "${current_branch}"
 
@@ -108,6 +152,13 @@ commit_and_push() {
     if ! git diff --cached --quiet; then
         log_agent "Committing changes..."
         local commit_title="${TASK_TITLE:-${TASK_DESCRIPTION}}"
+        # Ensure the fallback commit message follows Conventional Commits.
+        # The agent is instructed to commit as it works, so this is only
+        # reached when there are uncommitted changes left over. Prefix with
+        # "feat:" unless the message already has a conventional type.
+        if ! echo "$commit_title" | grep -qE '^(feat|fix|refactor|docs|test|chore|ci|wip)(\(.+\))?!?: '; then
+            commit_title="feat: ${commit_title}"
+        fi
         git commit -m "${commit_title}"
     else
         log_agent "No new changes to commit"

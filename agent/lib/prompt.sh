@@ -84,6 +84,12 @@ ${ACCEPTANCE_CRITERIA}"
 
     prompt+='
 
+COMMIT MESSAGE FORMAT: All git commits MUST follow the Conventional Commits specification (https://www.conventionalcommits.org/en/v1.0.0/).
+Format: type(scope)?: description
+Allowed types: feat, fix, refactor, docs, test, chore, ci
+Examples: "feat: add user authentication", "fix(api): handle null response", "chore: update dependencies"
+A git hook will reject commits that do not follow this format.
+
 As you work, periodically save your progress by running: git add -A && git commit -m "wip: <brief description>" && git push -u origin HEAD
 This ensures your work is pushed to the remote and can be recovered if the session is interrupted.
 
