@@ -554,7 +554,7 @@ const MOCK_EPIC_MAP: Record<string, typeof MOCK_EPIC_DRAFT> = {
 };
 
 // Mock agent metrics data for the agents observability page.
-const MOCK_AGENT_METRICS = {
+const MOCK_METRICS = {
 	running_agents: 3,
 	pending_tasks: 3,
 	review_tasks: 1,
@@ -658,17 +658,6 @@ const MOCK_AGENT_METRICS = {
 			attempt: 1,
 			finished_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString() // 6 hours ago
 		}
-	],
-	workers: [
-		{
-			worker_id: 'wrk_mock01',
-			max_concurrent_tasks: 4,
-			active_tasks: 2,
-			connected_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-			last_poll_at: new Date(Date.now() - 5 * 1000).toISOString(), // 5 seconds ago
-			uptime_ms: 2 * 60 * 60 * 1000,
-			polling: true
-		}
 	]
 };
 
@@ -771,34 +760,34 @@ index 8e2f1a0..b3c4d72 100644
 async function setupMockAPI(page: import('@playwright/test').Page) {
 	// GitHub token status - report as configured so the UI shows the dashboard.
 	await page.route('**/api/v1/settings/github-token', (route) =>
-		route.fulfill({ json: { configured: true, fine_grained: true } })
+		route.fulfill({ json: { data: { configured: true, fine_grained: true } } })
 	);
 
 	// Default model
 	await page.route('**/api/v1/settings/default-model', (route) =>
-		route.fulfill({ json: { model: 'claude-sonnet-4-20250514', configured: true } })
+		route.fulfill({ json: { data: { model: 'claude-sonnet-4-20250514', configured: true } } })
 	);
 
 	// Available models list
 	await page.route('**/api/v1/settings/models', (route) =>
-		route.fulfill({ json: [
+		route.fulfill({ json: { data: [
 			{ value: 'haiku', label: 'Haiku' },
 			{ value: 'sonnet', label: 'Sonnet' },
 			{ value: 'opus', label: 'Opus' }
-		] })
+		] } })
 	);
 
 	// Agent metrics
-	await page.route('**/api/v1/agents/metrics', (route) =>
-		route.fulfill({ json: MOCK_AGENT_METRICS })
+	await page.route('**/api/v1/metrics', (route) =>
+		route.fulfill({ json: { data: MOCK_METRICS } })
 	);
 
 	// Repos list
 	await page.route('**/api/v1/repos', (route) => {
 		if (route.request().method() === 'GET') {
-			return route.fulfill({ json: [MOCK_REPO] });
+			return route.fulfill({ json: { data: [MOCK_REPO] } });
 		}
-		return route.fulfill({ json: MOCK_REPO });
+		return route.fulfill({ json: { data: MOCK_REPO } });
 	});
 
 	// SSE events endpoint - send an init event with mock tasks then keep connection open.
@@ -817,13 +806,13 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 
 	// Task diff (must be before generic /tasks/* route).
 	await page.route('**/api/v1/tasks/*/diff', (route) =>
-		route.fulfill({ json: { diff: MOCK_DIFF } })
+		route.fulfill({ json: { data: { diff: MOCK_DIFF } } })
 	);
 
 	// Task checks (must be before generic /tasks/* route).
 	await page.route('**/api/v1/tasks/*/checks', (route) =>
 		route.fulfill({
-			json: {
+			json: { data: {
 				status: 'success',
 				summary: '3/3 checks passed',
 				checks: [
@@ -846,7 +835,7 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 						url: 'https://github.com'
 					}
 				]
-			}
+			} }
 		})
 	);
 
@@ -883,9 +872,9 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 		const taskId = url.split('/tasks/')[1]?.split('/')[0]?.split('?')[0];
 		const task = MOCK_TASKS.find((t) => t.id === taskId);
 		if (task) {
-			return route.fulfill({ json: task });
+			return route.fulfill({ json: { data: task } });
 		}
-		return route.fulfill({ status: 404, json: { error: 'not found' } });
+		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 	});
 
 	// --- Epic API mocks ---
@@ -894,29 +883,29 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 	await page.route('**/api/v1/repos/*/epics', (route) => {
 		if (route.request().method() === 'POST') {
 			// Create epic — return a new draft epic.
-			return route.fulfill({ json: MOCK_EPIC_DRAFT });
+			return route.fulfill({ json: { data: MOCK_EPIC_DRAFT } });
 		}
-		return route.fulfill({ json: MOCK_EPICS });
+		return route.fulfill({ json: { data: MOCK_EPICS } });
 	});
 
 	// Epic sub-resource routes (must be before the generic /epics/* catch-all).
 	await page.route('**/api/v1/epics/*/plan', (route) =>
-		route.fulfill({ json: MOCK_EPIC_PLANNING })
+		route.fulfill({ json: { data: MOCK_EPIC_PLANNING } })
 	);
 	await page.route('**/api/v1/epics/*/proposed-tasks', (route) =>
-		route.fulfill({ json: MOCK_EPIC_READY })
+		route.fulfill({ json: { data: MOCK_EPIC_READY } })
 	);
 	await page.route('**/api/v1/epics/*/session-message', (route) =>
-		route.fulfill({ json: MOCK_EPIC_PLANNING })
+		route.fulfill({ json: { data: MOCK_EPIC_PLANNING } })
 	);
 	await page.route('**/api/v1/epics/*/finish-planning', (route) =>
-		route.fulfill({ json: MOCK_EPIC_READY })
+		route.fulfill({ json: { data: MOCK_EPIC_READY } })
 	);
 	await page.route('**/api/v1/epics/*/confirm', (route) =>
-		route.fulfill({ json: MOCK_EPIC_ACTIVE })
+		route.fulfill({ json: { data: MOCK_EPIC_ACTIVE } })
 	);
 	await page.route('**/api/v1/epics/*/close', (route) =>
-		route.fulfill({ json: { ...MOCK_EPIC_DRAFT, status: 'closed' } })
+		route.fulfill({ json: { data: { ...MOCK_EPIC_DRAFT, status: 'closed' } } })
 	);
 
 	// Individual epic detail (generic catch-all for /epics/*).
@@ -925,9 +914,9 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 		const epicId = url.split('/epics/')[1]?.split('/')[0]?.split('?')[0];
 		const epic = epicId ? MOCK_EPIC_MAP[epicId] : undefined;
 		if (epic) {
-			return route.fulfill({ json: epic });
+			return route.fulfill({ json: { data: epic } });
 		}
-		return route.fulfill({ status: 404, json: { error: 'not found' } });
+		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 	});
 }
 

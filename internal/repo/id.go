@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"github.com/cohesivestack/valgo"
 	"github.com/joshjon/kit/id"
 	"go.jetify.com/typeid"
 )
@@ -27,4 +28,15 @@ func ParseRepoID(s string) (RepoID, error) {
 // MustParseRepoID parses a string into a RepoID, panicking on failure.
 func MustParseRepoID(s string) RepoID {
 	return id.MustParse[RepoID](s)
+}
+
+// RepoIDValidator returns a valgo Validator that checks whether the given
+// string is a valid RepoID.
+func RepoIDValidator(identifier string, nameAndTitle ...string) *valgo.ValidatorString[string] {
+	return valgo.String(identifier, nameAndTitle...).
+		Not().Blank().
+		Passing(func(_ string) bool {
+			_, err := ParseRepoID(identifier)
+			return err == nil
+		}, "Must be a valid repo ID")
 }

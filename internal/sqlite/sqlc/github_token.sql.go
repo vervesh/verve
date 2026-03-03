@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"time"
 )
 
 const deleteGitHubToken = `-- name: DeleteGitHubToken :exec
@@ -38,8 +37,8 @@ ON CONFLICT (id) DO UPDATE SET encrypted_token = excluded.encrypted_token, updat
 
 type UpsertGitHubTokenParams struct {
 	EncryptedToken string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	CreatedAt      int64
+	UpdatedAt      int64
 }
 
 func (q *Queries) UpsertGitHubToken(ctx context.Context, arg UpsertGitHubTokenParams) error {

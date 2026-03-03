@@ -7,7 +7,6 @@ package sqlc
 
 import (
 	"context"
-	"time"
 )
 
 const createRepo = `-- name: CreateRepo :exec
@@ -20,7 +19,7 @@ type CreateRepoParams struct {
 	Owner     string
 	Name      string
 	FullName  string
-	CreatedAt time.Time
+	CreatedAt int64
 }
 
 func (q *Queries) CreateRepo(ctx context.Context, arg CreateRepoParams) error {

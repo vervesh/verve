@@ -5,8 +5,6 @@ bin/
 tmp/
 local/
 dist/
-data/*
-!data/.gitkeep
 
 .env.server
 .env.worker
@@ -19,5 +17,6 @@ data/*
 !internal/frontend/dist/
 internal/frontend/dist/*
 !internal/frontend/dist/placeholder.html
+
 .rekal/
 .claude/skills/

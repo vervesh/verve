@@ -51,8 +51,8 @@ func (r *EpicRepository) CreateEpic(ctx context.Context, e *epic.Epic) error {
 		SessionLog:     e.SessionLog,
 		NotReady:       e.NotReady,
 		Model:          model,
-		CreatedAt:      pgTimestamptz(e.CreatedAt),
-		UpdatedAt:      pgTimestamptz(e.UpdatedAt),
+		CreatedAt:      e.CreatedAt.Unix(),
+		UpdatedAt:      e.UpdatedAt.Unix(),
 	})
 	return tagEpicErr(err)
 }
@@ -172,7 +172,7 @@ func (r *EpicRepository) ReleaseEpicClaim(ctx context.Context, id epic.EpicID) e
 }
 
 func (r *EpicRepository) ListStaleEpics(ctx context.Context, threshold time.Time) ([]*epic.Epic, error) {
-	rows, err := r.db.ListStaleEpics(ctx, pgTimestamptz(threshold))
+	rows, err := r.db.ListStaleEpics(ctx, ptr(threshold.Unix()))
 	if err != nil {
 		return nil, err
 	}
@@ -223,18 +223,10 @@ func unmarshalEpic(in *sqlc.Epic) *epic.Epic {
 	if e.SessionLog == nil {
 		e.SessionLog = []string{}
 	}
-	if in.CreatedAt.Valid {
-		e.CreatedAt = in.CreatedAt.Time
-	}
-	if in.UpdatedAt.Valid {
-		e.UpdatedAt = in.UpdatedAt.Time
-	}
-	if in.ClaimedAt.Valid {
-		e.ClaimedAt = &in.ClaimedAt.Time
-	}
-	if in.LastHeartbeatAt.Valid {
-		e.LastHeartbeatAt = &in.LastHeartbeatAt.Time
-	}
+	e.CreatedAt = unixToTime(in.CreatedAt)
+	e.UpdatedAt = unixToTime(in.UpdatedAt)
+	e.ClaimedAt = unixPtrToTimePtr(in.ClaimedAt)
+	e.LastHeartbeatAt = unixPtrToTimePtr(in.LastHeartbeatAt)
 	return e
 }
 

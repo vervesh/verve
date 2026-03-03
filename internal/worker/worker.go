@@ -246,12 +246,14 @@ func (w *Worker) poll(ctx context.Context) (*PollResponse, error) {
 		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
 	}
 
-	var poll PollResponse
-	if err := json.NewDecoder(resp.Body).Decode(&poll); err != nil {
+	var envelope struct {
+		Data PollResponse `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return nil, err
 	}
 
-	return &poll, nil
+	return &envelope.Data, nil
 }
 
 // logStreamer buffers log lines and periodically sends them to the API server

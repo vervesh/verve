@@ -25,8 +25,8 @@ func NewGitHubTokenRepository(dbtx DB) *GitHubTokenRepository {
 func (r *GitHubTokenRepository) UpsertGitHubToken(ctx context.Context, encryptedToken string, now time.Time) error {
 	return r.db.UpsertGitHubToken(ctx, sqlc.UpsertGitHubTokenParams{
 		EncryptedToken: encryptedToken,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		CreatedAt:      now.Unix(),
+		UpdatedAt:      now.Unix(),
 	})
 }
 

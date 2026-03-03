@@ -31,7 +31,7 @@ func (r *RepoRepository) CreateRepo(ctx context.Context, rp *repo.Repo) error {
 		Owner:     rp.Owner,
 		Name:      rp.Name,
 		FullName:  rp.FullName,
-		CreatedAt: rp.CreatedAt,
+		CreatedAt: rp.CreatedAt.Unix(),
 	}))
 }
 
@@ -73,7 +73,7 @@ func unmarshalRepo(in *sqlc.Repo) *repo.Repo {
 		Owner:     in.Owner,
 		Name:      in.Name,
 		FullName:  in.FullName,
-		CreatedAt: in.CreatedAt,
+		CreatedAt: unixToTime(in.CreatedAt),
 	}
 }
 

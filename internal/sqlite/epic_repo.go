@@ -56,8 +56,8 @@ func (r *EpicRepository) CreateEpic(ctx context.Context, e *epic.Epic) error {
 		SessionLog:     string(sessionLogJSON),
 		NotReady:       notReady,
 		Model:          model,
-		CreatedAt:      e.CreatedAt,
-		UpdatedAt:      e.UpdatedAt,
+		CreatedAt:      e.CreatedAt.Unix(),
+		UpdatedAt:      e.UpdatedAt.Unix(),
 	})
 	return tagEpicErr(err)
 }
@@ -193,7 +193,8 @@ func (r *EpicRepository) ReleaseEpicClaim(ctx context.Context, id epic.EpicID) e
 }
 
 func (r *EpicRepository) ListStaleEpics(ctx context.Context, threshold time.Time) ([]*epic.Epic, error) {
-	rows, err := r.db.ListStaleEpics(ctx, &threshold)
+	thresholdUnix := threshold.Unix()
+	rows, err := r.db.ListStaleEpics(ctx, &thresholdUnix)
 	if err != nil {
 		return nil, err
 	}
@@ -237,12 +238,12 @@ func unmarshalEpic(in *sqlc.Epic) *epic.Epic {
 		Description:     in.Description,
 		Status:          epic.Status(in.Status),
 		NotReady:        in.NotReady != 0,
-		ClaimedAt:       in.ClaimedAt,
-		LastHeartbeatAt: in.LastHeartbeatAt,
+		ClaimedAt:       unixPtrToTimePtr(in.ClaimedAt),
+		LastHeartbeatAt: unixPtrToTimePtr(in.LastHeartbeatAt),
 		Feedback:        in.Feedback,
 		FeedbackType:    in.FeedbackType,
-		CreatedAt:       in.CreatedAt,
-		UpdatedAt:       in.UpdatedAt,
+		CreatedAt:       unixToTime(in.CreatedAt),
+		UpdatedAt:       unixToTime(in.UpdatedAt),
 	}
 	if in.PlanningPrompt != nil {
 		e.PlanningPrompt = *in.PlanningPrompt

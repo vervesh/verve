@@ -1,30 +1,10 @@
 services:
-  postgres:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_USER: verve
-      POSTGRES_PASSWORD: verve
-      POSTGRES_DB: verve
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U verve -d verve && psql -U verve -d verve -c 'SELECT 1'"]
-      interval: 3s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
-
   server:
     build:
       context: .
       target: server
     ports:
       - "7400:7400"
-    depends_on:
-      postgres:
-        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:7400/healthz || exit 1"]
       interval: 3s
@@ -33,6 +13,10 @@ services:
       start_period: 5s
     env_file:
       - .env.server
+    environment:
+      SQLITE_DIR: /data
+    volumes:
+      - ~/.local/share/verve:/data
 
   worker:
     build:
@@ -43,6 +27,8 @@ services:
         condition: service_healthy
     env_file:
       - .env.worker
+    environment:
+      AGENT_IMAGE: verve:dev
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -55,5 +41,3 @@ services:
       server:
         condition: service_healthy
 
-volumes:
-  postgres_data:

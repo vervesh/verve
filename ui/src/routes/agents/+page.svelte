@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { client } from '$lib/api-client';
-	import type { AgentMetrics, ActiveAgent, CompletedAgent, WorkerInfo } from '$lib/models/agent-metrics';
+	import type { Metrics, ActiveAgent, CompletedAgent, WorkerInfo } from '$lib/models/metrics';
 	import {
 		Activity,
 		Clock,
@@ -17,14 +17,14 @@
 		Layers
 	} from 'lucide-svelte';
 
-	let metrics = $state<AgentMetrics | null>(null);
+	let metrics = $state<Metrics | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let pollInterval: ReturnType<typeof setInterval> | null = null;
 
 	async function loadMetrics() {
 		try {
-			metrics = await client.getAgentMetrics();
+			metrics = await client.getMetrics();
 			error = null;
 		} catch (e) {
 			error = (e as Error).message;

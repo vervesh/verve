@@ -5,10 +5,12 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/joshjon/kit/server"
 	"github.com/labstack/echo/v4"
 
 	"github.com/joshjon/verve/internal/epic"
 	"github.com/joshjon/verve/internal/githubtoken"
+	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/repo"
 	"github.com/joshjon/verve/internal/task"
 	"github.com/joshjon/verve/internal/workertracker"
@@ -16,11 +18,11 @@ import (
 
 // HTTPHandler handles agent-facing API requests.
 type HTTPHandler struct {
-	taskStore       *task.Store
-	epicStore       *epic.Store
-	repoStore       *repo.Store
-	githubToken     *githubtoken.Service
-	workerRegistry  *workertracker.Registry
+	taskStore      *task.Store
+	epicStore      *epic.Store
+	repoStore      *repo.Store
+	githubToken    *githubtoken.Service
+	workerRegistry *workertracker.Registry
 }
 
 // NewHTTPHandler creates a new HTTPHandler.
@@ -55,13 +57,11 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 }
 
 // Poll handles GET /poll — unified long-poll for available work.
-// Tries to claim an epic first (higher priority), then a task.
 func (h *HTTPHandler) Poll(c echo.Context) error {
 	timeout := 30 * time.Second
 	deadline := time.Now().Add(timeout)
 	ctx := c.Request().Context()
 
-	// Track worker metadata from query parameters
 	workerID := c.QueryParam("worker_id")
 	if workerID != "" && h.workerRegistry != nil {
 		maxConcurrent, _ := strconv.Atoi(c.QueryParam("max_concurrent"))
@@ -74,30 +74,28 @@ func (h *HTTPHandler) Poll(c echo.Context) error {
 	}
 
 	for {
-		// Try epics first (higher priority)
 		e, err := h.epicStore.ClaimPendingEpic(ctx)
 		if err != nil {
-			return jsonError(c, err)
+			return err
 		}
 		if e != nil {
 			resp, err := h.buildEpicPollResponse(c, e)
 			if err != nil {
-				return jsonError(c, err)
+				return err
 			}
-			return c.JSON(http.StatusOK, resp)
+			return server.SetResponse(c, http.StatusOK, resp)
 		}
 
-		// Then try tasks
 		t, err := h.taskStore.ClaimPendingTask(ctx, nil)
 		if err != nil {
-			return jsonError(c, err)
+			return err
 		}
 		if t != nil {
 			resp, err := h.buildTaskPollResponse(c, t)
 			if err != nil {
-				return jsonError(c, err)
+				return err
 			}
-			return c.JSON(http.StatusOK, resp)
+			return server.SetResponse(c, http.StatusOK, resp)
 		}
 
 		remaining := time.Until(deadline)
@@ -105,7 +103,6 @@ func (h *HTTPHandler) Poll(c echo.Context) error {
 			return c.NoContent(http.StatusNoContent)
 		}
 
-		// Wait on both stores' pending channels
 		select {
 		case <-h.epicStore.WaitForPending():
 		case <-h.taskStore.WaitForPending():
@@ -163,46 +160,38 @@ func (h *HTTPHandler) buildTaskPollResponse(c echo.Context, t *task.Task) (*Poll
 
 // TaskAppendLogs handles POST /tasks/:id/logs
 func (h *HTTPHandler) TaskAppendLogs(c echo.Context) error {
-	id, err := task.ParseTaskID(c.Param("id"))
+	req, err := server.BindRequest[TaskLogsRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid task ID"))
+		return err
 	}
-	var req struct {
-		Logs    []string `json:"logs"`
-		Attempt int      `json:"attempt"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := task.MustParseTaskID(req.ID)
+	c.Set(logkey.TaskID, id.String())
+
 	attempt := req.Attempt
 	if attempt == 0 {
 		attempt = 1
 	}
 	if err := h.taskStore.AppendTaskLogs(c.Request().Context(), id, attempt, req.Logs); err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, statusOK())
+	return c.NoContent(http.StatusNoContent)
 }
 
 // TaskHeartbeat handles POST /tasks/:id/heartbeat.
-// Returns {"stopped": true} when the task is no longer in running status — either
-// because it was explicitly stopped, closed, or deleted — so the worker cancels
-// the agent container immediately and avoids wasting resources.
 func (h *HTTPHandler) TaskHeartbeat(c echo.Context) error {
-	id, err := task.ParseTaskID(c.Param("id"))
+	req, err := server.BindRequest[TaskIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid task ID"))
+		return err
 	}
-	ctx := c.Request().Context()
+	id := task.MustParseTaskID(req.ID)
+	c.Set(logkey.TaskID, id.String())
 
-	// Heartbeat returns true when the task is still running (row updated).
-	// If the task was stopped, closed, or deleted the UPDATE matches zero rows
-	// and stillRunning is false — telling the worker to cancel execution.
+	ctx := c.Request().Context()
 	stillRunning, err := h.taskStore.Heartbeat(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, map[string]interface{}{
+	return server.SetResponse(c, http.StatusOK, map[string]interface{}{
 		"status":  "ok",
 		"stopped": !stillRunning,
 	})
@@ -210,37 +199,23 @@ func (h *HTTPHandler) TaskHeartbeat(c echo.Context) error {
 
 // TaskComplete handles POST /tasks/:id/complete
 func (h *HTTPHandler) TaskComplete(c echo.Context) error {
-	id, err := task.ParseTaskID(c.Param("id"))
+	req, err := server.BindRequest[TaskCompleteRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid task ID"))
+		return err
 	}
-
-	var req struct {
-		Success        bool    `json:"success"`
-		PullRequestURL string  `json:"pull_request_url"`
-		PRNumber       int     `json:"pr_number"`
-		BranchName     string  `json:"branch_name"`
-		Error          string  `json:"error"`
-		AgentStatus    string  `json:"agent_status"`
-		CostUSD        float64 `json:"cost_usd"`
-		PrereqFailed   string  `json:"prereq_failed"`
-		NoChanges      bool    `json:"no_changes"`
-		Retryable      bool    `json:"retryable"`
-	}
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := task.MustParseTaskID(req.ID)
+	c.Set(logkey.TaskID, id.String())
 
 	ctx := c.Request().Context()
 
 	if req.AgentStatus != "" {
 		if err := h.taskStore.SetAgentStatus(ctx, id, req.AgentStatus); err != nil {
-			return jsonError(c, err)
+			return err
 		}
 	}
 	if req.CostUSD > 0 {
 		if err := h.taskStore.AddCost(ctx, id, req.CostUSD); err != nil {
-			return jsonError(c, err)
+			return err
 		}
 	}
 
@@ -248,183 +223,165 @@ func (h *HTTPHandler) TaskComplete(c echo.Context) error {
 	case !req.Success:
 		if req.PrereqFailed != "" {
 			if err := h.taskStore.SetCloseReason(ctx, id, req.PrereqFailed); err != nil {
-				return jsonError(c, err)
+				return err
 			}
 		}
 		if req.Retryable && req.PrereqFailed == "" {
 			reason := "rate_limit: " + req.Error
 			if err := h.taskStore.ScheduleRetry(ctx, id, reason); err != nil {
-				return jsonError(c, err)
+				return err
 			}
-			return c.JSON(http.StatusOK, statusOK())
+			return c.NoContent(http.StatusNoContent)
 		}
 		t, readErr := h.taskStore.ReadTask(ctx, id)
 		if readErr != nil {
-			return jsonError(c, readErr)
+			return readErr
 		}
 		if req.PrereqFailed == "" && (t.PRNumber > 0 || t.BranchName != "") {
 			if err := h.taskStore.UpdateTaskStatus(ctx, id, task.StatusReview); err != nil {
-				return jsonError(c, err)
+				return err
 			}
 		} else {
 			if err := h.taskStore.UpdateTaskStatus(ctx, id, task.StatusFailed); err != nil {
-				return jsonError(c, err)
+				return err
 			}
 		}
 	case req.PullRequestURL != "":
 		if err := h.taskStore.SetTaskPullRequest(ctx, id, req.PullRequestURL, req.PRNumber); err != nil {
-			return jsonError(c, err)
+			return err
 		}
 	case req.BranchName != "":
 		if err := h.taskStore.SetTaskBranch(ctx, id, req.BranchName); err != nil {
-			return jsonError(c, err)
+			return err
 		}
 	default:
 		t, readErr := h.taskStore.ReadTask(ctx, id)
 		if readErr != nil {
-			return jsonError(c, readErr)
+			return readErr
 		}
 		if t.PRNumber > 0 || t.BranchName != "" {
 			if err := h.taskStore.UpdateTaskStatus(ctx, id, task.StatusReview); err != nil {
-				return jsonError(c, err)
+				return err
 			}
 		} else {
 			if req.NoChanges {
 				if err := h.taskStore.SetCloseReason(ctx, id, "No changes needed — the codebase already meets the required criteria"); err != nil {
-					return jsonError(c, err)
+					return err
 				}
 			}
 			if err := h.taskStore.UpdateTaskStatus(ctx, id, task.StatusClosed); err != nil {
-				return jsonError(c, err)
+				return err
 			}
 		}
 	}
 
-	return c.JSON(http.StatusOK, statusOK())
+	return c.NoContent(http.StatusNoContent)
 }
 
 // --- Epic Agent Endpoints ---
 
-// EpicPropose handles POST /epics/:id/propose — agent submits proposed tasks.
+// EpicPropose handles POST /epics/:id/propose
 func (h *HTTPHandler) EpicPropose(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[ProposeTasksRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req ProposeTasksRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.epicStore.UpdateProposedTasks(ctx, id, req.Tasks); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	e, err := h.epicStore.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
-// EpicPollFeedback handles GET /epics/:id/poll-feedback — agent long-polls for user feedback.
+// EpicPollFeedback handles GET /epics/:id/poll-feedback
 func (h *HTTPHandler) EpicPollFeedback(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	timeout := 30 * time.Second
 	deadline := time.Now().Add(timeout)
 	ctx := c.Request().Context()
 
 	for {
-		// Check for pending feedback in DB
 		feedback, feedbackType, err := h.epicStore.PollFeedback(ctx, id)
 		if err != nil {
-			return jsonError(c, err)
+			return err
 		}
 		if feedbackType != nil {
 			resp := FeedbackResponse{Type: *feedbackType}
 			if feedback != nil {
 				resp.Feedback = *feedback
 			}
-			return c.JSON(http.StatusOK, resp)
+			return server.SetResponse(c, http.StatusOK, resp)
 		}
 
 		remaining := time.Until(deadline)
 		if remaining <= 0 {
-			return c.JSON(http.StatusOK, FeedbackResponse{Type: "timeout"})
+			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
 		}
 
 		select {
 		case <-h.epicStore.WaitForFeedback(id.String()):
 		case <-time.After(remaining):
-			return c.JSON(http.StatusOK, FeedbackResponse{Type: "timeout"})
+			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
 		case <-ctx.Done():
-			return c.JSON(http.StatusOK, FeedbackResponse{Type: "timeout"})
+			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
 		}
 	}
 }
 
 // EpicHeartbeat handles POST /epics/:id/heartbeat
 func (h *HTTPHandler) EpicHeartbeat(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
+
 	if err := h.epicStore.EpicHeartbeat(c.Request().Context(), id); err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, statusOK())
+	return c.NoContent(http.StatusNoContent)
 }
 
-// EpicAppendLogs handles POST /epics/:id/logs — agent appends session log entries.
+// EpicAppendLogs handles POST /epics/:id/logs
 func (h *HTTPHandler) EpicAppendLogs(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[SessionLogRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req SessionLogRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	if err := h.epicStore.AppendSessionLog(c.Request().Context(), id, req.Lines); err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, statusOK())
+	return c.NoContent(http.StatusNoContent)
 }
 
 // --- Worker Observability ---
 
-// ListWorkers handles GET /workers — returns actively polling workers.
+// ListWorkers handles GET /workers
 func (h *HTTPHandler) ListWorkers(c echo.Context) error {
 	if h.workerRegistry == nil {
-		return c.JSON(http.StatusOK, []struct{}{})
+		return server.SetResponseList(c, http.StatusOK, []workertracker.WorkerInfo{}, "")
 	}
-	// Workers that haven't polled in 2 minutes are considered stale
 	workers := h.workerRegistry.ListWorkers(2 * time.Minute)
 	if workers == nil {
 		workers = []workertracker.WorkerInfo{}
 	}
-	return c.JSON(http.StatusOK, workers)
-}
-
-// --- Helpers ---
-
-func jsonError(c echo.Context, err error) error {
-	c.Logger().Errorf("handler error: method=%s path=%s status=500 error=%v", c.Request().Method, c.Path(), err)
-	return c.JSON(http.StatusInternalServerError, errorResponse(err.Error()))
-}
-
-func errorResponse(msg string) map[string]string {
-	return map[string]string{"error": msg}
-}
-
-func statusOK() map[string]string {
-	return map[string]string{"status": "ok"}
+	return server.SetResponseList(c, http.StatusOK, workers, "")
 }

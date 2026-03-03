@@ -22,23 +22,23 @@ UPDATE epic SET
   session_log = ?,
   not_ready = ?,
   model = ?,
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdateEpicStatus :exec
-UPDATE epic SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE epic SET status = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdateProposedTasks :exec
-UPDATE epic SET proposed_tasks = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE epic SET proposed_tasks = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: SetEpicTaskIDs :exec
-UPDATE epic SET task_ids = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE epic SET task_ids = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: AppendSessionLog :exec
-UPDATE epic SET session_log = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE epic SET session_log = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: DeleteEpic :exec
@@ -51,29 +51,29 @@ ORDER BY created_at ASC;
 
 -- name: ClaimEpic :execrows
 UPDATE epic SET
-  claimed_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-  last_heartbeat_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  claimed_at = unixepoch(),
+  last_heartbeat_at = unixepoch(),
+  updated_at = unixepoch()
 WHERE id = ? AND status = 'planning' AND claimed_at IS NULL;
 
 -- name: EpicHeartbeat :exec
 UPDATE epic SET
-  last_heartbeat_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  last_heartbeat_at = unixepoch(),
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: SetEpicFeedback :exec
 UPDATE epic SET
   feedback = ?,
   feedback_type = ?,
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: ClearEpicFeedback :exec
 UPDATE epic SET
   feedback = NULL,
   feedback_type = NULL,
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: ReleaseEpicClaim :exec
@@ -81,7 +81,7 @@ UPDATE epic SET
   claimed_at = NULL,
   last_heartbeat_at = NULL,
   status = 'planning',
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: ListStaleEpics :many

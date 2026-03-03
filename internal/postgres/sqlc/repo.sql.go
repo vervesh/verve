@@ -7,8 +7,6 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createRepo = `-- name: CreateRepo :exec
@@ -17,11 +15,11 @@ VALUES ($1, $2, $3, $4, $5)
 `
 
 type CreateRepoParams struct {
-	ID        string             `json:"id"`
-	Owner     string             `json:"owner"`
-	Name      string             `json:"name"`
-	FullName  string             `json:"full_name"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        string `json:"id"`
+	Owner     string `json:"owner"`
+	Name      string `json:"name"`
+	FullName  string `json:"full_name"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 func (q *Queries) CreateRepo(ctx context.Context, arg CreateRepoParams) error {

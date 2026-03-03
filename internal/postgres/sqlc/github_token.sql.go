@@ -7,8 +7,6 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const deleteGitHubToken = `-- name: DeleteGitHubToken :exec
@@ -38,8 +36,8 @@ ON CONFLICT (id) DO UPDATE SET encrypted_token = $1, updated_at = $2
 `
 
 type UpsertGitHubTokenParams struct {
-	EncryptedToken string             `json:"encrypted_token"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	EncryptedToken string `json:"encrypted_token"`
+	CreatedAt      int64  `json:"created_at"`
 }
 
 func (q *Queries) UpsertGitHubToken(ctx context.Context, arg UpsertGitHubTokenParams) error {

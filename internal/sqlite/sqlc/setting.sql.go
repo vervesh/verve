@@ -62,8 +62,8 @@ func (q *Queries) ReadSetting(ctx context.Context, key string) (string, error) {
 }
 
 const upsertSetting = `-- name: UpsertSetting :exec
-INSERT INTO setting (key, value, updated_at) VALUES (?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+INSERT INTO setting (key, value, updated_at) VALUES (?, ?, unixepoch())
+ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = unixepoch()
 `
 
 type UpsertSettingParams struct {

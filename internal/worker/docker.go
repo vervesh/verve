@@ -56,7 +56,7 @@ func (d *DockerRunner) EnsureImage(ctx context.Context) error {
 		}
 	}
 
-	return fmt.Errorf("agent image %s not found — run 'make build-agent' or 'docker pull %s'", d.agentImage, d.agentImage)
+	return fmt.Errorf("agent image %s not found", d.agentImage)
 }
 
 // AgentImage returns the configured agent image name

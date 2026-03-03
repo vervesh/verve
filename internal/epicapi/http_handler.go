@@ -1,13 +1,13 @@
 package epicapi
 
 import (
-	"errors"
 	"net/http"
 
-	"github.com/joshjon/kit/errtag"
+	"github.com/joshjon/kit/server"
 	"github.com/labstack/echo/v4"
 
 	"github.com/joshjon/verve/internal/epic"
+	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/repo"
 	"github.com/joshjon/verve/internal/setting"
 	"github.com/joshjon/verve/internal/task"
@@ -49,26 +49,16 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 
 // CreateEpic handles POST /repos/:repo_id/epics
 func (h *HTTPHandler) CreateEpic(c echo.Context) error {
-	repoID, err := repo.ParseRepoID(c.Param("repo_id"))
+	req, err := server.BindRequest[CreateEpicRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid repo ID"))
+		return err
 	}
-
-	var req CreateEpicRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
-	if req.Title == "" {
-		return c.JSON(http.StatusBadRequest, errorResponse("title required"))
-	}
-	if len(req.Title) > 200 {
-		return c.JSON(http.StatusBadRequest, errorResponse("title must be 200 characters or less"))
-	}
+	repoID := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, repoID.String())
 
 	e := epic.NewEpic(repoID.String(), req.Title, req.Description)
 	e.PlanningPrompt = req.PlanningPrompt
 
-	// Resolve model: use request value, fall back to default model setting, then "sonnet".
 	model := req.Model
 	if model == "" && h.settingService != nil {
 		model = h.settingService.Get(setting.KeyDefaultModel)
@@ -79,56 +69,60 @@ func (h *HTTPHandler) CreateEpic(c echo.Context) error {
 	e.Model = model
 
 	if err := h.store.CreateEpic(c.Request().Context(), e); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
-	return c.JSON(http.StatusCreated, e)
+	c.Set(logkey.EpicID, e.ID.String())
+	return server.SetResponse(c, http.StatusCreated, e)
 }
 
 // ListEpicsByRepo handles GET /repos/:repo_id/epics
 func (h *HTTPHandler) ListEpicsByRepo(c echo.Context) error {
-	repoID, err := repo.ParseRepoID(c.Param("repo_id"))
+	req, err := server.BindRequest[RepoIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid repo ID"))
+		return err
 	}
+	repoID := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, repoID.String())
 
 	epics, err := h.store.ListEpicsByRepo(c.Request().Context(), repoID.String())
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, epics)
+	return server.SetResponseList(c, http.StatusOK, epics, "")
 }
 
 // GetEpic handles GET /epics/:id
 func (h *HTTPHandler) GetEpic(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	e, err := h.store.ReadEpic(c.Request().Context(), id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // DeleteEpic handles DELETE /epics/:id
-// Deletes the epic and bulk-deletes all of its child tasks.
 func (h *HTTPHandler) DeleteEpic(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 
-	// Verify epic exists before proceeding.
 	if _, err := h.store.ReadEpic(ctx, id); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
-	// Bulk-delete all child tasks (and their logs/dependencies).
 	if h.taskStore != nil {
 		if err := h.taskStore.BulkDeleteTasksByEpic(ctx, id.String()); err != nil {
 			c.Logger().Errorf("failed to bulk delete tasks for epic %s: %v", id, err)
@@ -136,133 +130,113 @@ func (h *HTTPHandler) DeleteEpic(c echo.Context) error {
 	}
 
 	if err := h.store.DeleteEpic(ctx, id); err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, statusOK())
+	return c.NoContent(http.StatusNoContent)
 }
 
 // StartPlanning handles POST /epics/:id/plan
 func (h *HTTPHandler) StartPlanning(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[StartPlanningRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req StartPlanningRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
-	if req.Prompt == "" {
-		return c.JSON(http.StatusBadRequest, errorResponse("prompt required"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.store.StartPlanning(ctx, id, req.Prompt); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // UpdateProposedTasks handles PUT /epics/:id/proposed-tasks
 func (h *HTTPHandler) UpdateProposedTasks(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[UpdateProposedTasksRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req UpdateProposedTasksRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.store.UpdateProposedTasks(ctx, id, req.Tasks); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // SendSessionMessage handles POST /epics/:id/session-message
 func (h *HTTPHandler) SendSessionMessage(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[SessionMessageRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req SessionMessageRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
-	if req.Message == "" {
-		return c.JSON(http.StatusBadRequest, errorResponse("message required"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.store.AppendSessionLog(ctx, id, []string{"user: " + req.Message}); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
-	// Signal the agent via feedback
 	if err := h.store.SetFeedback(ctx, id, req.Message, epic.FeedbackMessage); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // ConfirmEpic handles POST /epics/:id/confirm
 func (h *HTTPHandler) ConfirmEpic(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[ConfirmEpicRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
-
-	var req ConfirmEpicRequest
-	if err := c.Bind(&req); err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid request"))
-	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.store.ConfirmEpic(ctx, id, req.NotReady); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // CloseEpic handles POST /epics/:id/close
-// Closes the epic and bulk-closes all non-terminal child tasks.
 func (h *HTTPHandler) CloseEpic(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	if err := h.store.CloseEpic(ctx, id); err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
-	// Bulk-close all non-terminal child tasks (pending, running, review, failed).
-	// Tasks already closed or merged are left unchanged.
 	if h.taskStore != nil {
 		if err := h.taskStore.BulkCloseTasksByEpic(ctx, id.String(), "Epic closed"); err != nil {
 			c.Logger().Errorf("failed to bulk close tasks for epic %s: %v", id, err)
@@ -271,9 +245,9 @@ func (h *HTTPHandler) CloseEpic(c echo.Context) error {
 
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
-	return c.JSON(http.StatusOK, e)
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // EpicTaskSummary contains the status summary for a task in an epic.
@@ -284,17 +258,18 @@ type EpicTaskSummary struct {
 }
 
 // GetEpicTasks handles GET /epics/:id/tasks
-// Returns the status of all tasks in the epic.
 func (h *HTTPHandler) GetEpicTasks(c echo.Context) error {
-	id, err := epic.ParseEpicID(c.Param("id"))
+	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
-		return c.JSON(http.StatusBadRequest, errorResponse("invalid epic ID"))
+		return err
 	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
 	e, err := h.store.ReadEpic(ctx, id)
 	if err != nil {
-		return jsonError(c, err)
+		return err
 	}
 
 	summaries := make([]EpicTaskSummary, 0, len(e.TaskIDs))
@@ -305,7 +280,6 @@ func (h *HTTPHandler) GetEpicTasks(c echo.Context) error {
 		}
 		t, readErr := h.taskStore.ReadTask(ctx, taskID)
 		if readErr != nil {
-			// Task may have been deleted
 			continue
 		}
 		summaries = append(summaries, EpicTaskSummary{
@@ -315,30 +289,5 @@ func (h *HTTPHandler) GetEpicTasks(c echo.Context) error {
 		})
 	}
 
-	return c.JSON(http.StatusOK, summaries)
-}
-
-func jsonError(c echo.Context, err error) error {
-	code := http.StatusInternalServerError
-	msg := "internal server error"
-
-	var tagger errtag.Tagger
-	if errors.As(err, &tagger) {
-		code = tagger.Code()
-		msg = tagger.Msg()
-	}
-
-	if code >= 500 {
-		c.Logger().Errorf("handler error: method=%s path=%s status=%d error=%v", c.Request().Method, c.Path(), code, err)
-	}
-
-	return c.JSON(code, errorResponse(msg))
-}
-
-func errorResponse(msg string) map[string]string {
-	return map[string]string{"error": msg}
-}
-
-func statusOK() map[string]string {
-	return map[string]string{"status": "ok"}
+	return server.SetResponseList(c, http.StatusOK, summaries, "")
 }

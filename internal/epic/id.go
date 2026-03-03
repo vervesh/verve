@@ -1,6 +1,7 @@
 package epic
 
 import (
+	"github.com/cohesivestack/valgo"
 	"github.com/joshjon/kit/id"
 	"go.jetify.com/typeid"
 )
@@ -27,4 +28,15 @@ func ParseEpicID(s string) (EpicID, error) {
 // MustParseEpicID parses a string into an EpicID, panicking on failure.
 func MustParseEpicID(s string) EpicID {
 	return id.MustParse[EpicID](s)
+}
+
+// EpicIDValidator returns a valgo Validator that checks whether the given
+// string is a valid EpicID.
+func EpicIDValidator(identifier string, nameAndTitle ...string) *valgo.ValidatorString[string] {
+	return valgo.String(identifier, nameAndTitle...).
+		Not().Blank().
+		Passing(func(_ string) bool {
+			_, err := ParseEpicID(identifier)
+			return err == nil
+		}, "Must be a valid epic ID")
 }

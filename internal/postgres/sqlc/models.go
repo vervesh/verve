@@ -7,8 +7,6 @@ package sqlc
 import (
 	"database/sql/driver"
 	"fmt"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type TaskStatus string
@@ -82,80 +80,80 @@ func AllTaskStatusValues() []TaskStatus {
 }
 
 type Epic struct {
-	ID              string             `json:"id"`
-	RepoID          string             `json:"repo_id"`
-	Title           string             `json:"title"`
-	Description     string             `json:"description"`
-	Status          string             `json:"status"`
-	ProposedTasks   []byte             `json:"proposed_tasks"`
-	TaskIds         []string           `json:"task_ids"`
-	PlanningPrompt  *string            `json:"planning_prompt"`
-	SessionLog      []string           `json:"session_log"`
-	NotReady        bool               `json:"not_ready"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	ClaimedAt       pgtype.Timestamptz `json:"claimed_at"`
-	LastHeartbeatAt pgtype.Timestamptz `json:"last_heartbeat_at"`
-	Feedback        *string            `json:"feedback"`
-	FeedbackType    *string            `json:"feedback_type"`
-	Model           *string            `json:"model"`
+	ID              string   `json:"id"`
+	RepoID          string   `json:"repo_id"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description"`
+	Status          string   `json:"status"`
+	ProposedTasks   []byte   `json:"proposed_tasks"`
+	TaskIds         []string `json:"task_ids"`
+	PlanningPrompt  *string  `json:"planning_prompt"`
+	SessionLog      []string `json:"session_log"`
+	NotReady        bool     `json:"not_ready"`
+	ClaimedAt       *int64   `json:"claimed_at"`
+	LastHeartbeatAt *int64   `json:"last_heartbeat_at"`
+	Feedback        *string  `json:"feedback"`
+	FeedbackType    *string  `json:"feedback_type"`
+	Model           *string  `json:"model"`
+	CreatedAt       int64    `json:"created_at"`
+	UpdatedAt       int64    `json:"updated_at"`
 }
 
 type GithubToken struct {
-	ID             string             `json:"id"`
-	EncryptedToken string             `json:"encrypted_token"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ID             string `json:"id"`
+	EncryptedToken string `json:"encrypted_token"`
+	CreatedAt      int64  `json:"created_at"`
+	UpdatedAt      int64  `json:"updated_at"`
 }
 
 type Repo struct {
-	ID        string             `json:"id"`
-	Owner     string             `json:"owner"`
-	Name      string             `json:"name"`
-	FullName  string             `json:"full_name"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        string `json:"id"`
+	Owner     string `json:"owner"`
+	Name      string `json:"name"`
+	FullName  string `json:"full_name"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 type Setting struct {
-	Key       string             `json:"key"`
-	Value     string             `json:"value"`
-	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Key       string `json:"key"`
+	Value     string `json:"value"`
+	UpdatedAt int64  `json:"updated_at"`
 }
 
 type Task struct {
-	ID                     string             `json:"id"`
-	RepoID                 string             `json:"repo_id"`
-	Description            string             `json:"description"`
-	Status                 TaskStatus         `json:"status"`
-	PullRequestUrl         *string            `json:"pull_request_url"`
-	PrNumber               *int32             `json:"pr_number"`
-	DependsOn              []string           `json:"depends_on"`
-	CloseReason            *string            `json:"close_reason"`
-	Attempt                int32              `json:"attempt"`
-	MaxAttempts            int32              `json:"max_attempts"`
-	RetryReason            *string            `json:"retry_reason"`
-	AgentStatus            *string            `json:"agent_status"`
-	RetryContext           *string            `json:"retry_context"`
-	ConsecutiveFailures    int32              `json:"consecutive_failures"`
-	CostUsd                float64            `json:"cost_usd"`
-	MaxCostUsd             *float64           `json:"max_cost_usd"`
-	CreatedAt              pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
-	SkipPr                 bool               `json:"skip_pr"`
-	BranchName             *string            `json:"branch_name"`
-	Title                  string             `json:"title"`
-	AcceptanceCriteriaList []string           `json:"acceptance_criteria_list"`
-	Model                  *string            `json:"model"`
-	StartedAt              pgtype.Timestamptz `json:"started_at"`
-	Ready                  bool               `json:"ready"`
-	LastHeartbeatAt        pgtype.Timestamptz `json:"last_heartbeat_at"`
-	EpicID                 *string            `json:"epic_id"`
+	ID                     string     `json:"id"`
+	RepoID                 string     `json:"repo_id"`
+	Title                  string     `json:"title"`
+	Description            string     `json:"description"`
+	Status                 TaskStatus `json:"status"`
+	PullRequestUrl         *string    `json:"pull_request_url"`
+	PrNumber               *int32     `json:"pr_number"`
+	DependsOn              []string   `json:"depends_on"`
+	CloseReason            *string    `json:"close_reason"`
+	Attempt                int32      `json:"attempt"`
+	MaxAttempts            int32      `json:"max_attempts"`
+	RetryReason            *string    `json:"retry_reason"`
+	AcceptanceCriteriaList []string   `json:"acceptance_criteria_list"`
+	AgentStatus            *string    `json:"agent_status"`
+	RetryContext           *string    `json:"retry_context"`
+	ConsecutiveFailures    int32      `json:"consecutive_failures"`
+	CostUsd                float64    `json:"cost_usd"`
+	MaxCostUsd             *float64   `json:"max_cost_usd"`
+	SkipPr                 bool       `json:"skip_pr"`
+	BranchName             *string    `json:"branch_name"`
+	Model                  *string    `json:"model"`
+	StartedAt              *int64     `json:"started_at"`
+	Ready                  bool       `json:"ready"`
+	LastHeartbeatAt        *int64     `json:"last_heartbeat_at"`
+	EpicID                 *string    `json:"epic_id"`
+	CreatedAt              int64      `json:"created_at"`
+	UpdatedAt              int64      `json:"updated_at"`
 }
 
 type TaskLog struct {
-	ID        int64              `json:"id"`
-	TaskID    string             `json:"task_id"`
-	Lines     []string           `json:"lines"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Attempt   int32              `json:"attempt"`
+	ID        int64    `json:"id"`
+	TaskID    string   `json:"task_id"`
+	Lines     []string `json:"lines"`
+	Attempt   int32    `json:"attempt"`
+	CreatedAt int64    `json:"created_at"`
 }

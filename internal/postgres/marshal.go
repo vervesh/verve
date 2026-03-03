@@ -3,8 +3,6 @@ package postgres
 import (
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
 	"github.com/joshjon/verve/internal/postgres/sqlc"
 	"github.com/joshjon/verve/internal/task"
 )
@@ -18,6 +16,8 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 		Status:             task.Status(in.Status),
 		DependsOn:          in.DependsOn,
 		AcceptanceCriteria: in.AcceptanceCriteriaList,
+		CreatedAt:          unixToTime(in.CreatedAt),
+		UpdatedAt:          unixToTime(in.UpdatedAt),
 	}
 	if in.PullRequestUrl != nil {
 		t.PullRequestURL = *in.PullRequestUrl
@@ -55,15 +55,7 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 	if in.EpicID != nil {
 		t.EpicID = *in.EpicID
 	}
-	if in.StartedAt.Valid {
-		t.StartedAt = &in.StartedAt.Time
-	}
-	if in.CreatedAt.Valid {
-		t.CreatedAt = in.CreatedAt.Time
-	}
-	if in.UpdatedAt.Valid {
-		t.UpdatedAt = in.UpdatedAt.Time
-	}
+	t.StartedAt = unixPtrToTimePtr(in.StartedAt)
 	if t.DependsOn == nil {
 		t.DependsOn = []string{}
 	}
@@ -82,8 +74,16 @@ func unmarshalTaskList(in []*sqlc.Task) []*task.Task {
 	return out
 }
 
-func pgTimestamptz(t time.Time) pgtype.Timestamptz {
-	return pgtype.Timestamptz{Time: t, Valid: true}
+func unixToTime(secs int64) time.Time {
+	return time.Unix(secs, 0).UTC()
+}
+
+func unixPtrToTimePtr(secs *int64) *time.Time {
+	if secs == nil {
+		return nil
+	}
+	t := unixToTime(*secs)
+	return &t
 }
 
 func ptr[T any](v T) *T {

@@ -4,10 +4,6 @@
 
 package sqlc
 
-import (
-	"time"
-)
-
 type Epic struct {
 	ID              string
 	RepoID          string
@@ -19,20 +15,20 @@ type Epic struct {
 	PlanningPrompt  *string
 	SessionLog      string
 	NotReady        int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
-	ClaimedAt       *time.Time
-	LastHeartbeatAt *time.Time
+	ClaimedAt       *int64
+	LastHeartbeatAt *int64
 	Feedback        *string
 	FeedbackType    *string
 	Model           *string
+	CreatedAt       int64
+	UpdatedAt       int64
 }
 
 type GithubToken struct {
 	ID             string
 	EncryptedToken string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
+	CreatedAt      int64
+	UpdatedAt      int64
 }
 
 type Repo struct {
@@ -40,18 +36,19 @@ type Repo struct {
 	Owner     string
 	Name      string
 	FullName  string
-	CreatedAt time.Time
+	CreatedAt int64
 }
 
 type Setting struct {
 	Key       string
 	Value     string
-	UpdatedAt time.Time
+	UpdatedAt int64
 }
 
 type Task struct {
 	ID                     string
 	RepoID                 string
+	Title                  string
 	Description            string
 	Status                 string
 	PullRequestUrl         *string
@@ -61,29 +58,27 @@ type Task struct {
 	Attempt                int64
 	MaxAttempts            int64
 	RetryReason            *string
-	AcceptanceCriteria     *string
+	AcceptanceCriteriaList string
 	AgentStatus            *string
 	RetryContext           *string
 	ConsecutiveFailures    int64
 	CostUsd                float64
 	MaxCostUsd             *float64
-	CreatedAt              time.Time
-	UpdatedAt              time.Time
 	SkipPr                 int64
 	BranchName             *string
-	Title                  string
-	AcceptanceCriteriaList string
 	Model                  *string
-	StartedAt              *time.Time
+	StartedAt              *int64
 	Ready                  int64
-	LastHeartbeatAt        *string
+	LastHeartbeatAt        *int64
 	EpicID                 *string
+	CreatedAt              int64
+	UpdatedAt              int64
 }
 
 type TaskLog struct {
 	ID        int64
 	TaskID    string
 	Lines     string
-	CreatedAt time.Time
 	Attempt   int64
+	CreatedAt int64
 }

@@ -21,11 +21,11 @@ INSERT INTO task_log (task_id, attempt, lines) VALUES (?, ?, ?);
 SELECT attempt, lines FROM task_log WHERE task_id = ? ORDER BY id;
 
 -- name: UpdateTaskStatus :exec
-UPDATE task SET status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: SetTaskPullRequest :exec
-UPDATE task SET pull_request_url = ?, pr_number = ?, status = 'review', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET pull_request_url = ?, pr_number = ?, status = 'review', updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: ListTasksInReview :many
@@ -35,7 +35,7 @@ SELECT * FROM task WHERE status = 'review';
 SELECT * FROM task WHERE repo_id = ? AND status = 'review';
 
 -- name: CloseTask :exec
-UPDATE task SET status = 'closed', close_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = 'closed', close_reason = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: TaskExists :one
@@ -45,33 +45,33 @@ SELECT EXISTS(SELECT 1 FROM task WHERE id = ?);
 SELECT status FROM task WHERE id = ?;
 
 -- name: ClaimTask :execrows
-UPDATE task SET status = 'running', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = 'running', started_at = unixepoch(), updated_at = unixepoch()
 WHERE id = ? AND status = 'pending' AND ready = 1;
 
 -- name: HasTasksForRepo :one
 SELECT EXISTS(SELECT 1 FROM task WHERE repo_id = ?);
 
 -- name: RetryTask :execrows
-UPDATE task SET status = 'pending', attempt = attempt + 1, retry_reason = ?, started_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = 'pending', attempt = attempt + 1, retry_reason = ?, started_at = NULL, updated_at = unixepoch()
 WHERE id = ? AND status = 'review';
 
 -- name: SetAgentStatus :exec
-UPDATE task SET agent_status = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET agent_status = ?, updated_at = unixepoch() WHERE id = ?;
 
 -- name: SetRetryContext :exec
-UPDATE task SET retry_context = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET retry_context = ?, updated_at = unixepoch() WHERE id = ?;
 
 -- name: AddTaskCost :exec
-UPDATE task SET cost_usd = cost_usd + ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET cost_usd = cost_usd + ?, updated_at = unixepoch() WHERE id = ?;
 
 -- name: SetConsecutiveFailures :exec
-UPDATE task SET consecutive_failures = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET consecutive_failures = ?, updated_at = unixepoch() WHERE id = ?;
 
 -- name: SetCloseReason :exec
-UPDATE task SET close_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET close_reason = ?, updated_at = unixepoch() WHERE id = ?;
 
 -- name: SetBranchName :exec
-UPDATE task SET branch_name = ?, status = 'review', updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?;
+UPDATE task SET branch_name = ?, status = 'review', updated_at = unixepoch() WHERE id = ?;
 
 -- name: ListTasksInReviewNoPR :many
 SELECT * FROM task WHERE status = 'review' AND branch_name IS NOT NULL AND pr_number IS NULL;
@@ -80,7 +80,7 @@ SELECT * FROM task WHERE status = 'review' AND branch_name IS NOT NULL AND pr_nu
 UPDATE task SET status = 'pending', attempt = attempt + 1,
   retry_reason = ?, retry_context = NULL,
   close_reason = NULL, consecutive_failures = 0,
-  started_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  started_at = NULL, updated_at = unixepoch()
 WHERE id = ? AND status = 'failed';
 
 -- name: FeedbackRetryTask :execrows
@@ -88,7 +88,7 @@ UPDATE task SET status = 'pending', attempt = attempt + 1,
   max_attempts = max_attempts + 1,
   retry_reason = ?, retry_context = NULL,
   consecutive_failures = 0,
-  started_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  started_at = NULL, updated_at = unixepoch()
 WHERE id = ? AND status = 'review';
 
 -- name: DeleteTaskLogs :exec
@@ -98,11 +98,11 @@ DELETE FROM task_log WHERE task_id = ?;
 DELETE FROM task WHERE id = ?;
 
 -- name: SetDependsOn :exec
-UPDATE task SET depends_on = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET depends_on = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: SetReady :exec
-UPDATE task SET ready = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET ready = ?, updated_at = unixepoch()
 WHERE id = ?;
 
 -- name: UpdatePendingTask :execrows
@@ -115,11 +115,11 @@ UPDATE task SET
   skip_pr = ?,
   model = ?,
   ready = ?,
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ? AND status = 'pending';
 
 -- name: ScheduleRetryFromRunning :execrows
-UPDATE task SET status = 'pending', attempt = attempt + 1, retry_reason = ?, started_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = 'pending', attempt = attempt + 1, retry_reason = ?, started_at = NULL, updated_at = unixepoch()
 WHERE id = ? AND status = 'running';
 
 -- name: StartOverTask :execrows
@@ -140,16 +140,16 @@ UPDATE task SET
   pr_number = NULL,
   branch_name = NULL,
   started_at = NULL,
-  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  updated_at = unixepoch()
 WHERE id = ? AND status IN ('review', 'failed', 'closed');
 
 -- name: StopTask :execrows
 UPDATE task SET status = 'pending', ready = 0, close_reason = ?,
-  started_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  started_at = NULL, updated_at = unixepoch()
 WHERE id = ? AND status = 'running';
 
 -- name: Heartbeat :execrows
-UPDATE task SET last_heartbeat_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ? AND status = 'running';
+UPDATE task SET last_heartbeat_at = unixepoch() WHERE id = ? AND status = 'running';
 
 -- name: ListStaleTasks :many
 SELECT * FROM task WHERE status = 'running' AND last_heartbeat_at IS NOT NULL AND last_heartbeat_at < ? ORDER BY started_at;
@@ -158,11 +158,11 @@ SELECT * FROM task WHERE status = 'running' AND last_heartbeat_at IS NOT NULL AN
 SELECT * FROM task WHERE epic_id = ? ORDER BY created_at ASC;
 
 -- name: BulkCloseTasksByEpic :exec
-UPDATE task SET status = 'closed', close_reason = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET status = 'closed', close_reason = ?, updated_at = unixepoch()
 WHERE epic_id = ? AND status NOT IN ('closed', 'merged');
 
 -- name: ClearEpicIDForTasks :exec
-UPDATE task SET epic_id = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+UPDATE task SET epic_id = NULL, updated_at = unixepoch()
 WHERE epic_id = ?;
 
 -- name: BulkDeleteTaskLogsByEpic :exec

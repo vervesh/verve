@@ -79,8 +79,8 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 		Model:                 model,
 		Ready:                 ready,
 		EpicID:                epicID,
-		CreatedAt:             t.CreatedAt,
-		UpdatedAt:             t.UpdatedAt,
+		CreatedAt:             t.CreatedAt.Unix(),
+		UpdatedAt:             t.UpdatedAt.Unix(),
 	})
 	return tagTaskErr(err)
 }
@@ -123,7 +123,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	if len(repoIDs) == 0 {
 		return nil, nil
 	}
-	query := "SELECT id, repo_id, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, created_at, updated_at, skip_pr, branch_name, title, acceptance_criteria_list, model, started_at, ready, last_heartbeat_at, epic_id FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
+	query := "SELECT id, repo_id, title, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria_list, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, skip_pr, branch_name, model, started_at, ready, last_heartbeat_at, epic_id, created_at, updated_at FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
 	args := make([]any, len(repoIDs))
 	for i, id := range repoIDs {
 		args[i] = id
@@ -136,7 +136,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	var tasks []*task.Task
 	for rows.Next() {
 		var t sqlc.Task
-		if err := rows.Scan(&t.ID, &t.RepoID, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteria, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.CreatedAt, &t.UpdatedAt, &t.SkipPr, &t.BranchName, &t.Title, &t.AcceptanceCriteriaList, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID); err != nil {
+		if err := rows.Scan(&t.ID, &t.RepoID, &t.Title, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteriaList, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.SkipPr, &t.BranchName, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, unmarshalTask(&t))
@@ -422,8 +422,8 @@ func (r *TaskRepository) Heartbeat(ctx context.Context, id task.TaskID) (bool, e
 }
 
 func (r *TaskRepository) ListStaleTasks(ctx context.Context, before time.Time) ([]*task.Task, error) {
-	beforeStr := before.UTC().Format("2006-01-02T15:04:05.000Z")
-	rows, err := r.db.ListStaleTasks(ctx, &beforeStr)
+	beforeUnix := before.Unix()
+	rows, err := r.db.ListStaleTasks(ctx, &beforeUnix)
 	if err != nil {
 		return nil, err
 	}
@@ -482,7 +482,7 @@ func (r *TaskRepository) BulkDeleteTasksByIDs(ctx context.Context, ids []string)
 }
 
 func (r *TaskRepository) DeleteExpiredLogs(ctx context.Context, before time.Time) (int64, error) {
-	n, err := r.db.DeleteExpiredLogs(ctx, before)
+	n, err := r.db.DeleteExpiredLogs(ctx, before.Unix())
 	return n, tagTaskErr(err)
 }
 

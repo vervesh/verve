@@ -6,8 +6,6 @@ package sqlc
 
 import (
 	"context"
-
-	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -28,7 +26,7 @@ type Querier interface {
 	CreateRepo(ctx context.Context, arg CreateRepoParams) error
 	CreateTask(ctx context.Context, arg CreateTaskParams) error
 	DeleteEpic(ctx context.Context, id string) error
-	DeleteExpiredLogs(ctx context.Context, createdAt pgtype.Timestamptz) (int64, error)
+	DeleteExpiredLogs(ctx context.Context, createdAt int64) (int64, error)
 	DeleteGitHubToken(ctx context.Context) error
 	DeleteRepo(ctx context.Context, id string) error
 	DeleteSetting(ctx context.Context, key string) error
@@ -46,8 +44,8 @@ type Querier interface {
 	ListPlanningEpics(ctx context.Context) ([]*Epic, error)
 	ListRepos(ctx context.Context) ([]*Repo, error)
 	ListSettings(ctx context.Context) ([]*ListSettingsRow, error)
-	ListStaleEpics(ctx context.Context, lastHeartbeatAt pgtype.Timestamptz) ([]*Epic, error)
-	ListStaleTasks(ctx context.Context, lastHeartbeatAt pgtype.Timestamptz) ([]*Task, error)
+	ListStaleEpics(ctx context.Context, lastHeartbeatAt *int64) ([]*Epic, error)
+	ListStaleTasks(ctx context.Context, lastHeartbeatAt *int64) ([]*Task, error)
 	ListTasks(ctx context.Context) ([]*Task, error)
 	ListTasksByEpic(ctx context.Context, epicID *string) ([]*Task, error)
 	ListTasksByRepo(ctx context.Context, repoID string) ([]*Task, error)

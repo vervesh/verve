@@ -32,7 +32,7 @@ func (r *RepoRepository) CreateRepo(ctx context.Context, rp *repo.Repo) error {
 		Owner:     rp.Owner,
 		Name:      rp.Name,
 		FullName:  rp.FullName,
-		CreatedAt: pgTimestamptz(rp.CreatedAt),
+		CreatedAt: rp.CreatedAt.Unix(),
 	}))
 }
 
@@ -69,16 +69,13 @@ func (r *RepoRepository) DeleteRepo(ctx context.Context, id repo.RepoID) error {
 }
 
 func unmarshalRepo(in *sqlc.Repo) *repo.Repo {
-	rp := &repo.Repo{
-		ID:       repo.MustParseRepoID(in.ID),
-		Owner:    in.Owner,
-		Name:     in.Name,
-		FullName: in.FullName,
+	return &repo.Repo{
+		ID:        repo.MustParseRepoID(in.ID),
+		Owner:     in.Owner,
+		Name:      in.Name,
+		FullName:  in.FullName,
+		CreatedAt: unixToTime(in.CreatedAt),
 	}
-	if in.CreatedAt.Valid {
-		rp.CreatedAt = in.CreatedAt.Time
-	}
-	return rp
 }
 
 func tagRepoErr(err error) error {

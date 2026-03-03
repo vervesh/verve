@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/joshjon/verve/internal/sqlite/sqlc"
 	"github.com/joshjon/verve/internal/task"
@@ -16,8 +17,8 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 		Status:             task.Status(in.Status),
 		DependsOn:          unmarshalJSONStrings(in.DependsOn),
 		AcceptanceCriteria: unmarshalJSONStrings(in.AcceptanceCriteriaList),
-		CreatedAt:          in.CreatedAt,
-		UpdatedAt:          in.UpdatedAt,
+		CreatedAt:          unixToTime(in.CreatedAt),
+		UpdatedAt:          unixToTime(in.UpdatedAt),
 	}
 	if in.PullRequestUrl != nil {
 		t.PullRequestURL = *in.PullRequestUrl
@@ -55,7 +56,7 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 	if in.EpicID != nil {
 		t.EpicID = *in.EpicID
 	}
-	t.StartedAt = in.StartedAt
+	t.StartedAt = unixPtrToTimePtr(in.StartedAt)
 	t.ComputeDuration()
 	return t
 }
@@ -83,6 +84,18 @@ func unmarshalJSONStrings(s string) []string {
 		ss = []string{}
 	}
 	return ss
+}
+
+func unixToTime(secs int64) time.Time {
+	return time.Unix(secs, 0).UTC()
+}
+
+func unixPtrToTimePtr(secs *int64) *time.Time {
+	if secs == nil {
+		return nil
+	}
+	t := unixToTime(*secs)
+	return &t
 }
 
 func ptr[T any](v T) *T {

@@ -13,18 +13,10 @@ import (
 // Store wraps a Repository and adds application-level concerns such as
 // pending task notification, dependency validation, and event broadcasting.
 type Store struct {
-	repo       Repository
-	broker     *Broker
-	epicLister PlanningEpicLister
-	pendingMu  sync.Mutex
-	pendingCh  chan struct{}
-}
-
-// SetPlanningEpicLister sets the PlanningEpicLister used by GetAgentMetrics
-// to include epics that are actively being planned. This is set after
-// construction to avoid circular dependencies.
-func (s *Store) SetPlanningEpicLister(lister PlanningEpicLister) {
-	s.epicLister = lister
+	repo      Repository
+	broker    *Broker
+	pendingMu sync.Mutex
+	pendingCh chan struct{}
 }
 
 // NewStore creates a new Store backed by the given Repository and Broker.

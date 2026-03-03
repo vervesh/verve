@@ -9,7 +9,6 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joshjon/kit/errtag"
 	"github.com/joshjon/kit/tx"
@@ -83,8 +82,8 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 		Model:                 model,
 		Ready:                 t.Ready,
 		EpicID:                epicID,
-		CreatedAt:             pgTimestamptz(t.CreatedAt),
-		UpdatedAt:             pgTimestamptz(t.UpdatedAt),
+		CreatedAt:             t.CreatedAt.Unix(),
+		UpdatedAt:             t.UpdatedAt.Unix(),
 	})
 	return tagTaskErr(err)
 }
@@ -381,7 +380,7 @@ func (r *TaskRepository) Heartbeat(ctx context.Context, id task.TaskID) (bool, e
 }
 
 func (r *TaskRepository) ListStaleTasks(ctx context.Context, before time.Time) ([]*task.Task, error) {
-	rows, err := r.db.ListStaleTasks(ctx, pgtype.Timestamptz{Time: before, Valid: true})
+	rows, err := r.db.ListStaleTasks(ctx, ptr(before.Unix()))
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +430,7 @@ func (r *TaskRepository) BulkDeleteTasksByIDs(ctx context.Context, ids []string)
 }
 
 func (r *TaskRepository) DeleteExpiredLogs(ctx context.Context, before time.Time) (int64, error) {
-	n, err := r.db.DeleteExpiredLogs(ctx, pgTimestamptz(before))
+	n, err := r.db.DeleteExpiredLogs(ctx, before.Unix())
 	return n, tagTaskErr(err)
 }
 

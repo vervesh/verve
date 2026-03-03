@@ -1,2 +1,0 @@
-ALTER TABLE task ADD COLUMN title TEXT NOT NULL DEFAULT '';
-ALTER TABLE task ADD COLUMN acceptance_criteria_list TEXT NOT NULL DEFAULT '[]';

@@ -1,1 +1,0 @@
-ALTER TABLE epic ADD COLUMN model TEXT;

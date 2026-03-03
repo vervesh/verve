@@ -1,6 +1,8 @@
 package agentapi
 
 import (
+	"github.com/cohesivestack/valgo"
+
 	"github.com/joshjon/verve/internal/epic"
 	"github.com/joshjon/verve/internal/task"
 )
@@ -20,14 +22,72 @@ type PollResponse struct {
 	RepoFullName string `json:"repo_full_name"`
 }
 
+// TaskIDRequest captures the :id path parameter for task agent endpoints.
+type TaskIDRequest struct {
+	ID string `param:"id" json:"-"`
+}
+
+func (r TaskIDRequest) Validate() error {
+	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
+}
+
+// TaskLogsRequest is the request for appending task logs.
+type TaskLogsRequest struct {
+	ID      string   `param:"id" json:"-"`
+	Logs    []string `json:"logs"`
+	Attempt int      `json:"attempt"`
+}
+
+func (r TaskLogsRequest) Validate() error {
+	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
+}
+
+// TaskCompleteRequest is the request for completing a task.
+type TaskCompleteRequest struct {
+	ID             string  `param:"id" json:"-"`
+	Success        bool    `json:"success"`
+	PullRequestURL string  `json:"pull_request_url"`
+	PRNumber       int     `json:"pr_number"`
+	BranchName     string  `json:"branch_name"`
+	Error          string  `json:"error"`
+	AgentStatus    string  `json:"agent_status"`
+	CostUSD        float64 `json:"cost_usd"`
+	PrereqFailed   string  `json:"prereq_failed"`
+	NoChanges      bool    `json:"no_changes"`
+	Retryable      bool    `json:"retryable"`
+}
+
+func (r TaskCompleteRequest) Validate() error {
+	return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
+}
+
+// EpicIDRequest captures the :id path parameter for epic agent endpoints.
+type EpicIDRequest struct {
+	ID string `param:"id" json:"-"`
+}
+
+func (r EpicIDRequest) Validate() error {
+	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
+}
+
 // ProposeTasksRequest is the request body for agent proposing tasks.
 type ProposeTasksRequest struct {
+	ID    string              `param:"id" json:"-"`
 	Tasks []epic.ProposedTask `json:"tasks"`
+}
+
+func (r ProposeTasksRequest) Validate() error {
+	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
 }
 
 // SessionLogRequest is the request body for appending session log entries.
 type SessionLogRequest struct {
+	ID    string   `param:"id" json:"-"`
 	Lines []string `json:"lines"`
+}
+
+func (r SessionLogRequest) Validate() error {
+	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
 }
 
 // FeedbackResponse is returned from the poll-feedback endpoint.

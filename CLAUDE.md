@@ -13,7 +13,7 @@ Key constraint: User source code and secrets never leave their network. We send 
 
 ## Important Rules
 
-- **Never build binaries to the project root.** Always use `make build` or output to `bin/` (e.g. `go build -o bin/ ./cmd/...`). The `bin/` directory is git-ignored.
+- **Never build binaries to the project root.** The root directory is not gitignored, so any binary there will pollute git status. **Never run `go build .` or `go build` without `-o`** — this outputs a binary to the current directory. Always use `go build -o bin/ .` or `make build`. The `bin/` directory is git-ignored.
 
 ## Commit Convention
 
@@ -49,9 +49,17 @@ All flags can also be set via environment variables (e.g. `--port` / `PORT`).
 ## Development Commands
 
 ```bash
-# Build
-make build                        # Build verve binary
-make build-agent                  # Build agent Docker image
+# Build & Run
+go build -o bin/verve .           # Build verve binary
+./bin/verve                       # Start both API server + worker (combined mode)
+./bin/verve api                   # Start API server only
+./bin/verve worker                # Start worker only
+
+# Agent Images
+make build-agent                  # Build base agent Docker image (verve:base)
+make build-agent-dev              # Build dev agent image (verve:dev)
+make push-agent                   # Push verve:base to ghcr.io
+make push-agent TAG=base-0.2.0   # Push versioned tag
 
 # UI
 make ui-install                   # Install UI dependencies (pnpm)
@@ -59,28 +67,23 @@ make ui-dev                       # Start UI dev server
 make ui-build                     # Build UI for standalone use
 make ui-build-go                  # Build UI into internal/frontend/dist for Go embed
 
-# Generate
+# Code Generation
 make generate                     # Generate sqlc code for postgres and sqlite
 
-# Run
-make run                          # Start both API server + worker (combined mode)
-make run-api                      # Start API server only
-make run-api-pg                   # Start API server with PostgreSQL
-make run-worker                   # Start worker only (connects to localhost:7400)
+# Docker Compose
+make up                           # Build agent + start compose stack
+make up-build                     # Rebuild all containers and start
+make down                         # Stop compose stack
+make logs                         # Tail compose logs
 
-# Test
-make test-task                    # Create a test task via curl
-make list-tasks                   # List all tasks
-make get-task ID=tsk_xxx          # Get specific task details
-
-# Release
+# Release & Deploy
 make release                      # Tag patch release and publish via goreleaser
 make release BUMP=minor           # Tag minor release
 make release BUMP=major           # Tag major release
+make deploy                       # Deploy to Fly.io
 
-# Clean
-make clean                        # Remove binaries and Docker image
-make tidy                         # Run go mod tidy
+# Cleanup
+make clean                        # Remove binaries, UI dist, and agent image
 ```
 
 ## Technology Stack
@@ -115,8 +118,12 @@ verve/
 │   ├── app/
 │   │   ├── config.go               # Config, PostgresConfig, GitHubConfig
 │   │   └── run.go                  # Run (auto-selects postgres or sqlite)
+│   ├── logkey/
+│   │   └── keys.go                 # Structured request log keys (TaskID, RepoID, EpicID)
 │   ├── keymanager/
 │   │   └── keymanager.go           # Encryption key auto-management (~/.config/verve/)
+│   ├── metric/
+│   │   └── metric.go               # Metrics types and Compute function
 │   ├── task/
 │   │   ├── id.go                   # TaskID typed ID (kit/id + typeid)
 │   │   ├── task.go                 # Task struct, Status enum, NewTask
@@ -124,8 +131,18 @@ verve/
 │   │   ├── repository_errors.go    # ErrTagTaskNotFound, ErrTagTaskConflict
 │   │   └── store.go                # Store wrapping Repository + pending notification
 │   ├── taskapi/
-│   │   ├── http_handler.go         # HTTP handlers with Register(group)
-│   │   └── http_types.go           # Request/response types
+│   │   ├── http_handler.go         # Task HTTP handlers (CRUD, lifecycle, sync)
+│   │   └── http_types.go           # Task request/response types
+│   ├── repoapi/
+│   │   ├── http_handler.go         # Repo CRUD HTTP handlers
+│   │   └── http_types.go           # Repo request types
+│   ├── metricapi/
+│   │   └── http_handler.go         # GET /metrics endpoint
+│   ├── settingapi/
+│   │   ├── http_handler.go         # Settings HTTP handlers (GitHub token, default model)
+│   │   └── http_types.go           # Settings request/response types
+│   ├── eventapi/
+│   │   └── http_handler.go         # SSE /events endpoint
 │   ├── github/
 │   │   └── client.go               # GitHub API client for PR status checks
 │   ├── postgres/
@@ -158,6 +175,9 @@ verve/
 ├── agent/
 │   ├── Dockerfile                  # Agent container image
 │   └── entrypoint.sh               # Agent execution script
+├── docs/
+│   ├── FEATURES.md                 # Feature documentation
+│   └── DESIGN.md                   # Architecture and design decisions
 ├── go.mod
 └── Makefile
 ```
@@ -184,20 +204,16 @@ verve/
 
 ## API Structure
 
-Base path: `/api/v1`
+Base path: `/api/v1`. Handlers are split by concern:
 
 ```
-/tasks
-├── POST                     # Create task
-├── GET                      # List all tasks
-├── /sync                    # POST sync all tasks in review
-├── /poll                    # GET long-poll for pending tasks
-└── /{task_id}
-    ├── GET                  # Get task details with logs
-    ├── /logs                # POST logs from worker
-    ├── /complete            # POST completion status from worker
-    ├── /close               # POST close task with reason
-    └── /sync                # POST sync single task PR status
+repoapi:    /repos, /repos/:repo_id, /repos/available
+taskapi:    /repos/:repo_id/tasks, /tasks/:id, /tasks/:id/{action}
+settingapi: /settings/github-token, /settings/default-model, /settings/models
+metricapi:  /metrics
+eventapi:   /events (SSE)
+epicapi:    /repos/:repo_id/epics, /epics/:id, /epics/:id/{action}
+agentapi:   /agent/tasks/poll, /agent/tasks/:id/{logs,complete,heartbeat}
 ```
 
 ## Worker-Cloud Communication
@@ -223,6 +239,37 @@ Use TypeID prefixes for entity IDs:
 IDs use `github.com/joshjon/kit/id` with `go.jetify.com/typeid` for type-safe prefixed UUIDs.
 
 ## Key Patterns
+
+### Handler Conventions
+
+HTTP handlers follow `kit/server` conventions. Middleware handles error-to-HTTP mapping automatically.
+
+**Request binding**: Use `server.BindRequest[T](c)` where `T` implements `Validate() error` (valgo validation).
+
+**Request types**: Defined in `http_types.go` per package. Path params use `param:"id"` tags, body fields use `json:` tags. Each type has a `Validate()` method using valgo.
+
+**Responses**:
+- Single entity: `server.SetResponse(c, code, entity)` → `{"data": ...}`
+- List: `server.SetResponseList(c, code, items, "")` → `{"data": [...]}`
+- No body: `c.NoContent(http.StatusNoContent)` (for deletes, actions)
+
+**Error handling**: Return errors directly — middleware maps them:
+- valgo validation errors → 400
+- `errtag.NotFound` → 404
+- `errtag.Conflict` → 409
+- `errtag.InvalidArgument` → 400
+- `echo.NewHTTPError(code, msg)` → custom HTTP code (e.g. 503)
+- Error response format: `{"error": {"message": "...", "details": [...]}}`
+
+**Log context**: Set entity IDs via `c.Set(logkey.TaskID, id.String())` for structured request logging.
+
+**ID validation pattern**:
+```go
+func (r MyRequest) Validate() error {
+    return valgo.In("params", valgo.Is(task.TaskIDValidator(r.ID, "id"))).ToError()
+}
+```
+Then in handler: `id := task.MustParseTaskID(req.ID)` (safe after validation).
 
 ### Error Handling
 Use semantic error types via `github.com/joshjon/kit/errtag`:
@@ -252,6 +299,97 @@ Uses Docker-in-Docker approach:
 - Container receives task via environment variables (TASK_ID, TASK_DESCRIPTION)
 - Container is automatically removed after execution
 - Agent image: `verve:base` (stack variants: `verve:golang`, `verve:python`, etc.)
+
+## Testing
+
+### Prefer SQLite over mocks
+When writing tests that need a repository or store, **always use a real in-memory SQLite-backed repository** instead of hand-written mocks — provided a SQLite implementation exists for that repository in `internal/sqlite/`. Only fall back to mocks when no SQLite implementation is available (e.g. external service clients like GitHub).
+
+Use `sqlite.NewTestDB(t)` to create an in-memory database with all migrations applied and automatic cleanup:
+
+```go
+db := sqlite.NewTestDB(t)
+taskRepo := sqlite.NewTaskRepository(db)
+repoRepo := sqlite.NewRepoRepository(db)
+settingRepo := sqlite.NewSettingRepository(db)
+```
+
+Available SQLite repositories: `TaskRepository`, `RepoRepository`, `EpicRepository`, `SettingRepository`, `GitHubTokenRepository`.
+
+To seed test data, use repo methods directly (e.g. `taskRepo.CreateTask`, `taskRepo.UpdateTaskStatus`, `taskRepo.SetTaskPullRequest`). To verify state after handler calls, re-read from the database rather than checking in-memory structs.
+
+### HTTP handler tests with testutil
+
+HTTP handler tests use `kit/testutil` and `kit/server` to spin up a real server and make typed HTTP requests. Each handler package has a `http_handler_fixture_test.go` with a test fixture and a `http_handler_test.go` with tests. Tests use `_test` package suffix (e.g. `package taskapi_test`).
+
+**Fixture pattern** — creates a real `server.Server`, registers the handler, and provides URL helpers + seed helpers:
+
+```go
+func newFixture(t *testing.T) *fixture {
+    db := sqlite.NewTestDB(t)
+    // ... create repos, stores, handler ...
+    srv, err := server.NewServer(testutil.GetFreePort(t))
+    srv.Register("/api/v1", handler)
+    go srv.Start()
+    srv.WaitHealthy(10, 100*time.Millisecond)
+    t.Cleanup(func() { srv.Stop(context.Background()) })
+    return &fixture{Server: srv, ...}
+}
+```
+
+**Success tests** — use `testutil.Get/Post/Put/Delete` with typed request structs and `server.Response[T]` / `server.ResponseList[T]` envelopes:
+
+```go
+req := taskapi.CreateTaskRequest{Title: "Fix bug", Description: "desc"}
+res := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), req)
+assert.Equal(t, "Fix bug", res.Data.Title)
+```
+
+**Error tests** — use `testutil.DefaultClient` directly and assert on `StatusCode`:
+
+```go
+httpRes := doJSON(t, http.MethodPost, url, req)
+defer httpRes.Body.Close()
+assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode)
+```
+
+**POST → 204 NoContent** (e.g. AppendLogs, CompleteTask) — use a `postNoContent` helper since `testutil.Post[R]` tries to decode the body:
+
+```go
+postNoContent(t, f.taskActionURL(tsk.ID, "complete"), req)
+```
+
+**DELETE with JSON body** (e.g. RemoveDependency) — use a `doJSON` helper since `testutil.Delete` doesn't support request bodies.
+
+### Table-driven tests
+
+Use table-driven tests when a function/endpoint has **multiple input variations that share the same assertion logic** (e.g. validation tests, parsing tests, status transitions). Keep each subtest self-contained and the test table close to the `for` loop.
+
+```go
+tests := []struct {
+    name    string
+    input   string
+    wantErr bool
+}{
+    {"valid input", "epc_01HQXYZ...", false},
+    {"empty string", "", true},
+    {"wrong prefix", "tsk_01HQXYZ...", true},
+}
+for _, tt := range tests {
+    t.Run(tt.name, func(t *testing.T) {
+        _, err := ParseEpicID(tt.input)
+        if tt.wantErr {
+            assert.Error(t, err)
+        } else {
+            assert.NoError(t, err)
+        }
+    })
+}
+```
+
+**When to use table-driven**: ID parsing/validation, request validation (multiple invalid fields), status transition checks, any case with ≥3 similar subtests.
+
+**When NOT to use**: Integration tests with complex setup/teardown, tests where each case has unique assertions, or tests with ≤2 trivially different cases.
 
 ## Important Notes
 

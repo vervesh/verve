@@ -16,14 +16,20 @@ import (
 
 	"github.com/joshjon/verve/internal/agentapi"
 	"github.com/joshjon/verve/internal/epic"
+	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/epicapi"
+	"github.com/joshjon/verve/internal/eventapi"
 	"github.com/joshjon/verve/internal/frontend"
 	"github.com/joshjon/verve/internal/github"
 	"github.com/joshjon/verve/internal/githubtoken"
+	"github.com/joshjon/verve/internal/metric"
+	"github.com/joshjon/verve/internal/metricapi"
 	"github.com/joshjon/verve/internal/postgres"
-	"github.com/joshjon/verve/internal/setting"
 	pgmigrations "github.com/joshjon/verve/internal/postgres/migrations"
 	"github.com/joshjon/verve/internal/repo"
+	"github.com/joshjon/verve/internal/repoapi"
+	"github.com/joshjon/verve/internal/setting"
+	"github.com/joshjon/verve/internal/settingapi"
 	"github.com/joshjon/verve/internal/sqlite"
 	litemigrations "github.com/joshjon/verve/internal/sqlite/migrations"
 	"github.com/joshjon/verve/internal/task"
@@ -120,7 +126,6 @@ func initPostgres(ctx context.Context, logger log.Logger, cfg PostgresConfig, en
 	taskCreator := epic.NewTaskCreatorFunc(taskStore.CreateTaskFromEpic)
 	epicStore := epic.NewStore(epicRepo, taskCreator, logger)
 	epicStore.SetTaskStatusReader(epic.NewTaskStatusReaderFunc(taskStore.ReadTaskStatus))
-	taskStore.SetPlanningEpicLister(planningEpicListerAdapter(epicStore))
 
 	return stores{task: taskStore, repo: repoStore, epic: epicStore, githubToken: ghTokenService, setting: settingService}, func() { pool.Close() }, nil
 }
@@ -162,7 +167,6 @@ func initSQLite(ctx context.Context, dir string, encryptionKey []byte, ghInsecur
 	taskCreator := epic.NewTaskCreatorFunc(taskStore.CreateTaskFromEpic)
 	epicStore := epic.NewStore(epicRepo, taskCreator, logger)
 	epicStore.SetTaskStatusReader(epic.NewTaskStatusReaderFunc(taskStore.ReadTaskStatus))
-	taskStore.SetPlanningEpicLister(planningEpicListerAdapter(epicStore))
 
 	return stores{task: taskStore, repo: repoStore, epic: epicStore, githubToken: ghTokenService, setting: settingService}, func() { _ = db.Close() }, nil
 }
@@ -170,6 +174,7 @@ func initSQLite(ctx context.Context, dir string, encryptionKey []byte, ghInsecur
 func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 	opts := []server.Option{
 		server.WithLogger(logger),
+		server.WithRequestLogKeys(logkey.HTTPKeys...),
 		server.WithRequestTimeout(server.DefaultRequestTimeout, "/api/v1/events", "/api/v1/tasks/:id/logs", "/api/v1/agent/poll", "/api/v1/agent/epics/:id/poll-feedback"),
 	}
 	if len(cfg.CorsOrigins) > 0 {
@@ -191,8 +196,13 @@ func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 	}
 
 	workerReg := workertracker.New()
+	epicLister := planningEpicListerAdapter(s.epic)
 
-	srv.Register("/api/v1", taskapi.NewHTTPHandler(s.task, s.repo, s.epic, s.githubToken, s.setting, workerReg, cfg.EffectiveModels()))
+	srv.Register("/api/v1", repoapi.NewHTTPHandler(s.repo, s.githubToken))
+	srv.Register("/api/v1", metricapi.NewHTTPHandler(s.task, epicLister, workerReg))
+	srv.Register("/api/v1", settingapi.NewHTTPHandler(s.githubToken, s.setting, cfg.EffectiveModels()))
+	srv.Register("/api/v1", eventapi.NewHTTPHandler(s.task, s.repo))
+	srv.Register("/api/v1", taskapi.NewHTTPHandler(s.task, s.repo, s.epic, s.githubToken, s.setting))
 	srv.Register("/api/v1", epicapi.NewHTTPHandler(s.epic, s.repo, s.task, s.setting))
 	srv.Register("/api/v1/agent", agentapi.NewHTTPHandler(s.task, s.epic, s.repo, s.githubToken, workerReg))
 
@@ -450,17 +460,17 @@ func backgroundSync(ctx context.Context, logger log.Logger, s stores, interval t
 	}
 }
 
-// planningEpicListerAdapter creates a task.PlanningEpicLister that delegates
-// to the epic store, converting epic-package types to task-package types.
-func planningEpicListerAdapter(epicStore *epic.Store) *task.PlanningEpicListerFunc {
-	return task.NewPlanningEpicListerFunc(func(ctx context.Context) ([]task.PlanningEpic, error) {
+// planningEpicListerAdapter creates a metric.PlanningEpicLister that delegates
+// to the epic store, converting epic-package types to metric-package types.
+func planningEpicListerAdapter(epicStore *epic.Store) *metric.PlanningEpicListerFunc {
+	return metric.NewPlanningEpicListerFunc(func(ctx context.Context) ([]metric.PlanningEpic, error) {
 		epics, err := epicStore.ListPlanningEpicsForMetrics(ctx)
 		if err != nil {
 			return nil, err
 		}
-		result := make([]task.PlanningEpic, len(epics))
+		result := make([]metric.PlanningEpic, len(epics))
 		for i, ep := range epics {
-			result[i] = task.PlanningEpic{
+			result[i] = metric.PlanningEpic{
 				ID:        ep.ID,
 				Title:     ep.Title,
 				RepoID:    ep.RepoID,
