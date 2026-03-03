@@ -65,14 +65,74 @@ func (r *RepoRepository) DeleteRepo(ctx context.Context, id repo.RepoID) error {
 	return tagRepoErr(r.db.DeleteRepo(ctx, id.String()))
 }
 
-func unmarshalRepo(in *sqlc.Repo) *repo.Repo {
-	return &repo.Repo{
-		ID:        repo.MustParseRepoID(in.ID),
-		Owner:     in.Owner,
-		Name:      in.Name,
-		FullName:  in.FullName,
-		CreatedAt: unixToTime(in.CreatedAt),
+func (r *RepoRepository) UpdateRepoSetupScan(ctx context.Context, id repo.RepoID, result repo.SetupScanResult) error {
+	return tagRepoErr(r.db.UpdateRepoSetupScan(ctx, sqlc.UpdateRepoSetupScanParams{
+		Summary:     result.Summary,
+		TechStack:   marshalJSONStrings(result.TechStack),
+		HasCode:     boolToInt64(result.HasCode),
+		HasClaudeMd: boolToInt64(result.HasCLAUDEMD),
+		HasReadme:   boolToInt64(result.HasREADME),
+		SetupStatus: result.SetupStatus,
+		ID:          id.String(),
+	}))
+}
+
+func (r *RepoRepository) UpdateRepoSetupStatus(ctx context.Context, id repo.RepoID, status string) error {
+	return tagRepoErr(r.db.UpdateRepoSetupStatus(ctx, sqlc.UpdateRepoSetupStatusParams{
+		SetupStatus: status,
+		ID:          id.String(),
+	}))
+}
+
+func (r *RepoRepository) UpdateRepoExpectations(ctx context.Context, id repo.RepoID, update repo.ExpectationsUpdate) error {
+	var completedAt *int64
+	if update.SetupCompletedAt != nil {
+		unix := update.SetupCompletedAt.Unix()
+		completedAt = &unix
 	}
+	return tagRepoErr(r.db.UpdateRepoExpectations(ctx, sqlc.UpdateRepoExpectationsParams{
+		Expectations:     update.Expectations,
+		SetupCompletedAt: completedAt,
+		ID:               id.String(),
+	}))
+}
+
+func (r *RepoRepository) ListReposBySetupStatus(ctx context.Context, status string) ([]*repo.Repo, error) {
+	rows, err := r.db.ListReposBySetupStatus(ctx, status)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*repo.Repo, len(rows))
+	for i, row := range rows {
+		out[i] = unmarshalRepo(row)
+	}
+	return out, nil
+}
+
+func unmarshalRepo(in *sqlc.Repo) *repo.Repo {
+	rp := &repo.Repo{
+		ID:               repo.MustParseRepoID(in.ID),
+		Owner:            in.Owner,
+		Name:             in.Name,
+		FullName:         in.FullName,
+		Summary:          in.Summary,
+		TechStack:        unmarshalJSONStrings(in.TechStack),
+		SetupStatus:      in.SetupStatus,
+		HasCode:          in.HasCode != 0,
+		HasCLAUDEMD:      in.HasClaudeMd != 0,
+		HasREADME:        in.HasReadme != 0,
+		Expectations:     in.Expectations,
+		SetupCompletedAt: unixPtrToTimePtr(in.SetupCompletedAt),
+		CreatedAt:        unixToTime(in.CreatedAt),
+	}
+	return rp
+}
+
+func boolToInt64(b bool) int64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func tagRepoErr(err error) error {

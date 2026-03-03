@@ -32,11 +32,19 @@ type GithubToken struct {
 }
 
 type Repo struct {
-	ID        string
-	Owner     string
-	Name      string
-	FullName  string
-	CreatedAt int64
+	ID               string
+	Owner            string
+	Name             string
+	FullName         string
+	CreatedAt        int64
+	Summary          string
+	TechStack        string
+	SetupStatus      string
+	HasCode          int64
+	HasClaudeMd      int64
+	HasReadme        int64
+	Expectations     string
+	SetupCompletedAt *int64
 }
 
 type Setting struct {
@@ -65,6 +73,7 @@ type Task struct {
 	CostUsd                float64
 	MaxCostUsd             *float64
 	SkipPr                 int64
+	DraftPr                int64
 	BranchName             *string
 	Model                  *string
 	StartedAt              *int64
@@ -73,7 +82,6 @@ type Task struct {
 	EpicID                 *string
 	CreatedAt              int64
 	UpdatedAt              int64
-	DraftPr                int64
 }
 
 type TaskLog struct {

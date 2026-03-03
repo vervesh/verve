@@ -107,11 +107,19 @@ type GithubToken struct {
 }
 
 type Repo struct {
-	ID        string `json:"id"`
-	Owner     string `json:"owner"`
-	Name      string `json:"name"`
-	FullName  string `json:"full_name"`
-	CreatedAt int64  `json:"created_at"`
+	ID               string   `json:"id"`
+	Owner            string   `json:"owner"`
+	Name             string   `json:"name"`
+	FullName         string   `json:"full_name"`
+	CreatedAt        int64    `json:"created_at"`
+	Summary          string   `json:"summary"`
+	TechStack        []string `json:"tech_stack"`
+	SetupStatus      string   `json:"setup_status"`
+	HasCode          bool     `json:"has_code"`
+	HasClaudeMd      bool     `json:"has_claude_md"`
+	HasReadme        bool     `json:"has_readme"`
+	Expectations     string   `json:"expectations"`
+	SetupCompletedAt *int64   `json:"setup_completed_at"`
 }
 
 type Setting struct {

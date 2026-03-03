@@ -43,6 +43,7 @@ type Querier interface {
 	ListPendingTasksByRepos(ctx context.Context, dollar_1 []string) ([]*Task, error)
 	ListPlanningEpics(ctx context.Context) ([]*Epic, error)
 	ListRepos(ctx context.Context) ([]*Repo, error)
+	ListReposBySetupStatus(ctx context.Context, setupStatus string) ([]*Repo, error)
 	ListSettings(ctx context.Context) ([]*ListSettingsRow, error)
 	ListStaleEpics(ctx context.Context, lastHeartbeatAt *int64) ([]*Epic, error)
 	ListStaleTasks(ctx context.Context, lastHeartbeatAt *int64) ([]*Task, error)
@@ -82,6 +83,9 @@ type Querier interface {
 	UpdateEpicStatus(ctx context.Context, arg UpdateEpicStatusParams) error
 	UpdatePendingTask(ctx context.Context, arg UpdatePendingTaskParams) (int64, error)
 	UpdateProposedTasks(ctx context.Context, arg UpdateProposedTasksParams) error
+	UpdateRepoExpectations(ctx context.Context, arg UpdateRepoExpectationsParams) error
+	UpdateRepoSetupScan(ctx context.Context, arg UpdateRepoSetupScanParams) error
+	UpdateRepoSetupStatus(ctx context.Context, arg UpdateRepoSetupStatusParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpsertGitHubToken(ctx context.Context, arg UpsertGitHubTokenParams) error
 	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error

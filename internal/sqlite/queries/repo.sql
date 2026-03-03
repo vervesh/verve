@@ -13,3 +13,27 @@ SELECT * FROM repo ORDER BY created_at DESC;
 
 -- name: DeleteRepo :exec
 DELETE FROM repo WHERE id = ?;
+
+-- name: UpdateRepoSetupScan :exec
+UPDATE repo
+SET summary = ?,
+    tech_stack = ?,
+    has_code = ?,
+    has_claude_md = ?,
+    has_readme = ?,
+    setup_status = ?
+WHERE id = ?;
+
+-- name: UpdateRepoSetupStatus :exec
+UPDATE repo
+SET setup_status = ?
+WHERE id = ?;
+
+-- name: UpdateRepoExpectations :exec
+UPDATE repo
+SET expectations = ?,
+    setup_completed_at = ?
+WHERE id = ?;
+
+-- name: ListReposBySetupStatus :many
+SELECT * FROM repo WHERE setup_status = ? ORDER BY created_at DESC;

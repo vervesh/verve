@@ -43,7 +43,7 @@ func (q *Queries) DeleteRepo(ctx context.Context, id string) error {
 }
 
 const listRepos = `-- name: ListRepos :many
-SELECT id, owner, name, full_name, created_at FROM repo ORDER BY created_at DESC
+SELECT id, owner, name, full_name, created_at, summary, tech_stack, setup_status, has_code, has_claude_md, has_readme, expectations, setup_completed_at FROM repo ORDER BY created_at DESC
 `
 
 func (q *Queries) ListRepos(ctx context.Context) ([]*Repo, error) {
@@ -61,6 +61,55 @@ func (q *Queries) ListRepos(ctx context.Context) ([]*Repo, error) {
 			&i.Name,
 			&i.FullName,
 			&i.CreatedAt,
+			&i.Summary,
+			&i.TechStack,
+			&i.SetupStatus,
+			&i.HasCode,
+			&i.HasClaudeMd,
+			&i.HasReadme,
+			&i.Expectations,
+			&i.SetupCompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReposBySetupStatus = `-- name: ListReposBySetupStatus :many
+SELECT id, owner, name, full_name, created_at, summary, tech_stack, setup_status, has_code, has_claude_md, has_readme, expectations, setup_completed_at FROM repo WHERE setup_status = ? ORDER BY created_at DESC
+`
+
+func (q *Queries) ListReposBySetupStatus(ctx context.Context, setupStatus string) ([]*Repo, error) {
+	rows, err := q.db.QueryContext(ctx, listReposBySetupStatus, setupStatus)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Repo
+	for rows.Next() {
+		var i Repo
+		if err := rows.Scan(
+			&i.ID,
+			&i.Owner,
+			&i.Name,
+			&i.FullName,
+			&i.CreatedAt,
+			&i.Summary,
+			&i.TechStack,
+			&i.SetupStatus,
+			&i.HasCode,
+			&i.HasClaudeMd,
+			&i.HasReadme,
+			&i.Expectations,
+			&i.SetupCompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -76,7 +125,7 @@ func (q *Queries) ListRepos(ctx context.Context) ([]*Repo, error) {
 }
 
 const readRepo = `-- name: ReadRepo :one
-SELECT id, owner, name, full_name, created_at FROM repo WHERE id = ?
+SELECT id, owner, name, full_name, created_at, summary, tech_stack, setup_status, has_code, has_claude_md, has_readme, expectations, setup_completed_at FROM repo WHERE id = ?
 `
 
 func (q *Queries) ReadRepo(ctx context.Context, id string) (*Repo, error) {
@@ -88,12 +137,20 @@ func (q *Queries) ReadRepo(ctx context.Context, id string) (*Repo, error) {
 		&i.Name,
 		&i.FullName,
 		&i.CreatedAt,
+		&i.Summary,
+		&i.TechStack,
+		&i.SetupStatus,
+		&i.HasCode,
+		&i.HasClaudeMd,
+		&i.HasReadme,
+		&i.Expectations,
+		&i.SetupCompletedAt,
 	)
 	return &i, err
 }
 
 const readRepoByFullName = `-- name: ReadRepoByFullName :one
-SELECT id, owner, name, full_name, created_at FROM repo WHERE full_name = ?
+SELECT id, owner, name, full_name, created_at, summary, tech_stack, setup_status, has_code, has_claude_md, has_readme, expectations, setup_completed_at FROM repo WHERE full_name = ?
 `
 
 func (q *Queries) ReadRepoByFullName(ctx context.Context, fullName string) (*Repo, error) {
@@ -105,6 +162,82 @@ func (q *Queries) ReadRepoByFullName(ctx context.Context, fullName string) (*Rep
 		&i.Name,
 		&i.FullName,
 		&i.CreatedAt,
+		&i.Summary,
+		&i.TechStack,
+		&i.SetupStatus,
+		&i.HasCode,
+		&i.HasClaudeMd,
+		&i.HasReadme,
+		&i.Expectations,
+		&i.SetupCompletedAt,
 	)
 	return &i, err
+}
+
+const updateRepoExpectations = `-- name: UpdateRepoExpectations :exec
+UPDATE repo
+SET expectations = ?,
+    setup_completed_at = ?
+WHERE id = ?
+`
+
+type UpdateRepoExpectationsParams struct {
+	Expectations     string
+	SetupCompletedAt *int64
+	ID               string
+}
+
+func (q *Queries) UpdateRepoExpectations(ctx context.Context, arg UpdateRepoExpectationsParams) error {
+	_, err := q.db.ExecContext(ctx, updateRepoExpectations, arg.Expectations, arg.SetupCompletedAt, arg.ID)
+	return err
+}
+
+const updateRepoSetupScan = `-- name: UpdateRepoSetupScan :exec
+UPDATE repo
+SET summary = ?,
+    tech_stack = ?,
+    has_code = ?,
+    has_claude_md = ?,
+    has_readme = ?,
+    setup_status = ?
+WHERE id = ?
+`
+
+type UpdateRepoSetupScanParams struct {
+	Summary     string
+	TechStack   string
+	HasCode     int64
+	HasClaudeMd int64
+	HasReadme   int64
+	SetupStatus string
+	ID          string
+}
+
+func (q *Queries) UpdateRepoSetupScan(ctx context.Context, arg UpdateRepoSetupScanParams) error {
+	_, err := q.db.ExecContext(ctx, updateRepoSetupScan,
+		arg.Summary,
+		arg.TechStack,
+		arg.HasCode,
+		arg.HasClaudeMd,
+		arg.HasReadme,
+		arg.SetupStatus,
+		arg.ID,
+	)
+	return err
+}
+
+const updateRepoSetupStatus = `-- name: UpdateRepoSetupStatus :exec
+UPDATE repo
+SET setup_status = ?
+WHERE id = ?
+`
+
+type UpdateRepoSetupStatusParams struct {
+	SetupStatus string
+	ID          string
+}
+
+func (q *Queries) UpdateRepoSetupStatus(ctx context.Context, arg UpdateRepoSetupStatusParams) error {
+	_, err := q.db.ExecContext(ctx, updateRepoSetupStatus, arg.SetupStatus, arg.ID)
+	return err
 }
