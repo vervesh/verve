@@ -67,7 +67,14 @@ clone_repo() {
 }
 
 detect_default_branch() {
-    DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+    DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@')
+
+    # Empty repos have no remote HEAD, so the above produces an empty string.
+    # Fall back to "main" when the result is empty.
+    if [ -z "$DEFAULT_BRANCH" ]; then
+        DEFAULT_BRANCH="main"
+    fi
+
     log_agent "Default branch: ${DEFAULT_BRANCH}"
 }
 
@@ -125,21 +132,41 @@ push_wip() {
 # default branch and pushes it.
 # Returns 0 if the base branch was created or already existed, 1 on failure.
 ensure_base_branch() {
+    # Safety check: DEFAULT_BRANCH must be set
+    if [ -z "${DEFAULT_BRANCH}" ]; then
+        log_agent "Warning: DEFAULT_BRANCH is empty, defaulting to 'main'"
+        DEFAULT_BRANCH="main"
+    fi
+
     if git rev-parse "origin/${DEFAULT_BRANCH}" >/dev/null 2>&1; then
         return 0  # Already exists
     fi
 
     log_agent "Empty repository detected — initializing ${DEFAULT_BRANCH} branch for PR base"
 
-    # Create an orphan branch with an empty commit, push it, then switch back
+    # Create an orphan branch with an empty commit, push it, then switch back.
+    # We need to preserve and restore the working tree so agent changes aren't
+    # lost during the branch switch.
     local current_branch
     current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+    # Stash any uncommitted changes (including untracked files) so that the
+    # orphan branch starts clean and we can restore them afterwards.
+    local stashed=false
+    if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null || [ -n "$(git ls-files --others --exclude-standard 2>/dev/null)" ]; then
+        git stash push --include-untracked -m "verve: temp stash for base branch init" 2>/dev/null && stashed=true
+    fi
 
     git checkout --orphan "${DEFAULT_BRANCH}"
     git rm -rf . >/dev/null 2>&1 || true
     git commit --allow-empty --no-verify -m "Initial commit"
     git push -u origin "${DEFAULT_BRANCH}" 2>&1
     git checkout "${current_branch}"
+
+    # Restore stashed changes
+    if [ "$stashed" = true ]; then
+        git stash pop 2>/dev/null || true
+    fi
 
     # Fetch so origin/DEFAULT_BRANCH is available locally
     git fetch origin "${DEFAULT_BRANCH}" 2>/dev/null || true
