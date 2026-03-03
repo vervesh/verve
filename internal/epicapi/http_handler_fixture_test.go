@@ -41,7 +41,7 @@ type stubTaskCreator struct {
 }
 
 func (s *stubTaskCreator) CreateTaskFromEpic(ctx context.Context, repoID, title, description string, dependsOn, acceptanceCriteria []string, epicID string, ready bool, model string) (string, error) {
-	tsk := task.NewTask(repoID, title, description, dependsOn, acceptanceCriteria, 0, false, model, ready)
+	tsk := task.NewTask(repoID, title, description, dependsOn, acceptanceCriteria, 0, false, false, model, ready)
 	tsk.EpicID = epicID
 	if err := s.taskStore.CreateTask(ctx, tsk); err != nil {
 		return "", err

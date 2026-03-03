@@ -148,6 +148,7 @@ type Task struct {
 	EpicID                 *string    `json:"epic_id"`
 	CreatedAt              int64      `json:"created_at"`
 	UpdatedAt              int64      `json:"updated_at"`
+	DraftPr                bool       `json:"draft_pr"`
 }
 
 type TaskLog struct {

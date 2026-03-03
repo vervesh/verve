@@ -79,6 +79,7 @@ type AgentConfig struct {
 	TaskTitle            string
 	TaskDescription      string
 	SkipPR               bool
+	DraftPR              bool
 	Attempt              int
 	RetryReason          string
 	AcceptanceCriteria   []string
@@ -164,6 +165,9 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		}
 		if cfg.SkipPR {
 			env = append(env, "SKIP_PR=true")
+		}
+		if cfg.DraftPR {
+			env = append(env, "DRAFT_PR=true")
 		}
 		if cfg.Attempt > 1 {
 			env = append(env,

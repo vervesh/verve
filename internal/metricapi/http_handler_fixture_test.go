@@ -65,7 +65,7 @@ func (f *fixture) metricsURL() string {
 func (f *fixture) seedTask(title string, status task.Status) *task.Task {
 	f.t.Helper()
 	ctx := context.Background()
-	tsk := task.NewTask(f.Repo.ID.String(), title, "desc", nil, nil, 0, false, "sonnet", true)
+	tsk := task.NewTask(f.Repo.ID.String(), title, "desc", nil, nil, 0, false, false, "sonnet", true)
 	require.NoError(f.t, f.TaskRepo.CreateTask(ctx, tsk))
 	if status != task.StatusPending {
 		require.NoError(f.t, f.TaskRepo.UpdateTaskStatus(ctx, tsk.ID, status))

@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewTask(t *testing.T) {
-	tsk := NewTask("repo_123", "Fix bug", "Fix the login bug", nil, nil, 10.0, false, "sonnet", true)
+	tsk := NewTask("repo_123", "Fix bug", "Fix the login bug", nil, nil, 10.0, false, false, "sonnet", true)
 
 	assert.NotEmpty(t, tsk.ID.String(), "expected non-empty ID")
 	assert.Equal(t, "repo_123", tsk.RepoID)
@@ -26,7 +26,7 @@ func TestNewTask(t *testing.T) {
 }
 
 func TestNewTask_NilSlicesBecomEmpty(t *testing.T) {
-	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, "", true)
+	tsk := NewTask("repo_123", "title", "desc", nil, nil, 0, false, false, "", true)
 
 	assert.NotNil(t, tsk.DependsOn, "expected DependsOn to be non-nil empty slice")
 	assert.Len(t, tsk.DependsOn, 0)
@@ -37,7 +37,7 @@ func TestNewTask_NilSlicesBecomEmpty(t *testing.T) {
 func TestNewTask_WithDependencies(t *testing.T) {
 	deps := []string{"tsk_abc", "tsk_def"}
 	criteria := []string{"Tests pass", "No regressions"}
-	tsk := NewTask("repo_123", "title", "desc", deps, criteria, 5.0, true, "opus", true)
+	tsk := NewTask("repo_123", "title", "desc", deps, criteria, 5.0, true, false, "opus", true)
 
 	assert.Len(t, tsk.DependsOn, 2)
 	assert.Equal(t, "tsk_abc", tsk.DependsOn[0])

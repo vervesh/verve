@@ -40,29 +40,29 @@ func TestCompute_Counts(t *testing.T) {
 	now := time.Now()
 	startedAt := now.Add(-10 * time.Minute)
 
-	pending := task.NewTask("repo_1", "pending task", "desc", nil, nil, 0, false, "sonnet", true)
+	pending := task.NewTask("repo_1", "pending task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	pending.Status = task.StatusPending
 
-	running := task.NewTask("repo_1", "running task", "desc", nil, nil, 0, false, "opus", true)
+	running := task.NewTask("repo_1", "running task", "desc", nil, nil, 0, false, false, "opus", true)
 	running.Status = task.StatusRunning
 	running.StartedAt = &startedAt
 	running.CostUSD = 1.50
 	running.Model = "opus"
 
-	review := task.NewTask("repo_1", "review task", "desc", nil, nil, 0, false, "sonnet", true)
+	review := task.NewTask("repo_1", "review task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	review.Status = task.StatusReview
 	review.CostUSD = 0.75
 
-	merged := task.NewTask("repo_1", "merged task", "desc", nil, nil, 0, false, "sonnet", true)
+	merged := task.NewTask("repo_1", "merged task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	merged.Status = task.StatusMerged
 	merged.CostUSD = 2.00
 	merged.UpdatedAt = now.Add(-5 * time.Minute)
 
-	closed := task.NewTask("repo_1", "closed task", "desc", nil, nil, 0, false, "sonnet", true)
+	closed := task.NewTask("repo_1", "closed task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	closed.Status = task.StatusClosed
 	closed.UpdatedAt = now.Add(-3 * time.Minute)
 
-	failed := task.NewTask("repo_1", "failed task", "desc", nil, nil, 0, false, "sonnet", true)
+	failed := task.NewTask("repo_1", "failed task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	failed.Status = task.StatusFailed
 	failed.CostUSD = 0.50
 	failed.UpdatedAt = now.Add(-1 * time.Minute)
@@ -99,7 +99,7 @@ func TestCompute_IncludesPlanningEpics(t *testing.T) {
 	now := time.Now()
 	startedAt := now.Add(-10 * time.Minute)
 
-	running := task.NewTask("repo_1", "running task", "desc", nil, nil, 0, false, "sonnet", true)
+	running := task.NewTask("repo_1", "running task", "desc", nil, nil, 0, false, false, "sonnet", true)
 	running.Status = task.StatusRunning
 	running.StartedAt = &startedAt
 
@@ -175,7 +175,7 @@ func TestCompute_RecentCompletionsLimit(t *testing.T) {
 	var tasks []*task.Task
 	// Create 15 completed tasks
 	for i := 0; i < 15; i++ {
-		tsk := task.NewTask("repo_1", "task", "desc", nil, nil, 0, false, "sonnet", true)
+		tsk := task.NewTask("repo_1", "task", "desc", nil, nil, 0, false, false, "sonnet", true)
 		tsk.Status = task.StatusMerged
 		tsk.UpdatedAt = now.Add(-time.Duration(i) * time.Minute)
 		tasks = append(tasks, tsk)

@@ -45,6 +45,7 @@ type Task struct {
 	CostUSD            float64  `json:"cost_usd"`
 	MaxCostUSD         float64  `json:"max_cost_usd,omitempty"`
 	SkipPR             bool     `json:"skip_pr"`
+	DraftPR            bool     `json:"draft_pr"`
 	Model              string   `json:"model,omitempty"`
 }
 
@@ -515,6 +516,7 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
 		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
 		SkipPR:                   task.SkipPR,
+		DraftPR:                  task.DraftPR,
 		Attempt:                  task.Attempt,
 		RetryReason:              task.RetryReason,
 		AcceptanceCriteria:       task.AcceptanceCriteria,
