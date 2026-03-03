@@ -22,6 +22,12 @@ if [ "${WORK_TYPE}" = "epic" ]; then
     exit $?
 fi
 
+if [ "${WORK_TYPE}" = "setup" ]; then
+    source "${LIB_DIR}/repo_setup.sh"
+    run_repo_setup
+    exit $?
+fi
+
 # ── Task execution (default) ────────────────────────────────────────
 
 # ── Failure trap ─────────────────────────────────────────────────────

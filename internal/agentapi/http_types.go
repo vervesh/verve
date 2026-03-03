@@ -10,13 +10,16 @@ import (
 
 // PollResponse is the discriminated union returned by the unified poll endpoint.
 type PollResponse struct {
-	Type string `json:"type"` // "task" or "epic"
+	Type string `json:"type"` // "task", "epic", or "setup"
 
 	// Task fields (present when Type == "task")
 	Task *task.Task `json:"task,omitempty"`
 
 	// Epic fields (present when Type == "epic")
 	Epic *epic.Epic `json:"epic,omitempty"`
+
+	// Setup fields (present when Type == "setup")
+	Setup *Setup `json:"setup,omitempty"`
 
 	// Common fields
 	GitHubToken  string `json:"github_token,omitempty"`
@@ -26,6 +29,13 @@ type PollResponse struct {
 	RepoSummary      string `json:"repo_summary,omitempty"`
 	RepoExpectations string `json:"repo_expectations,omitempty"`
 	RepoTechStack    string `json:"repo_tech_stack,omitempty"`
+}
+
+// Setup holds the fields for a repository setup scan work item.
+type Setup struct {
+	TaskID   string `json:"task_id"`
+	RepoID   string `json:"repo_id"`
+	FullName string `json:"full_name"`
 }
 
 // TaskIDRequest captures the :id path parameter for task agent endpoints.
@@ -95,6 +105,15 @@ type SessionLogRequest struct {
 
 func (r SessionLogRequest) Validate() error {
 	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
+}
+
+// RepoSetupHeartbeatRequest captures the :repo_id path parameter for setup heartbeat.
+type RepoSetupHeartbeatRequest struct {
+	RepoID string `param:"repo_id" json:"-"`
+}
+
+func (r RepoSetupHeartbeatRequest) Validate() error {
+	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
 
 // RepoSetupCompleteRequest is the request for completing a repo setup scan.
