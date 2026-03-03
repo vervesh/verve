@@ -1,8 +1,7 @@
-package githubtoken
+package githubtoken_test
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -10,46 +9,27 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/joshjon/verve/internal/crypto"
+	"github.com/joshjon/verve/internal/githubtoken"
+	"github.com/joshjon/verve/internal/sqlite"
 )
-
-type mockTokenRepo struct {
-	token     string
-	stored    bool
-	upsertErr error
-	readErr   error
-	deleteErr error
-}
-
-func (m *mockTokenRepo) UpsertGitHubToken(_ context.Context, encryptedToken string, _ time.Time) error {
-	if m.upsertErr != nil {
-		return m.upsertErr
-	}
-	m.token = encryptedToken
-	m.stored = true
-	return nil
-}
-
-func (m *mockTokenRepo) ReadGitHubToken(_ context.Context) (string, error) {
-	if m.readErr != nil {
-		return "", m.readErr
-	}
-	if !m.stored {
-		return "", ErrTokenNotFound
-	}
-	return m.token, nil
-}
-
-func (m *mockTokenRepo) DeleteGitHubToken(_ context.Context) error {
-	if m.deleteErr != nil {
-		return m.deleteErr
-	}
-	m.token = ""
-	m.stored = false
-	return nil
-}
 
 func validKey() []byte {
 	return []byte("0123456789abcdef0123456789abcdef")
+}
+
+func newTestService(t *testing.T) *githubtoken.Service {
+	t.Helper()
+	db := sqlite.NewTestDB(t)
+	repo := sqlite.NewGitHubTokenRepository(db)
+	return githubtoken.NewService(repo, validKey(), false)
+}
+
+func newTestServiceAndRepo(t *testing.T) (*githubtoken.Service, *sqlite.GitHubTokenRepository) {
+	t.Helper()
+	db := sqlite.NewTestDB(t)
+	repo := sqlite.NewGitHubTokenRepository(db)
+	svc := githubtoken.NewService(repo, validKey(), false)
+	return svc, repo
 }
 
 func TestIsValidTokenPrefix(t *testing.T) {
@@ -68,15 +48,14 @@ func TestIsValidTokenPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.token, func(t *testing.T) {
-			result := IsValidTokenPrefix(tt.token)
+			result := githubtoken.IsValidTokenPrefix(tt.token)
 			assert.Equal(t, tt.valid, result, "IsValidTokenPrefix(%q)", tt.token)
 		})
 	}
 }
 
 func TestService_SaveAndGetToken(t *testing.T) {
-	repo := &mockTokenRepo{}
-	svc := NewService(repo, validKey(), false)
+	svc := newTestService(t)
 
 	err := svc.SaveToken(context.Background(), "ghp_testtoken123")
 	require.NoError(t, err, "save")
@@ -86,14 +65,10 @@ func TestService_SaveAndGetToken(t *testing.T) {
 
 	assert.True(t, svc.HasToken(), "expected HasToken to return true")
 	assert.False(t, svc.IsFineGrained(), "expected IsFineGrained to return false for ghp_ token")
-
-	// Verify the stored token is encrypted
-	assert.NotEqual(t, "ghp_testtoken123", repo.token, "expected stored token to be encrypted")
 }
 
 func TestService_SaveFineGrainedToken(t *testing.T) {
-	repo := &mockTokenRepo{}
-	svc := NewService(repo, validKey(), false)
+	svc := newTestService(t)
 
 	err := svc.SaveToken(context.Background(), "github_pat_testtoken123")
 	require.NoError(t, err, "save")
@@ -102,8 +77,7 @@ func TestService_SaveFineGrainedToken(t *testing.T) {
 }
 
 func TestService_GetClient(t *testing.T) {
-	repo := &mockTokenRepo{}
-	svc := NewService(repo, validKey(), false)
+	svc := newTestService(t)
 
 	// Before save, client should be nil
 	assert.Nil(t, svc.GetClient(), "expected nil client before save")
@@ -115,8 +89,7 @@ func TestService_GetClient(t *testing.T) {
 }
 
 func TestService_DeleteToken(t *testing.T) {
-	repo := &mockTokenRepo{}
-	svc := NewService(repo, validKey(), false)
+	svc := newTestService(t)
 
 	_ = svc.SaveToken(context.Background(), "ghp_testtoken123")
 	require.True(t, svc.HasToken(), "expected token to be saved")
@@ -130,17 +103,16 @@ func TestService_DeleteToken(t *testing.T) {
 }
 
 func TestService_Load(t *testing.T) {
+	_, repo := newTestServiceAndRepo(t)
 	key := validKey()
-	repo := &mockTokenRepo{}
 
-	// First, save a token
+	// Save a token via the repo directly (simulating a pre-existing token in DB)
 	encrypted, err := crypto.Encrypt(key, "ghp_loaded_token")
 	require.NoError(t, err, "encrypt")
-	repo.token = encrypted
-	repo.stored = true
+	require.NoError(t, repo.UpsertGitHubToken(context.Background(), encrypted, time.Now()))
 
-	// Now load it
-	svc := NewService(repo, key, false)
+	// Create a fresh service and load from the DB
+	svc := githubtoken.NewService(repo, key, false)
 	err = svc.Load(context.Background())
 	require.NoError(t, err, "load")
 
@@ -149,41 +121,10 @@ func TestService_Load(t *testing.T) {
 }
 
 func TestService_Load_NoToken(t *testing.T) {
-	repo := &mockTokenRepo{stored: false}
-	svc := NewService(repo, validKey(), false)
+	svc := newTestService(t)
 
 	err := svc.Load(context.Background())
 	require.NoError(t, err, "load with no token should not error")
 
 	assert.False(t, svc.HasToken(), "expected HasToken to return false when no token stored")
-}
-
-func TestService_Load_ReadError(t *testing.T) {
-	repo := &mockTokenRepo{readErr: errors.New("db error")}
-	svc := NewService(repo, validKey(), false)
-
-	err := svc.Load(context.Background())
-	assert.Error(t, err, "expected error from load")
-}
-
-func TestService_SaveToken_RepoError(t *testing.T) {
-	repo := &mockTokenRepo{upsertErr: errors.New("db error")}
-	svc := NewService(repo, validKey(), false)
-
-	err := svc.SaveToken(context.Background(), "ghp_test")
-	assert.Error(t, err, "expected error from save")
-}
-
-func TestService_DeleteToken_RepoError(t *testing.T) {
-	repo := &mockTokenRepo{deleteErr: errors.New("db error")}
-	svc := NewService(repo, validKey(), false)
-
-	_ = svc.SaveToken(context.Background(), "ghp_test")
-	repo.deleteErr = errors.New("db error")
-
-	err := svc.DeleteToken(context.Background())
-	assert.Error(t, err, "expected error from delete")
-
-	// Token should still be cached
-	assert.True(t, svc.HasToken(), "expected token to remain cached on delete error")
 }

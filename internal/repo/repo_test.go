@@ -1,17 +1,20 @@
-package repo
+package repo_test
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/joshjon/verve/internal/repo"
+	"github.com/joshjon/verve/internal/sqlite"
 )
 
 func TestNewRepo_Valid(t *testing.T) {
-	r, err := NewRepo("octocat/hello-world")
+	r, err := repo.NewRepo("octocat/hello-world")
 	require.NoError(t, err)
 	assert.Equal(t, "octocat", r.Owner)
 	assert.Equal(t, "hello-world", r.Name)
@@ -22,28 +25,27 @@ func TestNewRepo_Valid(t *testing.T) {
 }
 
 func TestNewRepo_InvalidNoSlash(t *testing.T) {
-	_, err := NewRepo("justname")
+	_, err := repo.NewRepo("justname")
 	assert.Error(t, err, "expected error for repo name without slash")
 }
 
 func TestNewRepo_EmptyOwner(t *testing.T) {
-	_, err := NewRepo("/reponame")
+	_, err := repo.NewRepo("/reponame")
 	assert.Error(t, err, "expected error for empty owner")
 }
 
 func TestNewRepo_EmptyName(t *testing.T) {
-	_, err := NewRepo("owner/")
+	_, err := repo.NewRepo("owner/")
 	assert.Error(t, err, "expected error for empty name")
 }
 
 func TestNewRepo_EmptyString(t *testing.T) {
-	_, err := NewRepo("")
+	_, err := repo.NewRepo("")
 	assert.Error(t, err, "expected error for empty string")
 }
 
 func TestNewRepo_MultipleSlashes(t *testing.T) {
-	// SplitN with n=2 should handle this correctly: "owner" and "repo/subpath"
-	r, err := NewRepo("owner/repo/subpath")
+	r, err := repo.NewRepo("owner/repo/subpath")
 	require.NoError(t, err)
 	assert.Equal(t, "owner", r.Owner)
 	assert.Equal(t, "repo/subpath", r.Name)
@@ -52,144 +54,48 @@ func TestNewRepo_MultipleSlashes(t *testing.T) {
 // --- RepoID tests ---
 
 func TestNewRepoID(t *testing.T) {
-	id := NewRepoID()
+	id := repo.NewRepoID()
 	s := id.String()
 	assert.NotEmpty(t, s, "expected non-empty string")
 	assert.True(t, strings.HasPrefix(s, "repo_"), "expected repo_ prefix, got %s", s)
 }
 
 func TestParseRepoID_Valid(t *testing.T) {
-	original := NewRepoID()
-	parsed, err := ParseRepoID(original.String())
+	original := repo.NewRepoID()
+	parsed, err := repo.ParseRepoID(original.String())
 	require.NoError(t, err)
 	assert.Equal(t, original.String(), parsed.String())
 }
 
 func TestParseRepoID_InvalidPrefix(t *testing.T) {
-	_, err := ParseRepoID("tsk_01h2xcejqtf2nbrexx3vqjhp41")
+	_, err := repo.ParseRepoID("tsk_01h2xcejqtf2nbrexx3vqjhp41")
 	assert.Error(t, err, "expected error for wrong prefix")
 }
 
 func TestParseRepoID_Empty(t *testing.T) {
-	_, err := ParseRepoID("")
+	_, err := repo.ParseRepoID("")
 	assert.Error(t, err, "expected error for empty string")
 }
 
 func TestMustParseRepoID_Panics(t *testing.T) {
 	assert.Panics(t, func() {
-		MustParseRepoID("invalid")
+		repo.MustParseRepoID("invalid")
 	}, "expected panic for invalid repo ID")
 }
 
-// --- Store tests ---
+// --- Store tests (backed by real SQLite) ---
 
-type mockRepoRepository struct {
-	repos         map[string]*Repo
-	createErr     error
-	readErr       error
-	readByNameErr error
-	deleteErr     error
-}
-
-func newMockRepoRepository() *mockRepoRepository {
-	return &mockRepoRepository{repos: make(map[string]*Repo)}
-}
-
-func (m *mockRepoRepository) CreateRepo(_ context.Context, r *Repo) error {
-	if m.createErr != nil {
-		return m.createErr
-	}
-	m.repos[r.ID.String()] = r
-	return nil
-}
-
-func (m *mockRepoRepository) ReadRepo(_ context.Context, id RepoID) (*Repo, error) {
-	if m.readErr != nil {
-		return nil, m.readErr
-	}
-	r, ok := m.repos[id.String()]
-	if !ok {
-		return nil, errors.New("not found")
-	}
-	return r, nil
-}
-
-func (m *mockRepoRepository) ReadRepoByFullName(_ context.Context, fullName string) (*Repo, error) {
-	if m.readByNameErr != nil {
-		return nil, m.readByNameErr
-	}
-	for _, r := range m.repos {
-		if r.FullName == fullName {
-			return r, nil
-		}
-	}
-	return nil, errors.New("not found")
-}
-
-func (m *mockRepoRepository) ListRepos(_ context.Context) ([]*Repo, error) {
-	var result []*Repo
-	for _, r := range m.repos {
-		result = append(result, r)
-	}
-	return result, nil
-}
-
-func (m *mockRepoRepository) DeleteRepo(_ context.Context, id RepoID) error {
-	if m.deleteErr != nil {
-		return m.deleteErr
-	}
-	delete(m.repos, id.String())
-	return nil
-}
-
-func (m *mockRepoRepository) UpdateRepoSetupScan(_ context.Context, id RepoID, result SetupScanResult) error {
-	r, ok := m.repos[id.String()]
-	if !ok {
-		return errors.New("not found")
-	}
-	r.Summary = result.Summary
-	r.TechStack = result.TechStack
-	r.HasCode = result.HasCode
-	r.HasCLAUDEMD = result.HasCLAUDEMD
-	r.HasREADME = result.HasREADME
-	r.SetupStatus = result.SetupStatus
-	return nil
-}
-
-func (m *mockRepoRepository) UpdateRepoSetupStatus(_ context.Context, id RepoID, status string) error {
-	r, ok := m.repos[id.String()]
-	if !ok {
-		return errors.New("not found")
-	}
-	r.SetupStatus = status
-	return nil
-}
-
-func (m *mockRepoRepository) UpdateRepoExpectations(_ context.Context, id RepoID, update ExpectationsUpdate) error {
-	r, ok := m.repos[id.String()]
-	if !ok {
-		return errors.New("not found")
-	}
-	r.Expectations = update.Expectations
-	r.SetupCompletedAt = update.SetupCompletedAt
-	return nil
-}
-
-func (m *mockRepoRepository) ListReposBySetupStatus(_ context.Context, status string) ([]*Repo, error) {
-	var result []*Repo
-	for _, r := range m.repos {
-		if r.SetupStatus == status {
-			result = append(result, r)
-		}
-	}
-	return result, nil
+func newTestStore(t *testing.T) *repo.Store {
+	t.Helper()
+	db := sqlite.NewTestDB(t)
+	repoRepo := sqlite.NewRepoRepository(db)
+	return repo.NewStore(repoRepo)
 }
 
 func TestStore_DeleteRepo(t *testing.T) {
-	repoRepo := newMockRepoRepository()
-	store := NewStore(repoRepo)
+	store := newTestStore(t)
 
-	r, _ := NewRepo("owner/name")
+	r, _ := repo.NewRepo("owner/name")
 	_ = store.CreateRepo(context.Background(), r)
 
 	err := store.DeleteRepo(context.Background(), r.ID)
@@ -197,24 +103,24 @@ func TestStore_DeleteRepo(t *testing.T) {
 }
 
 func TestStore_CreateAndReadRepo(t *testing.T) {
-	repoRepo := newMockRepoRepository()
-	store := NewStore(repoRepo)
+	store := newTestStore(t)
 
-	r, _ := NewRepo("owner/name")
+	r, _ := repo.NewRepo("owner/name")
 	err := store.CreateRepo(context.Background(), r)
 	require.NoError(t, err)
 
 	read, err := store.ReadRepo(context.Background(), r.ID)
 	require.NoError(t, err)
 	assert.Equal(t, r.FullName, read.FullName)
+	assert.Equal(t, repo.SetupStatusPending, read.SetupStatus)
+	assert.Empty(t, read.TechStack)
 }
 
 func TestStore_ListRepos(t *testing.T) {
-	repoRepo := newMockRepoRepository()
-	store := NewStore(repoRepo)
+	store := newTestStore(t)
 
-	r1, _ := NewRepo("owner/repo1")
-	r2, _ := NewRepo("owner/repo2")
+	r1, _ := repo.NewRepo("owner/repo1")
+	r2, _ := repo.NewRepo("owner/repo2")
 	_ = store.CreateRepo(context.Background(), r1)
 	_ = store.CreateRepo(context.Background(), r2)
 
@@ -224,13 +130,159 @@ func TestStore_ListRepos(t *testing.T) {
 }
 
 func TestStore_ReadRepoByFullName(t *testing.T) {
-	repoRepo := newMockRepoRepository()
-	store := NewStore(repoRepo)
+	store := newTestStore(t)
 
-	r, _ := NewRepo("owner/name")
+	r, _ := repo.NewRepo("owner/name")
 	_ = store.CreateRepo(context.Background(), r)
 
 	read, err := store.ReadRepoByFullName(context.Background(), "owner/name")
 	require.NoError(t, err)
 	assert.Equal(t, r.ID.String(), read.ID.String())
+}
+
+func TestStore_UpdateRepoSetupScan(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	// Transition pending -> scanning first
+	require.NoError(t, store.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+
+	// Now scan complete -> needs_setup
+	result := repo.SetupScanResult{
+		Summary:     "A Go web application",
+		TechStack:   []string{"Go", "PostgreSQL"},
+		HasCode:     true,
+		HasCLAUDEMD: true,
+		HasREADME:   false,
+		SetupStatus: repo.SetupStatusNeedsSetup,
+	}
+	require.NoError(t, store.UpdateRepoSetupScan(ctx, r.ID, result))
+
+	read, err := store.ReadRepo(ctx, r.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "A Go web application", read.Summary)
+	assert.Equal(t, []string{"Go", "PostgreSQL"}, read.TechStack)
+	assert.True(t, read.HasCode)
+	assert.True(t, read.HasCLAUDEMD)
+	assert.False(t, read.HasREADME)
+	assert.Equal(t, repo.SetupStatusNeedsSetup, read.SetupStatus)
+}
+
+func TestStore_UpdateRepoSetupScan_InvalidTransition(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	// Cannot go from pending -> needs_setup directly
+	result := repo.SetupScanResult{
+		SetupStatus: repo.SetupStatusNeedsSetup,
+	}
+	err := store.UpdateRepoSetupScan(ctx, r.ID, result)
+	assert.Error(t, err)
+}
+
+func TestStore_UpdateRepoSetupStatus(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	// Valid: pending -> scanning
+	require.NoError(t, store.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+
+	read, err := store.ReadRepo(ctx, r.ID)
+	require.NoError(t, err)
+	assert.Equal(t, repo.SetupStatusScanning, read.SetupStatus)
+}
+
+func TestStore_UpdateRepoSetupStatus_InvalidTransition(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	// Invalid: pending -> ready (must go through scanning)
+	err := store.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusReady)
+	assert.Error(t, err)
+}
+
+func TestStore_UpdateRepoSetupStatus_InvalidStatus(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	err := store.UpdateRepoSetupStatus(ctx, r.ID, "bogus")
+	assert.Error(t, err)
+}
+
+func TestStore_UpdateRepoExpectations(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	now := time.Now().Truncate(time.Second)
+	update := repo.ExpectationsUpdate{
+		Expectations:     "Use conventional commits",
+		SetupCompletedAt: &now,
+	}
+	require.NoError(t, store.UpdateRepoExpectations(ctx, r.ID, update))
+
+	read, err := store.ReadRepo(ctx, r.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Use conventional commits", read.Expectations)
+	require.NotNil(t, read.SetupCompletedAt)
+	assert.Equal(t, now.Unix(), read.SetupCompletedAt.Unix())
+}
+
+func TestStore_ListReposBySetupStatus(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r1, _ := repo.NewRepo("owner/repo1")
+	r2, _ := repo.NewRepo("owner/repo2")
+	require.NoError(t, store.CreateRepo(ctx, r1))
+	require.NoError(t, store.CreateRepo(ctx, r2))
+
+	// Both start as pending
+	repos, err := store.ListReposBySetupStatus(ctx, repo.SetupStatusPending)
+	require.NoError(t, err)
+	assert.Len(t, repos, 2)
+
+	// Transition one to scanning
+	require.NoError(t, store.UpdateRepoSetupStatus(ctx, r1.ID, repo.SetupStatusScanning))
+
+	repos, err = store.ListReposBySetupStatus(ctx, repo.SetupStatusPending)
+	require.NoError(t, err)
+	assert.Len(t, repos, 1)
+	assert.Equal(t, r2.ID.String(), repos[0].ID.String())
+}
+
+func TestStore_NewRepoDefaults(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	r, _ := repo.NewRepo("owner/name")
+	require.NoError(t, store.CreateRepo(ctx, r))
+
+	read, err := store.ReadRepo(ctx, r.ID)
+	require.NoError(t, err)
+	assert.Equal(t, repo.SetupStatusPending, read.SetupStatus)
+	assert.Empty(t, read.Summary)
+	assert.Empty(t, read.TechStack)
+	assert.False(t, read.HasCode)
+	assert.False(t, read.HasCLAUDEMD)
+	assert.False(t, read.HasREADME)
+	assert.Empty(t, read.Expectations)
+	assert.Nil(t, read.SetupCompletedAt)
 }
