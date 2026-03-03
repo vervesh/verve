@@ -67,6 +67,11 @@ type PollResponse struct {
 	Epic         *Epic  `json:"epic,omitempty"`
 	GitHubToken  string `json:"github_token"`
 	RepoFullName string `json:"repo_full_name"`
+
+	// Repo setup data (injected into agent prompts)
+	RepoSummary      string `json:"repo_summary,omitempty"`
+	RepoExpectations string `json:"repo_expectations,omitempty"`
+	RepoTechStack    string `json:"repo_tech_stack,omitempty"`
 }
 
 type Worker struct {
@@ -180,7 +185,7 @@ func (w *Worker) Run(ctx context.Context) error {
 					"worker.active_tasks", activeCount,
 					"epic.title", p.Epic.Title,
 				)
-				w.executeEpicPlanning(ctx, p.Epic, p.GitHubToken, p.RepoFullName)
+				w.executeEpicPlanning(ctx, p)
 			default:
 				w.logger.Info("claimed task",
 					"task.id", p.Task.ID,
@@ -189,7 +194,7 @@ func (w *Worker) Run(ctx context.Context) error {
 					"worker.max_concurrent", w.maxConcurrent,
 					"task.description", p.Task.Description,
 				)
-				w.executeTask(ctx, p.Task, p.GitHubToken, p.RepoFullName)
+				w.executeTask(ctx, p)
 			}
 		}
 
@@ -365,7 +370,10 @@ func (ls *logStreamer) flush() {
 	}
 }
 
-func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoFullName string) {
+func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
+	task := poll.Task
+	githubToken := poll.GitHubToken
+	repoFullName := poll.RepoFullName
 	taskLogger := w.logger.With("task.id", task.ID)
 
 	// Create log streamer for real-time log streaming
@@ -504,26 +512,29 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 
 	// Create agent config from worker config + server-provided credentials
 	agentCfg := AgentConfig{
-		WorkType:                 "task",
-		TaskID:                   task.ID,
-		TaskTitle:                task.Title,
-		TaskDescription:          task.Description,
-		GitHubToken:              githubToken,
-		GitHubRepo:               repoFullName,
-		AnthropicAPIKey:          w.config.AnthropicAPIKey,
-		AnthropicBaseURL:         w.config.AnthropicBaseURL,
-		ClaudeCodeOAuthToken:     w.config.ClaudeCodeOAuthToken,
-		ClaudeModel:              task.Model,
-		DryRun:                   w.config.DryRun,
+		WorkType:                  "task",
+		TaskID:                    task.ID,
+		TaskTitle:                 task.Title,
+		TaskDescription:           task.Description,
+		GitHubToken:               githubToken,
+		GitHubRepo:                repoFullName,
+		AnthropicAPIKey:           w.config.AnthropicAPIKey,
+		AnthropicBaseURL:          w.config.AnthropicBaseURL,
+		ClaudeCodeOAuthToken:      w.config.ClaudeCodeOAuthToken,
+		ClaudeModel:               task.Model,
+		DryRun:                    w.config.DryRun,
 		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
 		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
-		SkipPR:                   task.SkipPR,
-		DraftPR:                  task.DraftPR,
-		Attempt:                  task.Attempt,
-		RetryReason:              task.RetryReason,
-		AcceptanceCriteria:       task.AcceptanceCriteria,
-		RetryContext:             task.RetryContext,
-		PreviousStatus:           task.AgentStatus,
+		SkipPR:                    task.SkipPR,
+		DraftPR:                   task.DraftPR,
+		Attempt:                   task.Attempt,
+		RetryReason:               task.RetryReason,
+		AcceptanceCriteria:        task.AcceptanceCriteria,
+		RetryContext:              task.RetryContext,
+		PreviousStatus:            task.AgentStatus,
+		RepoSummary:               poll.RepoSummary,
+		RepoExpectations:          poll.RepoExpectations,
+		RepoTechStack:             poll.RepoTechStack,
 	}
 
 	// Create a cancellable context for the agent execution.
@@ -605,7 +616,10 @@ func (w *Worker) executeTask(ctx context.Context, task *Task, githubToken, repoF
 	}
 }
 
-func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken, repoFullName string) {
+func (w *Worker) executeEpicPlanning(ctx context.Context, poll *PollResponse) {
+	ep := poll.Epic
+	githubToken := poll.GitHubToken
+	repoFullName := poll.RepoFullName
 	epicLogger := w.logger.With("epic.id", ep.ID)
 	epicLogger.Info("starting epic planning", "epic.title", ep.Title)
 
@@ -638,6 +652,9 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 		ClaudeModel:               ep.Model,
 		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
 		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
+		RepoSummary:               poll.RepoSummary,
+		RepoExpectations:          poll.RepoExpectations,
+		RepoTechStack:             poll.RepoTechStack,
 	}
 
 	// Start heartbeat goroutine

@@ -139,6 +139,29 @@ ${EPIC_DESCRIPTION}"
 ${EPIC_PLANNING_PROMPT}"
     fi
 
+    # Add repo context if available
+    if [ -n "${REPO_SUMMARY}" ] || [ -n "${REPO_EXPECTATIONS}" ] || [ -n "${REPO_TECH_STACK}" ]; then
+        prompt="${prompt}
+
+## Repository Setup Context"
+        if [ -n "${REPO_SUMMARY}" ]; then
+            prompt="${prompt}
+
+**Repository Summary:** ${REPO_SUMMARY}"
+        fi
+        if [ -n "${REPO_TECH_STACK}" ]; then
+            prompt="${prompt}
+
+**Tech Stack:** ${REPO_TECH_STACK}"
+        fi
+        if [ -n "${REPO_EXPECTATIONS}" ]; then
+            prompt="${prompt}
+
+**Repository Expectations:**
+${REPO_EXPECTATIONS}"
+        fi
+    fi
+
     if [ -n "$previous_plan" ] && [ -n "$feedback" ]; then
         prompt="${prompt}
 

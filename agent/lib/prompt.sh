@@ -75,6 +75,30 @@ Details: ${TASK_DESCRIPTION}"
         fi
     fi
 
+    # Add repo context if available
+    if [ -n "${REPO_SUMMARY}" ] || [ -n "${REPO_EXPECTATIONS}" ] || [ -n "${REPO_TECH_STACK}" ]; then
+        prompt+="
+
+=== Repository Context ==="
+        if [ -n "${REPO_SUMMARY}" ]; then
+            prompt+="
+Repository Summary: ${REPO_SUMMARY}"
+        fi
+        if [ -n "${REPO_TECH_STACK}" ]; then
+            prompt+="
+Tech Stack: ${REPO_TECH_STACK}"
+        fi
+        if [ -n "${REPO_EXPECTATIONS}" ]; then
+            prompt+="
+
+=== Repository Expectations ===
+${REPO_EXPECTATIONS}
+=== End Repository Expectations ==="
+        fi
+        prompt+="
+=== End Repository Context ==="
+    fi
+
     if [ -n "$ACCEPTANCE_CRITERIA" ]; then
         prompt+="
 

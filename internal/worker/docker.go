@@ -105,6 +105,11 @@ type AgentConfig struct {
 	DryRun                     bool
 	GitHubInsecureSkipVerify   bool
 	StripAnthropicBetaHeaders  bool   // Pass through to agent container to run a local header-stripping proxy
+
+	// Repo setup data (injected into agent prompts)
+	RepoSummary      string
+	RepoExpectations string
+	RepoTechStack    string
 }
 
 // LogCallback is called for each log line from the container
@@ -142,6 +147,17 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 
 	if cfg.StripAnthropicBetaHeaders {
 		env = append(env, "STRIP_ANTHROPIC_BETA_HEADERS=true")
+	}
+
+	// Repo setup data — injected into agent prompts for context
+	if cfg.RepoSummary != "" {
+		env = append(env, "REPO_SUMMARY="+cfg.RepoSummary)
+	}
+	if cfg.RepoExpectations != "" {
+		env = append(env, "REPO_EXPECTATIONS="+cfg.RepoExpectations)
+	}
+	if cfg.RepoTechStack != "" {
+		env = append(env, "REPO_TECH_STACK="+cfg.RepoTechStack)
 	}
 
 	if workType == workTypeEpic {

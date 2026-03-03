@@ -3,6 +3,7 @@ package agentapi
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joshjon/kit/server"
@@ -127,10 +128,13 @@ func (h *HTTPHandler) buildEpicPollResponse(c echo.Context, e *epic.Epic) (*Poll
 		token = h.githubToken.GetToken()
 	}
 	return &PollResponse{
-		Type:         "epic",
-		Epic:         e,
-		GitHubToken:  token,
-		RepoFullName: r.FullName,
+		Type:             "epic",
+		Epic:             e,
+		GitHubToken:      token,
+		RepoFullName:     r.FullName,
+		RepoSummary:      r.Summary,
+		RepoExpectations: r.Expectations,
+		RepoTechStack:    strings.Join(r.TechStack, ", "),
 	}, nil
 }
 
@@ -148,10 +152,13 @@ func (h *HTTPHandler) buildTaskPollResponse(c echo.Context, t *task.Task) (*Poll
 		token = h.githubToken.GetToken()
 	}
 	return &PollResponse{
-		Type:         "task",
-		Task:         t,
-		GitHubToken:  token,
-		RepoFullName: r.FullName,
+		Type:             "task",
+		Task:             t,
+		GitHubToken:      token,
+		RepoFullName:     r.FullName,
+		RepoSummary:      r.Summary,
+		RepoExpectations: r.Expectations,
+		RepoTechStack:    strings.Join(r.TechStack, ", "),
 	}, nil
 }
 

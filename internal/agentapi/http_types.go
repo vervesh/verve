@@ -20,6 +20,11 @@ type PollResponse struct {
 	// Common fields
 	GitHubToken  string `json:"github_token,omitempty"`
 	RepoFullName string `json:"repo_full_name"`
+
+	// Repo setup data (injected into agent prompts)
+	RepoSummary      string `json:"repo_summary,omitempty"`
+	RepoExpectations string `json:"repo_expectations,omitempty"`
+	RepoTechStack    string `json:"repo_tech_stack,omitempty"`
 }
 
 // TaskIDRequest captures the :id path parameter for task agent endpoints.
