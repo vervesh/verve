@@ -55,12 +55,11 @@ type TaskCompleteRequest struct {
 	PullRequestURL string  `json:"pull_request_url"`
 	PRNumber       int     `json:"pr_number"`
 	BranchName     string  `json:"branch_name"`
-	Error          string  `json:"error"`
-	AgentStatus    string  `json:"agent_status"`
-	CostUSD        float64 `json:"cost_usd"`
-	PrereqFailed   string  `json:"prereq_failed"`
-	NoChanges      bool    `json:"no_changes"`
-	Retryable      bool    `json:"retryable"`
+	Error       string  `json:"error"`
+	AgentStatus string  `json:"agent_status"`
+	CostUSD     float64 `json:"cost_usd"`
+	NoChanges   bool    `json:"no_changes"`
+	Retryable   bool    `json:"retryable"`
 }
 
 func (r TaskCompleteRequest) Validate() error {

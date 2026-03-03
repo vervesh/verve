@@ -230,12 +230,7 @@ func (h *HTTPHandler) TaskComplete(c echo.Context) error {
 
 	switch {
 	case !req.Success:
-		if req.PrereqFailed != "" {
-			if err := h.taskStore.SetCloseReason(ctx, id, req.PrereqFailed); err != nil {
-				return err
-			}
-		}
-		if req.Retryable && req.PrereqFailed == "" {
+		if req.Retryable {
 			reason := "rate_limit: " + req.Error
 			if err := h.taskStore.ScheduleRetry(ctx, id, reason); err != nil {
 				return err
@@ -246,7 +241,7 @@ func (h *HTTPHandler) TaskComplete(c echo.Context) error {
 		if readErr != nil {
 			return readErr
 		}
-		if req.PrereqFailed == "" && (t.PRNumber > 0 || t.BranchName != "") {
+		if t.PRNumber > 0 || t.BranchName != "" {
 			if err := h.taskStore.UpdateTaskStatus(ctx, id, task.StatusReview); err != nil {
 				return err
 			}

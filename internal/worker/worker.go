@@ -385,7 +385,6 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 	var branchName string
 	var agentStatus string
 	var costUSD float64
-	var prereqFailed string
 	var noChanges bool
 	var rateLimited bool
 	var transientError bool
@@ -462,15 +461,6 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 			noChanges = true
 			markerMu.Unlock()
 			taskLogger.Info("agent reported no changes needed")
-		}
-
-		// Parse prereq failure marker
-		if strings.HasPrefix(cleanLine, "VERVE_PREREQ_FAILED:") {
-			jsonStr := strings.TrimPrefix(cleanLine, "VERVE_PREREQ_FAILED:")
-			markerMu.Lock()
-			prereqFailed = jsonStr
-			markerMu.Unlock()
-			taskLogger.Warn("prerequisite check failed", "prereq.details", jsonStr)
 		}
 
 		// Parse cost marker
@@ -571,7 +561,6 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 	capturedBranchName := branchName
 	capturedAgentStatus := agentStatus
 	capturedCostUSD := costUSD
-	capturedPrereqFailed := prereqFailed
 	capturedNoChanges := noChanges
 	capturedRateLimited := rateLimited
 	capturedTransientError := transientError
@@ -583,7 +572,7 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 	case result.Error != nil:
 		retryable := capturedRateLimited || capturedTransientError || isDockerInfraError(result.Error)
 		taskLogger.Error("task failed", "error", result.Error, "task.retryable", retryable)
-		_ = w.completeTask(ctx, task.ID, false, result.Error.Error(), "", 0, "", capturedAgentStatus, capturedCostUSD, capturedPrereqFailed, false, retryable)
+		_ = w.completeTask(ctx, task.ID, false, result.Error.Error(), "", 0, "", capturedAgentStatus, capturedCostUSD, false, retryable)
 	case result.Success:
 		// Defense-in-depth: if the agent exited successfully but we detected
 		// authentication or rate-limit errors in the logs and no actual work
@@ -597,22 +586,19 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 				errMsg = "agent completed with no changes due to authentication error (check API key)"
 			}
 			taskLogger.Error("task failed, no changes due to api error", "task.auth_error", capturedAuthError, "task.rate_limited", capturedRateLimited)
-			_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, "", false, capturedRateLimited)
+			_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, false, capturedRateLimited)
 		case capturedNoChanges:
 			taskLogger.Info("task completed, no changes needed")
-			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
+			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, capturedNoChanges, false)
 		default:
 			taskLogger.Info("task completed successfully")
-			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, "", capturedNoChanges, false)
+			_ = w.completeTask(ctx, task.ID, true, "", capturedPRURL, capturedPRNumber, capturedBranchName, capturedAgentStatus, capturedCostUSD, capturedNoChanges, false)
 		}
 	default:
 		errMsg := fmt.Sprintf("exit code %d", result.ExitCode)
-		if capturedPrereqFailed != "" {
-			errMsg = "prerequisite check failed"
-		}
 		retryable := capturedRateLimited || capturedTransientError
 		taskLogger.Error("task failed", "container.exit_code", result.ExitCode, "task.retryable", retryable)
-		_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, capturedPrereqFailed, false, retryable)
+		_ = w.completeTask(ctx, task.ID, false, errMsg, "", 0, "", capturedAgentStatus, capturedCostUSD, false, retryable)
 	}
 }
 
@@ -810,7 +796,7 @@ func (w *Worker) sendEpicHeartbeat(ctx context.Context, epicID string) error {
 	return nil
 }
 
-func (w *Worker) completeTask(ctx context.Context, taskID string, success bool, errMsg, prURL string, prNumber int, branchName, agentStatus string, costUSD float64, prereqFailed string, noChanges, retryable bool) error {
+func (w *Worker) completeTask(ctx context.Context, taskID string, success bool, errMsg, prURL string, prNumber int, branchName, agentStatus string, costUSD float64, noChanges, retryable bool) error {
 	payload := map[string]interface{}{"success": success}
 	if errMsg != "" {
 		payload["error"] = errMsg
@@ -827,9 +813,6 @@ func (w *Worker) completeTask(ctx context.Context, taskID string, success bool, 
 	}
 	if costUSD > 0 {
 		payload["cost_usd"] = costUSD
-	}
-	if prereqFailed != "" {
-		payload["prereq_failed"] = prereqFailed
 	}
 	if noChanges {
 		payload["no_changes"] = true

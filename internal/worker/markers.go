@@ -57,11 +57,3 @@ func parseCostMarker(line string) float64 { //nolint:unused // used by tests
 	}
 	return cost
 }
-
-// parsePrereqMarker extracts the prereq failure JSON from a VERVE_PREREQ_FAILED marker line.
-func parsePrereqMarker(line string) string { //nolint:unused // used by tests
-	if !strings.HasPrefix(line, "VERVE_PREREQ_FAILED:") {
-		return ""
-	}
-	return strings.TrimPrefix(line, "VERVE_PREREQ_FAILED:")
-}

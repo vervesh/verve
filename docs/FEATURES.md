@@ -42,14 +42,10 @@
 - **Dry run mode**: Skip Claude API calls for testing; creates dummy changes with dry-run label
 - **Structured agent status**: JSON output with `files_modified`, `tests_status`, `confidence`, `blockers`, `criteria_met`, `notes`
 
-## Prerequisite Checks
+## Missing Dependency Handling
 
-- **Multi-language detection**: Go, Python, Rust, Java/Kotlin (Gradle/Maven), Ruby, PHP, .NET, Swift
-- **File-based detection**: Scans for manifest files (`go.mod`, `requirements.txt`, `Cargo.toml`, etc.)
-- **Description-based detection**: Keyword matching in task descriptions for empty repos
-- **Structured failure reporting**: Missing tools reported with installation instructions
-- **Dockerfile generation**: Claude generates a suggested Dockerfile tailored to the project when prerequisites are missing, displayed in the UI with a copy button
-- **No wasted tokens**: Checks run before Claude, so API costs are not incurred on prerequisite failures (only the Dockerfile generation call is made)
+- **Prompt-based detection**: The agent prompt instructs Claude to detect missing tech stack dependencies (languages, databases, runtimes) at runtime and fail immediately with a clear error rather than attempting installation
+- **Project-level packages allowed**: Installing project dependencies via package managers (`go mod download`, `npm install`, `pip install`, etc.) is permitted and expected
 
 ## WIP Commit Preservation
 
@@ -87,7 +83,7 @@
 - **Configurable concurrency**: `MAX_CONCURRENT_TASKS` with semaphore-based control (default: 3)
 - **Sequential mode**: Single-task execution for network-restricted environments
 - **Graceful shutdown**: Waits for active tasks to complete before stopping
-- **Marker protocol**: Parses structured markers from agent output (`VERVE_PR_CREATED`, `VERVE_STATUS`, `VERVE_COST`, `VERVE_PREREQ_FAILED`)
+- **Marker protocol**: Parses structured markers from agent output (`VERVE_PR_CREATED`, `VERVE_STATUS`, `VERVE_COST`)
 - **Epic planning support**: Workers run long-lived agent containers for epic planning with heartbeats and feedback polling
 
 ## Log Streaming
@@ -147,7 +143,7 @@
 - **Kanban dashboard**: Six status columns with task count badges
 - **Epics dashboard**: Grid of epic cards with status filtering, separate from tasks
 - **Real-time updates**: SSE-driven live task state changes
-- **Task detail page**: Description (markdown), status, retries, logs, agent status, cost, dependencies, PR link, acceptance criteria, prerequisite failures
+- **Task detail page**: Description (markdown), status, retries, logs, agent status, cost, dependencies, PR link, acceptance criteria
 - **Epic detail page**: Proposed tasks with inline editing, planning session log, confirm/close actions, worker status indicators
 - **Create task dialog**: Description, acceptance criteria, dependency search/selection, max cost budget, model selection
 - **Create epic dialog**: Title, description, optional planning prompt

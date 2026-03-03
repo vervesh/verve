@@ -6,7 +6,6 @@ LIB_DIR="$(dirname "$0")/lib"
 source "${LIB_DIR}/log.sh"
 source "${LIB_DIR}/validate.sh"
 source "${LIB_DIR}/git.sh"
-source "${LIB_DIR}/prereqs.sh"
 source "${LIB_DIR}/github.sh"
 source "${LIB_DIR}/prompt.sh"
 source "${LIB_DIR}/claude.sh"
@@ -53,9 +52,6 @@ configure_git
 clone_repo
 detect_default_branch
 setup_branch
-
-# ── Prerequisites ───────────────────────────────────────────────────
-check_prereqs
 
 # ── Dry run shortcut ────────────────────────────────────────────────
 if [ "$DRY_RUN" = "true" ]; then

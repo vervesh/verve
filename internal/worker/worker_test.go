@@ -113,12 +113,6 @@ func TestMarkerParsing_VERVE_COST(t *testing.T) {
 	assert.Equal(t, 1.234, cost)
 }
 
-func TestMarkerParsing_VERVE_PREREQ_FAILED(t *testing.T) {
-	line := `VERVE_PREREQ_FAILED: {"reason":"deps not met"}`
-	prereq := parsePrereqMarker(line)
-	assert.Equal(t, ` {"reason":"deps not met"}`, prereq)
-}
-
 func TestMarkerParsing_BoldFormatting(t *testing.T) {
 	line := `**VERVE_PR_CREATED: {"url":"https://github.com/org/repo/pull/1","number":1}**`
 	cleanLine := strings.TrimRight(strings.TrimLeft(line, "*"), "*")
@@ -134,7 +128,6 @@ func TestMarkerParsing_NoMarker(t *testing.T) {
 	assert.Empty(t, parseBranchMarker(line), "expected empty branch for non-marker line")
 	assert.Empty(t, parseStatusMarker(line), "expected empty status for non-marker line")
 	assert.Equal(t, float64(0), parseCostMarker(line), "expected zero cost for non-marker line")
-	assert.Empty(t, parsePrereqMarker(line), "expected empty prereq for non-marker line")
 }
 
 func TestConfig_Defaults(t *testing.T) {

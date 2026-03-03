@@ -37,8 +37,6 @@
 		ExternalLink,
 		CircleDot,
 		MinusCircle,
-		Copy,
-		Check,
 		MessageSquare,
 		Send,
 		Timer,
@@ -242,31 +240,6 @@
 				return 'bg-red-500/20 text-red-400';
 			default:
 				return 'bg-gray-500/20 text-gray-400';
-		}
-	});
-
-	interface PrereqFailure {
-		detected: string[];
-		missing: {
-			tool: string;
-			reason: string;
-			install: string;
-		}[];
-		dockerfile?: string;
-	}
-
-	let dockerfileCopied = $state(false);
-
-	const parsedPrereqFailure = $derived.by(() => {
-		if (!task?.close_reason || task.status !== 'failed') return null;
-		try {
-			const parsed = JSON.parse(task.close_reason);
-			if (parsed.missing && Array.isArray(parsed.missing)) {
-				return parsed as PrereqFailure;
-			}
-			return null;
-		} catch {
-			return null;
 		}
 	});
 
@@ -1382,62 +1355,8 @@
 					</Card.Root>
 				{/if}
 
-				<!-- Prerequisite Failure -->
-				{#if parsedPrereqFailure}
-					<Card.Root class="border-red-500/30 bg-red-500/5">
-						<Card.Header class="pb-0 gap-0">
-							<Card.Title class="text-base flex items-center gap-2">
-								<AlertTriangle class="w-4 h-4 text-red-500" />
-								Missing Prerequisites
-								<Badge class="bg-red-500 text-white text-xs">
-									{parsedPrereqFailure.missing.length} missing
-								</Badge>
-							</Card.Title>
-						</Card.Header>
-						<Card.Content class="space-y-3">
-							<p class="text-sm text-muted-foreground">
-								The agent detected project types that require tools not installed in the worker image.
-								Build a custom agent image with the missing tools, then retry the task.
-							</p>
-							{#each parsedPrereqFailure.missing as item}
-								<div class="rounded-lg border bg-background p-3 space-y-1">
-									<div class="flex items-center gap-2">
-										<Badge variant="destructive" class="text-xs">{item.tool}</Badge>
-									</div>
-									<p class="text-sm text-muted-foreground">{item.reason}</p>
-								</div>
-							{/each}
-							{#if parsedPrereqFailure.dockerfile}
-								<div class="mt-4 space-y-2">
-									<div class="flex items-center justify-between">
-										<p class="text-sm font-medium">Suggested Dockerfile</p>
-										<Button
-											variant="ghost"
-											size="sm"
-											class="h-7 gap-1.5 text-xs"
-											onclick={() => {
-												navigator.clipboard.writeText(parsedPrereqFailure?.dockerfile ?? '');
-												dockerfileCopied = true;
-												setTimeout(() => dockerfileCopied = false, 2000);
-											}}
-										>
-											{#if dockerfileCopied}
-												<Check class="w-3 h-3" />
-												Copied
-											{:else}
-												<Copy class="w-3 h-3" />
-												Copy
-											{/if}
-										</Button>
-									</div>
-									<p class="text-xs text-muted-foreground">This Dockerfile was AI-generated and may not be completely accurate. Review and adjust before use.</p>
-									<pre class="rounded-lg border bg-background p-3 text-xs font-mono overflow-x-auto whitespace-pre">{parsedPrereqFailure.dockerfile}</pre>
-								</div>
-							{/if}
-						</Card.Content>
-					</Card.Root>
 				<!-- Close Reason (don't show for stopped tasks since the banner handles that) -->
-				{:else if task.close_reason && !isStopped}
+				{#if task.close_reason && !isStopped}
 					<Card.Root class="border-gray-500/30">
 						<Card.Header class="pb-0 gap-0">
 							<Card.Title class="text-base flex items-center gap-2">

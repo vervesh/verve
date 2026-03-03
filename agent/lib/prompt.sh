@@ -108,6 +108,8 @@ ${ACCEPTANCE_CRITERIA}"
 
     prompt+='
 
+MISSING DEPENDENCIES: If you encounter a missing tech stack dependency (e.g. a programming language, database, system tool, or runtime that is not installed in the environment), do NOT attempt to install it. Instead, output an error explaining which dependency is missing and end the session immediately. This applies to infrastructure-level tools like Go, Python, Rust, Java, Ruby, PostgreSQL, Redis, etc. However, installing project-level packages and dependencies IS allowed and expected — for example, running `go mod download`, `npm install`, `pip install -r requirements.txt`, or similar package manager commands to install libraries needed by the codebase is fine.
+
 COMMIT MESSAGE FORMAT: All git commits MUST follow the Conventional Commits specification (https://www.conventionalcommits.org/en/v1.0.0/).
 Format: type(scope)?: description
 Allowed types: feat, fix, refactor, docs, test, chore, ci
