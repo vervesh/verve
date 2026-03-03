@@ -683,7 +683,7 @@ func (w *Worker) sendLogs(ctx context.Context, taskID string, attempt int, logs 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
 	}
@@ -704,7 +704,7 @@ func (w *Worker) sendEpicLogs(ctx context.Context, epicID string, logs []string)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
 	}
@@ -749,14 +749,17 @@ func (w *Worker) sendTaskHeartbeat(ctx context.Context, taskID string) (stopped 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Parse the response to check if the task was stopped.
+	// The server wraps responses in a {"data": ...} envelope.
+	// Parse the envelope to check if the task was stopped.
 	var result struct {
-		Stopped bool `json:"stopped"`
+		Data struct {
+			Stopped bool `json:"stopped"`
+		} `json:"data"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return false
 	}
-	return result.Stopped
+	return result.Data.Stopped
 }
 
 func (w *Worker) epicHeartbeatLoop(ctx context.Context, epicID string) {
@@ -831,7 +834,7 @@ func (w *Worker) completeTask(ctx context.Context, taskID string, success bool, 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		body, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
 	}
