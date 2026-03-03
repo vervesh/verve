@@ -72,7 +72,7 @@ type RunResult struct {
 
 // AgentConfig holds the configuration for running an agent
 type AgentConfig struct {
-	WorkType string // "task" or "epic"
+	WorkType string // "task", "epic", or "setup"
 
 	// Task fields
 	TaskID               string
@@ -93,7 +93,10 @@ type AgentConfig struct {
 	EpicPlanningPrompt string
 	EpicFeedback       string // User feedback for re-planning
 	EpicPreviousPlan   string // JSON of previous proposed tasks for re-planning context
-	APIURL             string // For epic agent to call back to server
+	APIURL             string // For epic/setup agent to call back to server
+
+	// Setup fields
+	SetupRepoID string
 
 	// Common fields
 	GitHubToken                string
@@ -160,7 +163,15 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		env = append(env, "REPO_TECH_STACK="+cfg.RepoTechStack)
 	}
 
-	if workType == workTypeEpic {
+	if workType == workTypeSetup {
+		// Setup-specific env vars
+		env = append(env,
+			"REPO_ID="+cfg.SetupRepoID,
+			"TASK_ID="+cfg.TaskID,
+			"API_URL="+cfg.APIURL,
+			"CLAUDE_MODEL="+cfg.ClaudeModel,
+		)
+	} else if workType == workTypeEpic {
 		// Epic-specific env vars
 		env = append(env,
 			"EPIC_ID="+cfg.EpicID,
@@ -219,9 +230,12 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 
 	// Container name
 	containerName := "verve-"
-	if workType == workTypeEpic {
+	switch workType {
+	case workTypeSetup:
+		containerName += "setup-" + cfg.SetupRepoID
+	case workTypeEpic:
 		containerName += "epic-" + cfg.EpicID
-	} else {
+	default:
 		containerName += "task-" + cfg.TaskID
 	}
 
@@ -229,9 +243,9 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		AutoRemove: false, // We'll remove it manually after getting logs
 	}
 
-	// Epic planning containers need to call back to the API server.
+	// Epic planning and setup scan containers need to call back to the API server.
 	// Three deployment scenarios are handled:
-	// 1. Docker Compose: worker is in Docker, attach epic container to
+	// 1. Docker Compose: worker is in Docker, attach container to
 	//    the same network so Docker DNS resolves service names.
 	// 2. Local dev: worker on host with API_URL=localhost — rewrite to
 	//    host.docker.internal so the container can reach the host.
@@ -239,7 +253,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	//    server (e.g. EC2) — no rewrite needed, the container reaches
 	//    the remote server over the default bridge network.
 	var networkConfig *network.NetworkingConfig
-	if workType == workTypeEpic {
+	if workType == workTypeEpic || workType == workTypeSetup {
 		if netName := d.detectNetwork(ctx); netName != "" {
 			d.logger.Info("attaching epic container to worker network", "container.network", netName)
 			networkConfig = &network.NetworkingConfig{

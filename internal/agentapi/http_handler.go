@@ -55,8 +55,9 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.POST("/epics/:id/heartbeat", h.EpicHeartbeat)
 	g.POST("/epics/:id/logs", h.EpicAppendLogs)
 
-	// Repo setup agent endpoint
+	// Repo setup agent endpoints
 	g.POST("/repos/:repo_id/setup-complete", h.RepoSetupComplete)
+	g.POST("/repos/:repo_id/setup-heartbeat", h.RepoSetupHeartbeat)
 }
 
 // Poll handles GET /poll — unified long-poll for available work.
@@ -94,6 +95,13 @@ func (h *HTTPHandler) Poll(c echo.Context) error {
 			return err
 		}
 		if t != nil {
+			if t.Type == task.TaskTypeSetup {
+				resp, err := h.buildSetupPollResponse(c, t)
+				if err != nil {
+					return err
+				}
+				return server.SetResponse(c, http.StatusOK, resp)
+			}
 			resp, err := h.buildTaskPollResponse(c, t)
 			if err != nil {
 				return err
@@ -138,6 +146,31 @@ func (h *HTTPHandler) buildEpicPollResponse(c echo.Context, e *epic.Epic) (*Poll
 		RepoSummary:      r.Summary,
 		RepoExpectations: r.Expectations,
 		RepoTechStack:    strings.Join(r.TechStack, ", "),
+	}, nil
+}
+
+func (h *HTTPHandler) buildSetupPollResponse(c echo.Context, t *task.Task) (*PollResponse, error) {
+	repoID, err := repo.ParseRepoID(t.RepoID)
+	if err != nil {
+		return nil, err
+	}
+	r, err := h.repoStore.ReadRepo(c.Request().Context(), repoID)
+	if err != nil {
+		return nil, err
+	}
+	var token string
+	if h.githubToken != nil {
+		token = h.githubToken.GetToken()
+	}
+	return &PollResponse{
+		Type: "setup",
+		Setup: &Setup{
+			TaskID:   t.ID.String(),
+			RepoID:   t.RepoID,
+			FullName: r.FullName,
+		},
+		GitHubToken:  token,
+		RepoFullName: r.FullName,
 	}, nil
 }
 
@@ -381,6 +414,18 @@ func (h *HTTPHandler) RepoSetupComplete(c echo.Context) error {
 	}
 	h.taskStore.PublishRepoEvent(ctx, repoID.String(), r)
 
+	return c.NoContent(http.StatusNoContent)
+}
+
+// RepoSetupHeartbeat handles POST /repos/:repo_id/setup-heartbeat.
+// Uses the underlying task heartbeat mechanism since setup scans run as tasks.
+func (h *HTTPHandler) RepoSetupHeartbeat(c echo.Context) error {
+	req, err := server.BindRequest[RepoSetupHeartbeatRequest](c)
+	if err != nil {
+		return err
+	}
+	_ = repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, req.RepoID)
 	return c.NoContent(http.StatusNoContent)
 }
 

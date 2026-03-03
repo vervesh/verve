@@ -15,7 +15,10 @@ import (
 	"github.com/joshjon/kit/log"
 )
 
-const workTypeEpic = "epic"
+const (
+	workTypeEpic  = "epic"
+	workTypeSetup = "setup"
+)
 
 // Config holds the worker configuration
 type Config struct {
@@ -60,11 +63,18 @@ type Epic struct {
 	ProposedTasks  json.RawMessage `json:"proposed_tasks,omitempty"`
 }
 
+type Setup struct {
+	TaskID   string `json:"task_id"`
+	RepoID   string `json:"repo_id"`
+	FullName string `json:"full_name"`
+}
+
 // PollResponse is a discriminated union returned by the unified poll endpoint.
 type PollResponse struct {
-	Type         string `json:"type"` // "task" or "epic"
+	Type         string `json:"type"` // "task", "epic", or "setup"
 	Task         *Task  `json:"task,omitempty"`
 	Epic         *Epic  `json:"epic,omitempty"`
+	Setup        *Setup `json:"setup,omitempty"`
 	GitHubToken  string `json:"github_token"`
 	RepoFullName string `json:"repo_full_name"`
 
@@ -186,6 +196,14 @@ func (w *Worker) Run(ctx context.Context) error {
 					"epic.title", p.Epic.Title,
 				)
 				w.executeEpicPlanning(ctx, p)
+			case workTypeSetup:
+				w.logger.Info("claimed setup scan",
+					"setup.task_id", p.Setup.TaskID,
+					"setup.repo_id", p.Setup.RepoID,
+					"repo.full_name", p.RepoFullName,
+					"worker.active_tasks", activeCount,
+				)
+				w.executeSetup(ctx, p)
 			default:
 				w.logger.Info("claimed task",
 					"task.id", p.Task.ID,
@@ -670,6 +688,97 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, poll *PollResponse) {
 	default:
 		epicLogger.Error("epic planning container failed", "container.exit_code", result.ExitCode)
 	}
+}
+
+func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
+	setup := poll.Setup
+	githubToken := poll.GitHubToken
+	repoFullName := poll.RepoFullName
+	setupLogger := w.logger.With("setup.task_id", setup.TaskID, "setup.repo_id", setup.RepoID)
+	setupLogger.Info("starting repo setup scan", "repo.full_name", repoFullName)
+
+	// Create log streamer for real-time log streaming (uses task log endpoint)
+	streamer := newLogStreamer(ctx, w, setup.TaskID, 1)
+
+	// Log callback
+	onLog := func(line string) {
+		setupLogger.Debug("setup agent output", "agent.line", line)
+		streamer.AddLine(line)
+	}
+
+	agentCfg := AgentConfig{
+		WorkType:                  workTypeSetup,
+		SetupRepoID:              setup.RepoID,
+		TaskID:                    setup.TaskID,
+		APIURL:                    w.config.APIURL,
+		GitHubToken:               githubToken,
+		GitHubRepo:                repoFullName,
+		AnthropicAPIKey:           w.config.AnthropicAPIKey,
+		AnthropicBaseURL:          w.config.AnthropicBaseURL,
+		ClaudeCodeOAuthToken:      w.config.ClaudeCodeOAuthToken,
+		ClaudeModel:               "sonnet",
+		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
+		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
+	}
+
+	// Start heartbeat goroutine using the setup heartbeat endpoint
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+	defer cancelHeartbeat()
+	go w.setupHeartbeatLoop(heartbeatCtx, setup.RepoID)
+
+	result := w.docker.RunAgent(ctx, agentCfg, onLog)
+
+	// Stop heartbeat before completing
+	cancelHeartbeat()
+
+	// Stop the streamer and flush remaining logs
+	streamer.Stop()
+
+	switch {
+	case result.Error != nil:
+		setupLogger.Error("setup scan failed", "error", result.Error)
+		_ = w.completeTask(ctx, setup.TaskID, false, result.Error.Error(), "", 0, "", "", 0, "", false, false)
+	case result.Success:
+		setupLogger.Info("setup scan completed successfully")
+		// The agent script calls POST /repos/:repo_id/setup-complete directly.
+		// Mark the underlying task as closed.
+		_ = w.completeTask(ctx, setup.TaskID, true, "", "", 0, "", "", 0, "", true, false)
+	default:
+		errMsg := fmt.Sprintf("exit code %d", result.ExitCode)
+		setupLogger.Error("setup scan failed", "container.exit_code", result.ExitCode)
+		_ = w.completeTask(ctx, setup.TaskID, false, errMsg, "", 0, "", "", 0, "", false, false)
+	}
+}
+
+func (w *Worker) setupHeartbeatLoop(ctx context.Context, repoID string) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	_ = w.sendSetupHeartbeat(ctx, repoID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = w.sendSetupHeartbeat(ctx, repoID)
+		}
+	}
+}
+
+func (w *Worker) sendSetupHeartbeat(ctx context.Context, repoID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		w.config.APIURL+"/api/v1/agent/repos/"+repoID+"/setup-heartbeat", http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
 }
 
 func (w *Worker) sendLogs(ctx context.Context, taskID string, attempt int, logs []string) error {
