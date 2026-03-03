@@ -178,7 +178,7 @@ func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {
 	opts := []server.Option{
 		server.WithLogger(logger),
 		server.WithRequestLogKeys(logkey.HTTPKeys...),
-		server.WithRequestTimeout(server.DefaultRequestTimeout, "/api/v1/events", "/api/v1/tasks/:id/logs", "/api/v1/agent/poll", "/api/v1/agent/epics/:id/poll-feedback"),
+		server.WithRequestTimeout(server.DefaultRequestTimeout, "/api/v1/events", "/api/v1/tasks/:id/logs", "/api/v1/agent/poll"),
 	}
 	if len(cfg.CorsOrigins) > 0 {
 		opts = append(opts, server.WithCORS(cfg.CorsOrigins...))

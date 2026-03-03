@@ -91,6 +91,8 @@ type AgentConfig struct {
 	EpicTitle          string
 	EpicDescription    string
 	EpicPlanningPrompt string
+	EpicFeedback       string // User feedback for re-planning
+	EpicPreviousPlan   string // JSON of previous proposed tasks for re-planning context
 	APIURL             string // For epic agent to call back to server
 
 	// Common fields
@@ -152,6 +154,12 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 			"API_URL="+cfg.APIURL,
 			"CLAUDE_MODEL="+cfg.ClaudeModel,
 		)
+		if cfg.EpicFeedback != "" {
+			env = append(env, "EPIC_FEEDBACK="+cfg.EpicFeedback)
+		}
+		if cfg.EpicPreviousPlan != "" {
+			env = append(env, "EPIC_PREVIOUS_PLAN="+cfg.EpicPreviousPlan)
+		}
 	} else {
 		// Task-specific env vars
 		env = append(env,

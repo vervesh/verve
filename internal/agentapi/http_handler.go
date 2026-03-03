@@ -50,8 +50,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.POST("/tasks/:id/complete", h.TaskComplete)
 
 	// Epic agent endpoints
-	g.POST("/epics/:id/propose", h.EpicPropose)
-	g.GET("/epics/:id/poll-feedback", h.EpicPollFeedback)
+	g.POST("/epics/:id/complete", h.EpicComplete)
 	g.POST("/epics/:id/heartbeat", h.EpicHeartbeat)
 	g.POST("/epics/:id/logs", h.EpicAppendLogs)
 }
@@ -280,9 +279,9 @@ func (h *HTTPHandler) TaskComplete(c echo.Context) error {
 
 // --- Epic Agent Endpoints ---
 
-// EpicPropose handles POST /epics/:id/propose
-func (h *HTTPHandler) EpicPropose(c echo.Context) error {
-	req, err := server.BindRequest[ProposeTasksRequest](c)
+// EpicComplete handles POST /epics/:id/complete — agent reports planning result.
+func (h *HTTPHandler) EpicComplete(c echo.Context) error {
+	req, err := server.BindRequest[EpicCompleteRequest](c)
 	if err != nil {
 		return err
 	}
@@ -290,56 +289,16 @@ func (h *HTTPHandler) EpicPropose(c echo.Context) error {
 	c.Set(logkey.EpicID, id.String())
 
 	ctx := c.Request().Context()
-	if err := h.epicStore.UpdateProposedTasks(ctx, id, req.Tasks); err != nil {
-		return err
-	}
-
-	e, err := h.epicStore.ReadEpic(ctx, id)
-	if err != nil {
-		return err
-	}
-	return server.SetResponse(c, http.StatusOK, e)
-}
-
-// EpicPollFeedback handles GET /epics/:id/poll-feedback
-func (h *HTTPHandler) EpicPollFeedback(c echo.Context) error {
-	req, err := server.BindRequest[EpicIDRequest](c)
-	if err != nil {
-		return err
-	}
-	id := epic.MustParseEpicID(req.ID)
-	c.Set(logkey.EpicID, id.String())
-
-	timeout := 30 * time.Second
-	deadline := time.Now().Add(timeout)
-	ctx := c.Request().Context()
-
-	for {
-		feedback, feedbackType, err := h.epicStore.PollFeedback(ctx, id)
-		if err != nil {
+	if req.Success && len(req.Tasks) > 0 {
+		if err := h.epicStore.CompletePlanning(ctx, id, req.Tasks); err != nil {
 			return err
 		}
-		if feedbackType != nil {
-			resp := FeedbackResponse{Type: *feedbackType}
-			if feedback != nil {
-				resp.Feedback = *feedback
-			}
-			return server.SetResponse(c, http.StatusOK, resp)
-		}
-
-		remaining := time.Until(deadline)
-		if remaining <= 0 {
-			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
-		}
-
-		select {
-		case <-h.epicStore.WaitForFeedback(id.String()):
-		case <-time.After(remaining):
-			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
-		case <-ctx.Done():
-			return server.SetResponse(c, http.StatusOK, FeedbackResponse{Type: "timeout"})
+	} else {
+		if err := h.epicStore.FailPlanning(ctx, id); err != nil {
+			return err
 		}
 	}
+	return c.NoContent(http.StatusNoContent)
 }
 
 // EpicHeartbeat handles POST /epics/:id/heartbeat

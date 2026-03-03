@@ -50,12 +50,14 @@ type Task struct {
 }
 
 type Epic struct {
-	ID             string `json:"id"`
-	RepoID         string `json:"repo_id"`
-	Title          string `json:"title"`
-	Description    string `json:"description"`
-	PlanningPrompt string `json:"planning_prompt,omitempty"`
-	Model          string `json:"model,omitempty"`
+	ID             string          `json:"id"`
+	RepoID         string          `json:"repo_id"`
+	Title          string          `json:"title"`
+	Description    string          `json:"description"`
+	PlanningPrompt string          `json:"planning_prompt,omitempty"`
+	Model          string          `json:"model,omitempty"`
+	Feedback       *string         `json:"feedback,omitempty"`
+	ProposedTasks  json.RawMessage `json:"proposed_tasks,omitempty"`
 }
 
 // PollResponse is a discriminated union returned by the unified poll endpoint.
@@ -610,18 +612,29 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 	// Create log streamer for real-time log streaming
 	streamer := newEpicLogStreamer(ctx, w, ep.ID)
 
+	var feedback string
+	if ep.Feedback != nil {
+		feedback = *ep.Feedback
+	}
+	var previousPlan string
+	if len(ep.ProposedTasks) > 0 {
+		previousPlan = string(ep.ProposedTasks)
+	}
+
 	agentCfg := AgentConfig{
-		WorkType:                 workTypeEpic,
-		EpicID:                   ep.ID,
-		EpicTitle:                ep.Title,
-		EpicDescription:          ep.Description,
-		EpicPlanningPrompt:       ep.PlanningPrompt,
-		APIURL:                   w.config.APIURL,
-		GitHubToken:              githubToken,
-		GitHubRepo:               repoFullName,
-		AnthropicAPIKey:          w.config.AnthropicAPIKey,
-		AnthropicBaseURL:         w.config.AnthropicBaseURL,
-		ClaudeCodeOAuthToken:     w.config.ClaudeCodeOAuthToken,
+		WorkType:                  workTypeEpic,
+		EpicID:                    ep.ID,
+		EpicTitle:                 ep.Title,
+		EpicDescription:           ep.Description,
+		EpicPlanningPrompt:        ep.PlanningPrompt,
+		EpicFeedback:              feedback,
+		EpicPreviousPlan:          previousPlan,
+		APIURL:                    w.config.APIURL,
+		GitHubToken:               githubToken,
+		GitHubRepo:                repoFullName,
+		AnthropicAPIKey:           w.config.AnthropicAPIKey,
+		AnthropicBaseURL:          w.config.AnthropicBaseURL,
+		ClaudeCodeOAuthToken:      w.config.ClaudeCodeOAuthToken,
 		ClaudeModel:               ep.Model,
 		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
 		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
@@ -632,8 +645,7 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 	defer cancelHeartbeat()
 	go w.epicHeartbeatLoop(heartbeatCtx, ep.ID)
 
-	// Log callback for epic planning — log at INFO level so agent output
-	// is visible in worker logs (helps diagnose issues)
+	// Log callback for epic planning
 	onLog := func(line string) {
 		epicLogger.Info("epic agent", "agent.line", line)
 		streamer.AddLine(line)
@@ -651,7 +663,7 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, ep *Epic, githubToken,
 	case result.Error != nil:
 		epicLogger.Error("epic planning failed", "error", result.Error)
 	case result.Success:
-		epicLogger.Info("epic planning container exited successfully")
+		epicLogger.Info("epic planning completed successfully")
 	default:
 		epicLogger.Error("epic planning container failed", "container.exit_code", result.ExitCode)
 	}

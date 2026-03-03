@@ -120,11 +120,11 @@ func (f *fixture) seedDraftEpic(title, desc string) *epic.Epic {
 	f.t.Helper()
 	ctx := context.Background()
 	e := f.seedEpic(title, desc)
-	// Propose tasks to transition to draft
+	// Use CompletePlanning to transition to draft with proposed tasks
 	tasks := []epic.ProposedTask{
 		{TempID: "t1", Title: "Sub-task 1", Description: "desc"},
 	}
-	require.NoError(f.t, f.EpicStore.UpdateProposedTasks(ctx, e.ID, tasks))
+	require.NoError(f.t, f.EpicStore.CompletePlanning(ctx, e.ID, tasks))
 	// Re-read to get updated state
 	updated, err := f.EpicStore.ReadEpic(ctx, e.ID)
 	require.NoError(f.t, err)

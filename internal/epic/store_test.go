@@ -361,63 +361,117 @@ func TestStore_CreateEpic(t *testing.T) {
 	}
 }
 
-func TestStore_SetFeedback_Message(t *testing.T) {
+func TestStore_RequestChanges(t *testing.T) {
+	t.Run("stores feedback and transitions to planning", func(t *testing.T) {
+		repo := newMockRepo()
+		store := newTestStore(repo, nil)
+
+		e := NewEpic("repo_123", "Epic", "desc")
+		e.Status = StatusDraft
+		require.NoError(t, repo.CreateEpic(context.Background(), e))
+
+		err := store.RequestChanges(context.Background(), e.ID, "please change X")
+		require.NoError(t, err)
+
+		stored, err := repo.ReadEpic(context.Background(), e.ID)
+		require.NoError(t, err)
+		require.NotNil(t, stored.Feedback)
+		assert.Equal(t, "please change X", *stored.Feedback)
+		assert.Equal(t, StatusPlanning, stored.Status)
+
+		// Should notify pending for workers to pick up
+		select {
+		case <-store.WaitForPending():
+		default:
+			assert.Fail(t, "expected pending notification")
+		}
+	})
+
+	t.Run("rejects non-draft status", func(t *testing.T) {
+		repo := newMockRepo()
+		store := newTestStore(repo, nil)
+
+		e := NewEpic("repo_123", "Epic", "desc")
+		e.Status = StatusActive
+		require.NoError(t, repo.CreateEpic(context.Background(), e))
+
+		err := store.RequestChanges(context.Background(), e.ID, "please change X")
+		assert.Error(t, err)
+	})
+}
+
+func TestStore_CompletePlanning(t *testing.T) {
 	repo := newMockRepo()
 	store := newTestStore(repo, nil)
 
 	e := NewEpic("repo_123", "Epic", "desc")
+	e.Status = StatusPlanning
+	now := time.Now()
+	e.ClaimedAt = &now
+	fb := "some feedback"
+	ft := string(FeedbackMessage)
+	e.Feedback = &fb
+	e.FeedbackType = &ft
 	require.NoError(t, repo.CreateEpic(context.Background(), e))
 
-	err := store.SetFeedback(context.Background(), e.ID, "please change X", FeedbackMessage)
+	tasks := []ProposedTask{
+		{TempID: "t1", Title: "Task 1", Description: "desc 1"},
+		{TempID: "t2", Title: "Task 2", Description: "desc 2"},
+	}
+	err := store.CompletePlanning(context.Background(), e.ID, tasks)
 	require.NoError(t, err)
 
-	// Should store feedback
-	stored, err := repo.ReadEpic(context.Background(), e.ID)
-	require.NoError(t, err)
-	require.NotNil(t, stored.Feedback)
-	assert.Equal(t, "please change X", *stored.Feedback)
-
-	// FeedbackMessage should transition to planning
-	assert.Equal(t, StatusPlanning, stored.Status)
+	stored, _ := repo.ReadEpic(context.Background(), e.ID)
+	assert.Len(t, stored.ProposedTasks, 2)
+	assert.Equal(t, StatusDraft, stored.Status)
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+	assert.Nil(t, stored.Feedback, "feedback should be cleared")
+	assert.Nil(t, stored.FeedbackType, "feedback type should be cleared")
 }
 
-func TestStore_PollFeedback(t *testing.T) {
-	t.Run("returns feedback and clears it", func(t *testing.T) {
+func TestStore_FailPlanning(t *testing.T) {
+	t.Run("with existing proposals goes to draft", func(t *testing.T) {
 		repo := newMockRepo()
 		store := newTestStore(repo, nil)
 
 		e := NewEpic("repo_123", "Epic", "desc")
+		e.Status = StatusPlanning
+		now := time.Now()
+		e.ClaimedAt = &now
+		e.ProposedTasks = []ProposedTask{{TempID: "t1", Title: "Task 1"}}
 		require.NoError(t, repo.CreateEpic(context.Background(), e))
 
-		msg := "feedback"
-		ft := string(FeedbackMessage)
-		e.Feedback = &msg
-		e.FeedbackType = &ft
-
-		feedback, feedbackType, err := store.PollFeedback(context.Background(), e.ID)
+		err := store.FailPlanning(context.Background(), e.ID)
 		require.NoError(t, err)
-		require.NotNil(t, feedback)
-		assert.Equal(t, "feedback", *feedback)
-		require.NotNil(t, feedbackType)
-		assert.Equal(t, string(FeedbackMessage), *feedbackType)
 
-		// Should be cleared
 		stored, _ := repo.ReadEpic(context.Background(), e.ID)
-		assert.Nil(t, stored.Feedback)
-		assert.Nil(t, stored.FeedbackType)
+		assert.Nil(t, stored.ClaimedAt, "claim should be released")
+		assert.Equal(t, StatusDraft, stored.Status)
 	})
 
-	t.Run("returns nil when no feedback", func(t *testing.T) {
+	t.Run("without proposals stays in planning", func(t *testing.T) {
 		repo := newMockRepo()
 		store := newTestStore(repo, nil)
 
 		e := NewEpic("repo_123", "Epic", "desc")
+		e.Status = StatusPlanning
+		now := time.Now()
+		e.ClaimedAt = &now
 		require.NoError(t, repo.CreateEpic(context.Background(), e))
 
-		feedback, feedbackType, err := store.PollFeedback(context.Background(), e.ID)
+		err := store.FailPlanning(context.Background(), e.ID)
 		require.NoError(t, err)
-		assert.Nil(t, feedback)
-		assert.Nil(t, feedbackType)
+
+		stored, _ := repo.ReadEpic(context.Background(), e.ID)
+		assert.Nil(t, stored.ClaimedAt, "claim should be released")
+		assert.Equal(t, StatusPlanning, stored.Status)
+
+		// Should notify pending for retry
+		select {
+		case <-store.WaitForPending():
+		default:
+			assert.Fail(t, "expected pending notification for retry")
+		}
 	})
 }
 
@@ -426,6 +480,7 @@ func TestStore_UpdateProposedTasks(t *testing.T) {
 	store := newTestStore(repo, nil)
 
 	e := NewEpic("repo_123", "Epic", "desc")
+	e.Status = StatusDraft
 	require.NoError(t, repo.CreateEpic(context.Background(), e))
 
 	tasks := []ProposedTask{
@@ -437,6 +492,7 @@ func TestStore_UpdateProposedTasks(t *testing.T) {
 
 	stored, _ := repo.ReadEpic(context.Background(), e.ID)
 	assert.Len(t, stored.ProposedTasks, 2)
+	// UpdateProposedTasks no longer changes status (that's CompletePlanning)
 	assert.Equal(t, StatusDraft, stored.Status)
 }
 
@@ -563,42 +619,18 @@ func TestStore_CloseEpic(t *testing.T) {
 }
 
 func TestStore_DeleteEpic(t *testing.T) {
-	t.Run("deletes epic", func(t *testing.T) {
-		repo := newMockRepo()
-		store := newTestStore(repo, nil)
+	repo := newMockRepo()
+	store := newTestStore(repo, nil)
 
-		e := NewEpic("repo_123", "Epic", "desc")
-		e.Status = StatusActive
-		require.NoError(t, repo.CreateEpic(context.Background(), e))
+	e := NewEpic("repo_123", "Epic", "desc")
+	e.Status = StatusActive
+	require.NoError(t, repo.CreateEpic(context.Background(), e))
 
-		err := store.DeleteEpic(context.Background(), e.ID)
-		require.NoError(t, err)
+	err := store.DeleteEpic(context.Background(), e.ID)
+	require.NoError(t, err)
 
-		_, err = repo.ReadEpic(context.Background(), e.ID)
-		assert.Error(t, err)
-	})
-
-	t.Run("signals feedback for planning epic", func(t *testing.T) {
-		repo := newMockRepo()
-		store := newTestStore(repo, nil)
-
-		e := NewEpic("repo_123", "Epic", "desc")
-		e.Status = StatusPlanning
-		require.NoError(t, repo.CreateEpic(context.Background(), e))
-
-		// Set up feedback wait before delete
-		ch := store.WaitForFeedback(e.ID.String())
-
-		err := store.DeleteEpic(context.Background(), e.ID)
-		require.NoError(t, err)
-
-		select {
-		case <-ch:
-			// Good — agent was notified
-		default:
-			assert.Fail(t, "expected feedback notification for planning epic delete")
-		}
-	})
+	_, err = repo.ReadEpic(context.Background(), e.ID)
+	assert.Error(t, err)
 }
 
 func TestStore_CheckAndCompleteEpic(t *testing.T) {

@@ -1,12 +1,12 @@
 #!/bin/bash
-# epic_plan.sh — Epic planning agent that runs as a long-lived container.
+# epic_plan.sh — Epic planning agent that runs as a short-lived container.
 # Clones the repo for context, runs Claude to generate proposed tasks,
-# submits them to the API, and enters a feedback loop waiting for user
-# input or confirmation.
+# submits them to the API via the complete endpoint, and exits.
+# Change requests (user feedback) cause a new planning run to be dispatched
+# by the queue — no durable session is needed.
 
 # Depends on: log.sh, validate.sh, git.sh, claude.sh (sourced by entrypoint.sh)
 
-IDLE_TIMEOUT=900  # 15 minutes in seconds
 POLL_URL="${API_URL}/api/v1/agent/epics/${EPIC_ID}"
 
 run_epic_planning() {
@@ -16,6 +16,7 @@ run_epic_planning() {
     echo "Title: ${EPIC_TITLE}"
     echo "Description: ${EPIC_DESCRIPTION}"
     [ -n "${EPIC_PLANNING_PROMPT}" ] && echo "Planning Prompt: ${EPIC_PLANNING_PROMPT}"
+    [ -n "${EPIC_FEEDBACK}" ] && echo "Change Request: ${EPIC_FEEDBACK}"
     echo "Model: ${CLAUDE_MODEL:-sonnet}"
     log_blank
 
@@ -36,20 +37,32 @@ run_epic_planning() {
     log_agent "Repository cloned for context analysis"
     log_blank
 
-    # Initial planning (don't exit on failure — fall through to feedback loop
-    # so the user can see the error and provide feedback for a retry)
-    _epic_send_log "system: Planning session started. Analyzing epic and generating task breakdown..."
-    _epic_run_planning "" || true
+    # Determine if this is a change request or initial planning
+    if [ -n "${EPIC_FEEDBACK}" ]; then
+        _epic_send_log "system: Re-planning based on user feedback..."
+    else
+        _epic_send_log "system: Planning started. Analyzing epic and generating task breakdown..."
+    fi
 
-    # Enter feedback loop
-    _epic_feedback_loop
+    # Run planning — feedback and previous plan are passed as context if present
+    _epic_run_planning "${EPIC_FEEDBACK}" "${EPIC_PREVIOUS_PLAN}"
+
+    local plan_result=$?
+
+    if [ "$plan_result" -eq 0 ]; then
+        log_agent "Epic planning completed successfully"
+    else
+        log_agent "Epic planning failed"
+        _epic_complete_fail
+    fi
 }
 
 _epic_run_planning() {
     local feedback="$1"
+    local previous_plan="$2"
 
     local prompt
-    prompt=$(_build_epic_prompt "$feedback")
+    prompt=$(_build_epic_prompt "$feedback" "$previous_plan")
 
     log_agent "Running Claude for epic planning..."
 
@@ -101,13 +114,14 @@ _epic_run_planning() {
     task_count=$(printf '%s\n' "$tasks_json" | jq 'length')
     log_agent "Generated ${task_count} proposed tasks"
 
-    # Submit proposed tasks to server
-    _epic_propose_tasks "$tasks_json"
+    # Submit proposed tasks via the complete endpoint and exit
+    _epic_complete_success "$tasks_json"
     _epic_send_log "system: Planning complete. Proposed ${task_count} tasks."
 }
 
 _build_epic_prompt() {
     local feedback="$1"
+    local previous_plan="$2"
 
     local prompt="You are a technical project planner. Your job is to analyze a software epic and break it down into concrete, actionable implementation tasks.
 
@@ -125,7 +139,19 @@ ${EPIC_DESCRIPTION}"
 ${EPIC_PLANNING_PROMPT}"
     fi
 
-    if [ -n "$feedback" ]; then
+    if [ -n "$previous_plan" ] && [ -n "$feedback" ]; then
+        prompt="${prompt}
+
+**Previous Task Breakdown (for reference):**
+\`\`\`json
+${previous_plan}
+\`\`\`
+
+**User Feedback on Previous Plan:**
+${feedback}
+
+Please revise the task breakdown based on this feedback. You should produce a completely new set of tasks that incorporates the feedback."
+    elif [ -n "$feedback" ]; then
         prompt="${prompt}
 
 **User Feedback on Previous Plan:**
@@ -200,11 +226,6 @@ _extract_proposed_tasks() {
     local output="$1"
 
     # Extract content from the first ```verve-tasks code block.
-    # We can't use sed range matching because JSON string values may
-    # contain triple backticks (e.g. ```sql in task descriptions),
-    # which would prematurely terminate the range. Instead, use awk
-    # to track state: start capturing after the opening marker, and
-    # only stop at a line that is exactly ``` (the closing fence).
     local tasks
     tasks=$(printf '%s\n' "$output" | awk '
         /^```verve-tasks/ { if (!found) { capturing=1; found=1 }; next }
@@ -225,7 +246,7 @@ _extract_proposed_tasks() {
     echo "[]"
 }
 
-_epic_propose_tasks() {
+_epic_complete_success() {
     local tasks_json="$1"
 
     # Write the tasks JSON to a temp file and use jq's --slurpfile to
@@ -235,23 +256,32 @@ _epic_propose_tasks() {
     printf '%s\n' "$tasks_json" > "$tasks_file"
 
     local body
-    body=$(jq -n --slurpfile tasks "$tasks_file" '{"tasks": $tasks[0]}')
+    body=$(jq -n --slurpfile tasks "$tasks_file" '{"success": true, "tasks": $tasks[0]}')
     rm -f "$tasks_file"
 
     local response
     response=$(curl -s -w "\n%{http_code}" -X POST \
         -H "Content-Type: application/json" \
         -d "$body" \
-        "${POLL_URL}/propose" 2>/dev/null) || true
+        "${POLL_URL}/complete" 2>/dev/null) || true
 
     local http_code
     http_code=$(echo "$response" | tail -1)
 
-    if [ -z "$http_code" ] || [ "$http_code" != "200" ]; then
-        log_error "Failed to submit proposed tasks (HTTP ${http_code})"
+    if [ -z "$http_code" ] || [ "$http_code" != "204" ]; then
+        log_error "Failed to submit planning result (HTTP ${http_code})"
     else
-        log_agent "Proposed tasks submitted successfully"
+        log_agent "Planning result submitted successfully"
     fi
+}
+
+_epic_complete_fail() {
+    local body='{"success": false, "error": "planning failed"}'
+
+    curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -d "$body" \
+        "${POLL_URL}/complete" > /dev/null 2>&1 || true
 }
 
 _epic_send_log() {
@@ -263,71 +293,4 @@ _epic_send_log() {
         -H "Content-Type: application/json" \
         -d "$body" \
         "${POLL_URL}/logs" > /dev/null 2>&1 || true
-}
-
-_epic_feedback_loop() {
-    local last_activity
-    last_activity=$(date +%s)
-
-    log_agent "Entering feedback loop — waiting for user input..."
-
-    while true; do
-        local now
-        now=$(date +%s)
-        local elapsed=$(( now - last_activity ))
-
-        # Check idle timeout
-        if [ "$elapsed" -ge "$IDLE_TIMEOUT" ]; then
-            log_agent "Idle timeout reached (${IDLE_TIMEOUT}s). Releasing agent."
-            _epic_send_log "system: Planning session timed out due to inactivity."
-            exit 0
-        fi
-
-        # Long-poll for feedback (|| true to prevent set -e exit on curl failure)
-        local response
-        response=$(curl -s -w "\n%{http_code}" \
-            "${POLL_URL}/poll-feedback" 2>/dev/null) || true
-
-        local http_code
-        http_code=$(echo "$response" | tail -1)
-        local body
-        body=$(echo "$response" | sed '$d')
-
-        if [ -z "$http_code" ] || [ "$http_code" != "200" ]; then
-            log_error "Failed to poll feedback (HTTP ${http_code})"
-            sleep 5
-            continue
-        fi
-
-        local feedback_type
-        feedback_type=$(echo "$body" | jq -r '.type // "timeout"' 2>/dev/null)
-
-        case "$feedback_type" in
-            feedback)
-                local feedback_text
-                feedback_text=$(echo "$body" | jq -r '.feedback // ""' 2>/dev/null)
-                log_agent "Received feedback: ${feedback_text}"
-                _epic_send_log "system: Re-planning based on user feedback..."
-                last_activity=$(date +%s)
-                _epic_run_planning "$feedback_text" || true
-                ;;
-            confirmed)
-                log_agent "Epic confirmed by user. Exiting."
-                _epic_send_log "system: Epic confirmed. Agent exiting."
-                exit 0
-                ;;
-            closed)
-                log_agent "Epic closed by user. Exiting."
-                _epic_send_log "system: Epic closed. Agent exiting."
-                exit 0
-                ;;
-            timeout)
-                # Long-poll timeout, just loop again
-                ;;
-            *)
-                log_agent "Unknown feedback type: ${feedback_type}"
-                sleep 5
-                ;;
-        esac
-    done
 }

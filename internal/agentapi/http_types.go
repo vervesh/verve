@@ -70,13 +70,15 @@ func (r EpicIDRequest) Validate() error {
 	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
 }
 
-// ProposeTasksRequest is the request body for agent proposing tasks.
-type ProposeTasksRequest struct {
-	ID    string              `param:"id" json:"-"`
-	Tasks []epic.ProposedTask `json:"tasks"`
+// EpicCompleteRequest is the request for completing epic planning.
+type EpicCompleteRequest struct {
+	ID      string              `param:"id" json:"-"`
+	Success bool                `json:"success"`
+	Tasks   []epic.ProposedTask `json:"tasks,omitempty"`
+	Error   string              `json:"error,omitempty"`
 }
 
-func (r ProposeTasksRequest) Validate() error {
+func (r EpicCompleteRequest) Validate() error {
 	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
 }
 
@@ -88,10 +90,4 @@ type SessionLogRequest struct {
 
 func (r SessionLogRequest) Validate() error {
 	return valgo.In("params", valgo.Is(epic.EpicIDValidator(r.ID, "id"))).ToError()
-}
-
-// FeedbackResponse is returned from the poll-feedback endpoint.
-type FeedbackResponse struct {
-	Type     string `json:"type"` // "feedback", "confirmed", "closed", "timeout"
-	Feedback string `json:"feedback,omitempty"`
 }

@@ -177,7 +177,9 @@ func (h *HTTPHandler) UpdateProposedTasks(c echo.Context) error {
 	return server.SetResponse(c, http.StatusOK, e)
 }
 
-// SendSessionMessage handles POST /epics/:id/session-message
+// SendSessionMessage handles POST /epics/:id/session-message — queues a change
+// request for the epic plan. The epic transitions back to planning status and
+// a worker will pick it up with the feedback as context.
 func (h *HTTPHandler) SendSessionMessage(c echo.Context) error {
 	req, err := server.BindRequest[SessionMessageRequest](c)
 	if err != nil {
@@ -191,7 +193,7 @@ func (h *HTTPHandler) SendSessionMessage(c echo.Context) error {
 		return err
 	}
 
-	if err := h.store.SetFeedback(ctx, id, req.Message, epic.FeedbackMessage); err != nil {
+	if err := h.store.RequestChanges(ctx, id, req.Message); err != nil {
 		return err
 	}
 

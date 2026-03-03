@@ -96,8 +96,8 @@ func (f *fixture) taskCompleteURL(id task.TaskID) string {
 	return fmt.Sprintf("%s/api/v1/agent/tasks/%s/complete", f.Server.Address(), id)
 }
 
-func (f *fixture) epicProposeURL(id epic.EpicID) string {
-	return fmt.Sprintf("%s/api/v1/agent/epics/%s/propose", f.Server.Address(), id)
+func (f *fixture) epicCompleteURL(id epic.EpicID) string {
+	return fmt.Sprintf("%s/api/v1/agent/epics/%s/complete", f.Server.Address(), id)
 }
 
 func (f *fixture) epicHeartbeatURL(id epic.EpicID) string {

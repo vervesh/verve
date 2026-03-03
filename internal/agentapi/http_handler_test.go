@@ -88,18 +88,41 @@ func TestTaskComplete_Failure(t *testing.T) {
 
 // --- Epic Agent Endpoints ---
 
-func TestEpicPropose(t *testing.T) {
+func TestEpicComplete_Success(t *testing.T) {
 	f := newFixture(t)
 	e := f.seedPlanningEpic()
 
-	req := agentapi.ProposeTasksRequest{
+	req := agentapi.EpicCompleteRequest{
+		Success: true,
 		Tasks: []epic.ProposedTask{
 			{TempID: "t1", Title: "Task 1", Description: "desc 1"},
 		},
 	}
-	res := testutil.Post[server.Response[epic.Epic]](t, f.epicProposeURL(e.ID), req)
-	assert.Len(t, res.Data.ProposedTasks, 1)
-	assert.Equal(t, epic.StatusDraft, res.Data.Status)
+	postNoContent(t, f.epicCompleteURL(e.ID), req)
+
+	// Verify epic transitioned to draft with proposed tasks
+	stored, err := f.EpicStore.ReadEpic(context.Background(), e.ID)
+	assert.NoError(t, err)
+	assert.Len(t, stored.ProposedTasks, 1)
+	assert.Equal(t, epic.StatusDraft, stored.Status)
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+}
+
+func TestEpicComplete_Failure(t *testing.T) {
+	f := newFixture(t)
+	e := f.seedPlanningEpic()
+
+	req := agentapi.EpicCompleteRequest{
+		Success: false,
+		Error:   "planning failed",
+	}
+	postNoContent(t, f.epicCompleteURL(e.ID), req)
+
+	// With no previous proposals, should stay in planning for retry
+	stored, err := f.EpicStore.ReadEpic(context.Background(), e.ID)
+	assert.NoError(t, err)
+	assert.Equal(t, epic.StatusPlanning, stored.Status)
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
 }
 
 func TestEpicHeartbeat(t *testing.T) {

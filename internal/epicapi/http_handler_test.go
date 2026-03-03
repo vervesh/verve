@@ -116,7 +116,7 @@ func TestStartPlanning_InvalidID(t *testing.T) {
 
 func TestUpdateProposedTasks(t *testing.T) {
 	f := newFixture(t)
-	e := f.seedEpic("Planning Epic", "desc")
+	e := f.seedDraftEpic("Draft Epic", "desc")
 
 	req := epicapi.UpdateProposedTasksRequest{
 		Tasks: []epic.ProposedTask{
@@ -131,13 +131,15 @@ func TestUpdateProposedTasks(t *testing.T) {
 
 func TestSendSessionMessage(t *testing.T) {
 	f := newFixture(t)
-	e := f.seedEpic("Epic", "desc")
+	e := f.seedDraftEpic("Epic", "desc")
 
 	req := epicapi.SessionMessageRequest{
 		Message: "Please add error handling",
 	}
 	res := testutil.Post[server.Response[epic.Epic]](t, f.epicActionURL(e.ID, "session-message"), req)
 	assert.Contains(t, res.Data.SessionLog, "user: Please add error handling")
+	// Should transition back to planning for re-queue
+	assert.Equal(t, epic.StatusPlanning, res.Data.Status)
 }
 
 func TestConfirmEpic(t *testing.T) {

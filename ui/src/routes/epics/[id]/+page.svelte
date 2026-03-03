@@ -28,7 +28,9 @@
 		GitMerge,
 		XCircle,
 		Play,
-		Eye
+		Eye,
+		Terminal,
+		Send
 	} from 'lucide-svelte';
 
 	let epic = $state<Epic | null>(null);
@@ -50,13 +52,15 @@
 	let doneTasks = $derived(epicTasks.filter((t) => t.status === 'merged' || t.status === 'closed'));
 	let epicFailedTasks = $derived(epicTasks.filter((t) => t.status === 'failed'));
 
-	// Planning session state
-	let sessionMessage = $state('');
-	let sendingMessage = $state(false);
+	// Planning state
 	let isPlanning = $derived(epic?.status === 'planning');
 	let isDraft = $derived(epic?.status === 'draft' || epic?.status === 'ready');
 	let isEditable = $derived(isDraft);
 	let isClaimed = $derived(!!epic?.claimed_at);
+
+	// Change request state
+	let changeMessage = $state('');
+	let sendingChange = $state(false);
 
 	// Task editing state
 	let editingTaskIdx = $state<number | null>(null);
@@ -64,10 +68,10 @@
 	let editDescription = $state('');
 	let editCriteria = $state<string[]>([]);
 
-	// Session log auto-scroll
-	let sessionLogContainer: HTMLDivElement | null = $state(null);
-	let sessionAutoScroll = $state(true);
-	let lastSessionLogCount = $state(0);
+	// Log auto-scroll
+	let logContainer: HTMLDivElement | null = $state(null);
+	let logAutoScroll = $state(true);
+	let lastLogCount = $state(0);
 
 	// Confirmation state
 	let confirming = $state(false);
@@ -98,7 +102,6 @@
 			try {
 				const updated = await client.getEpic(epic.id);
 				epic = updated;
-				// Stop polling once planning is done and we have tasks or status changed
 				if (updated.status !== 'planning') {
 					stopPolling();
 				}
@@ -147,10 +150,8 @@
 			if (epic.status === 'planning') {
 				startPolling();
 			}
-			// Load task statuses if epic has created tasks
 			if (epic.task_ids.length > 0) {
 				await loadEpicTasks();
-				// Poll for task status updates on active epics
 				if (epic.status === 'active') {
 					startTaskPolling();
 				}
@@ -167,23 +168,23 @@
 		try {
 			epicTasks = await client.getEpicTasks(epic.id);
 		} catch {
-			// Non-critical — don't block the page
+			// Non-critical
 		}
 	}
 
-	async function handleSendMessage() {
-		if (!sessionMessage.trim() || !epic) return;
-		sendingMessage = true;
+	async function handleRequestChanges() {
+		if (!changeMessage.trim() || !epic) return;
+		sendingChange = true;
 		error = null;
 		try {
-			epic = await client.sendSessionMessage(epic.id, sessionMessage);
-			sessionMessage = '';
-			// Start polling — the agent will re-plan
+			epic = await client.sendSessionMessage(epic.id, changeMessage);
+			changeMessage = '';
+			// Epic transitions to planning — start polling
 			startPolling();
 		} catch (err) {
 			error = (err as Error).message;
 		} finally {
-			sendingMessage = false;
+			sendingChange = false;
 		}
 	}
 
@@ -232,7 +233,6 @@
 		const tasks = [...epic.proposed_tasks, newTask];
 		try {
 			epic = await client.updateProposedTasks(epic.id, tasks);
-			// Auto-edit the newly added task
 			startEditTask(tasks.length - 1);
 		} catch (err) {
 			error = (err as Error).message;
@@ -263,7 +263,6 @@
 		try {
 			epic = await client.confirmEpic(epic.id, notReady);
 			epicStore.updateEpic(epic);
-			// Load the created tasks and start polling if active
 			if (epic.task_ids.length > 0) {
 				await loadEpicTasks();
 				if (epic.status === 'active') {
@@ -332,62 +331,6 @@
 		return t ? t.title : tempId;
 	}
 
-	function getTaskStatusColor(status: string): string {
-		switch (status) {
-			case 'pending':
-				return 'text-gray-400';
-			case 'running':
-				return 'text-blue-400';
-			case 'review':
-				return 'text-amber-400';
-			case 'merged':
-				return 'text-green-400';
-			case 'closed':
-				return 'text-gray-500';
-			case 'failed':
-				return 'text-red-400';
-			default:
-				return 'text-muted-foreground';
-		}
-	}
-
-	function getTaskForId(taskId: string): EpicTask | undefined {
-		return epicTasks.find((t) => t.id === taskId);
-	}
-
-	// Auto-scroll session log when new entries arrive
-	$effect(() => {
-		const logCount = epic?.session_log?.length ?? 0;
-		if (logCount > lastSessionLogCount) {
-			lastSessionLogCount = logCount;
-			if (sessionAutoScroll && sessionLogContainer) {
-				requestAnimationFrame(() => {
-					if (sessionLogContainer) {
-						sessionLogContainer.scrollTop = sessionLogContainer.scrollHeight;
-					}
-				});
-			}
-		}
-	});
-
-	function handleSessionLogScroll(e: Event) {
-		const el = e.target as HTMLDivElement;
-		// Check if user is near bottom (within 50px)
-		const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
-		sessionAutoScroll = isNearBottom;
-	}
-
-	function handleSessionLogWheel(e: WheelEvent) {
-		const el = e.currentTarget as HTMLDivElement;
-		const atTop = el.scrollTop <= 0;
-		const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-
-		// If scrolling up at top or scrolling down at bottom, prevent parent scroll
-		if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
-			e.preventDefault();
-		}
-	}
-
 	function getTaskStatusBadge(status: string): { bg: string; text: string; label: string } {
 		switch (status) {
 			case 'pending':
@@ -407,6 +350,42 @@
 		}
 	}
 
+	// Auto-scroll log when new entries arrive
+	$effect(() => {
+		const logCount = epic?.session_log?.length ?? 0;
+		if (logCount > lastLogCount) {
+			lastLogCount = logCount;
+			if (logAutoScroll && logContainer) {
+				requestAnimationFrame(() => {
+					if (logContainer) {
+						logContainer.scrollTop = logContainer.scrollHeight;
+					}
+				});
+			}
+		}
+	});
+
+	function handleLogScroll(e: Event) {
+		const el = e.target as HTMLDivElement;
+		const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+		logAutoScroll = isNearBottom;
+	}
+
+	function handleLogWheel(e: WheelEvent) {
+		const el = e.currentTarget as HTMLDivElement;
+		const atTop = el.scrollTop <= 0;
+		const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+		if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) {
+			e.preventDefault();
+		}
+	}
+
+	function getLogLineClass(line: string): string {
+		if (line.startsWith('user:')) return 'text-blue-400';
+		if (line.startsWith('system:')) return 'text-violet-400';
+		if (line.startsWith('error:') || line.startsWith('[ERROR]')) return 'text-red-400';
+		return 'text-muted-foreground';
+	}
 </script>
 
 <div class="p-4 sm:p-6 flex-1 min-h-0 flex flex-col">
@@ -488,15 +467,15 @@
 							<div>
 								<p class="text-sm font-medium text-violet-400">Agent is planning...</p>
 								<p class="text-xs text-muted-foreground mt-0.5">
-									The AI agent is analyzing the codebase and generating a task breakdown. This may take a few minutes.
+									The AI agent is analyzing the codebase and generating a task breakdown. The agent will propose tasks when done.
 								</p>
 							</div>
 						{:else}
 							<Clock class="w-5 h-5 text-muted-foreground shrink-0" />
 							<div>
-								<p class="text-sm font-medium text-muted-foreground">Waiting for available worker...</p>
+								<p class="text-sm font-medium text-muted-foreground">Queued for planning...</p>
 								<p class="text-xs text-muted-foreground mt-0.5">
-									This epic is queued and will be picked up by the next available worker.
+									This epic is in the planning queue and will be picked up by the next available worker.
 								</p>
 							</div>
 						{/if}
@@ -674,7 +653,7 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Draft/Planning: Show proposed tasks and planning session side by side -->
+			<!-- Draft/Planning: Show proposed tasks + session terminal -->
 			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
 				<!-- Left: Proposed Tasks -->
 				<div class="lg:col-span-2 flex flex-col min-h-0">
@@ -707,7 +686,7 @@
 								</div>
 								<p class="text-sm text-muted-foreground">
 									{#if isPlanning && isClaimed}
-										AI agent is analyzing the epic and generating tasks...
+										Agent is analyzing the epic and generating tasks...
 									{:else if isPlanning}
 										Waiting for an agent to start planning...
 									{:else}
@@ -868,45 +847,48 @@
 					{/if}
 				</div>
 
-				<!-- Right: Planning Session -->
+				<!-- Right: Session Terminal -->
 				<div class="flex flex-col min-h-0">
 					<h2 class="text-sm font-semibold mb-3 flex items-center gap-2">
-						<MessageSquare class="w-4 h-4 text-violet-400" />
-						Planning Session
+						<Terminal class="w-4 h-4 text-violet-400" />
+						Planning Log
+						{#if isPlanning && isClaimed}
+							<Loader2 class="w-3 h-3 animate-spin text-violet-400" />
+						{/if}
 					</h2>
 
-					<!-- Session log & status -->
-					<Card.Root class="bg-[oklch(0.18_0.005_285.823)] flex-1 flex flex-col min-h-[300px]">
-						<Card.Content class="p-3 flex-1 flex flex-col min-h-0">
+					<!-- Terminal-style log view -->
+					<Card.Root class="bg-[oklch(0.13_0.005_285.823)] flex-1 flex flex-col min-h-[300px] border-border/50">
+						<Card.Content class="p-0 flex-1 flex flex-col min-h-0">
 							{#if epic.planning_prompt}
-								<div class="text-xs text-muted-foreground mb-2 pb-2 border-b border-border/50">
+								<div class="text-xs text-muted-foreground px-3 py-2 border-b border-border/30">
 									<span class="font-medium text-violet-400">Planning prompt:</span>
 									<p class="mt-1 line-clamp-3">{epic.planning_prompt}</p>
 								</div>
 							{/if}
 
-							<!-- Session log -->
+							<!-- Log output -->
 							<div
-								bind:this={sessionLogContainer}
-								onscroll={handleSessionLogScroll}
-								onwheel={handleSessionLogWheel}
-								class="flex-1 overflow-y-auto overscroll-contain space-y-2 min-h-0 mb-3 max-h-[40vh]"
+								bind:this={logContainer}
+								onscroll={handleLogScroll}
+								onwheel={handleLogWheel}
+								class="flex-1 overflow-y-auto overscroll-contain min-h-0 p-3 font-mono text-xs space-y-0.5 max-h-[50vh]"
 							>
-								{#each epic.session_log as line}
-									<div class="text-xs {line.startsWith('user:') ? 'text-blue-400' : line.startsWith('system:') ? 'text-violet-400' : 'text-muted-foreground'}">
-										{line}
+								{#each epic.session_log as line, i}
+									<div class="{getLogLineClass(line)} leading-relaxed">
+										<span class="text-muted-foreground/40 select-none mr-2">{String(i + 1).padStart(3, ' ')}</span>{line}
 									</div>
 								{/each}
 								{#if epic.session_log.length === 0 && !isPlanning}
-									<p class="text-xs text-muted-foreground text-center py-4">
-										Session log will appear here.
+									<p class="text-muted-foreground/50 text-center py-8">
+										No log output yet.
 									</p>
 								{/if}
 								{#if isPlanning}
-									<div class="flex items-center gap-2 text-xs text-violet-400 py-2">
+									<div class="flex items-center gap-2 text-violet-400 pt-2">
 										<Loader2 class="w-3 h-3 animate-spin" />
 										{#if isClaimed}
-											Agent is planning...
+											Agent is working...
 										{:else}
 											Waiting for worker...
 										{/if}
@@ -914,34 +896,39 @@
 								{/if}
 							</div>
 
-							<!-- Feedback input (when in draft/ready and agent may be listening) -->
-							{#if isDraft}
-								<div class="border-t border-border/50 pt-3">
+							<!-- Request changes input (when in draft/ready state) -->
+							{#if isDraft && epic.proposed_tasks.length > 0}
+								<div class="border-t border-border/30 p-3">
+									<p class="text-[10px] text-muted-foreground mb-2">
+										Not happy with the plan? Describe what should change and the agent will re-plan.
+									</p>
 									<div class="flex items-center gap-2">
 										<input
 											type="text"
-											bind:value={sessionMessage}
-											class="flex-1 border rounded-lg px-3 py-2 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-											placeholder="Send feedback to re-plan..."
-											disabled={sendingMessage}
+											bind:value={changeMessage}
+											class="flex-1 border border-border/50 rounded-lg px-3 py-2 bg-background/50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+											placeholder="Describe changes needed..."
+											disabled={sendingChange}
 											onkeydown={(e) => {
 												if (e.key === 'Enter' && !e.shiftKey) {
 													e.preventDefault();
-													handleSendMessage();
+													handleRequestChanges();
 												}
 											}}
 										/>
 										<Button
 											size="sm"
-											onclick={handleSendMessage}
-											disabled={!sessionMessage.trim() || sendingMessage}
+											variant="outline"
+											onclick={handleRequestChanges}
+											disabled={!changeMessage.trim() || sendingChange}
 											class="shrink-0 gap-1.5"
 										>
-											{#if sendingMessage}
+											{#if sendingChange}
 												<Loader2 class="w-4 h-4 animate-spin" />
 											{:else}
-												<RefreshCw class="w-4 h-4" />
+												<Send class="w-4 h-4" />
 											{/if}
+											Re-plan
 										</Button>
 									</div>
 								</div>
