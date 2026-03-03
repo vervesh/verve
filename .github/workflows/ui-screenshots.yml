@@ -11,7 +11,6 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
   pull-requests: write
 
 jobs:
@@ -52,6 +51,7 @@ jobs:
 
       - name: Upload screenshots as artifact
         if: always()
+        id: upload-screenshots
         uses: actions/upload-artifact@v4
         with:
           name: ui-screenshots
@@ -70,29 +70,6 @@ jobs:
           retention-days: 30
           if-no-files-found: ignore
 
-      - name: Push screenshots to branch
-        if: always()
-        working-directory: ${{ github.workspace }}
-        run: |
-          BRANCH="screenshots/pr-${{ github.event.pull_request.number }}"
-
-          # Check if any screenshots were captured.
-          if [ ! -d ui/screenshots ] || [ -z "$(ls ui/screenshots/*.png 2>/dev/null)" ]; then
-            echo "No screenshots to push"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Create an orphan branch with only the screenshots.
-          git checkout --orphan "$BRANCH"
-          git rm -rf --quiet . 2>/dev/null || true
-          cp ui/screenshots/*.png .
-          git add *.png
-          git commit -m "UI screenshots for PR #${{ github.event.pull_request.number }} (${GITHUB_SHA::7})"
-          git push --force origin "$BRANCH"
-
       - name: Post screenshot comment on PR
         if: always()
         uses: actions/github-script@v7
@@ -109,29 +86,29 @@ jobs:
             }
 
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const branch = `screenshots/pr-${context.issue.number}`;
-            const rawBase = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/${branch}`;
+            const artifactUrl = `${runUrl}#artifacts`;
             const marker = '<!-- ui-screenshots-bot -->';
             let body = marker + '\n';
 
             if (files.length === 0) {
-              body += `## 📸 UI Screenshots\n\n`;
+              body += `## UI Screenshots\n\n`;
               body += `No screenshots were captured. Check the [workflow run](${runUrl}) for errors.\n`;
             } else {
-              body += `## 📸 UI Screenshots\n\n`;
+              body += `## UI Screenshots\n\n`;
               body += `Captured **${files.length} screenshots** from this PR.\n\n`;
-
+              body += `Screenshots are available as workflow artifacts:\n`;
+              body += `- **[View workflow run](${runUrl})** — see the job summary for inline previews\n`;
+              body += `- **[Download screenshots](${artifactUrl})** — download the \`ui-screenshots\` artifact\n\n`;
+              body += `<details>\n<summary>Screenshot list</summary>\n\n`;
               for (const file of files) {
                 const pageName = file.replace('-desktop.png', '').replace(/-/g, ' ');
-                const imageUrl = `${rawBase}/${file}`;
-                body += `<details open>\n<summary><strong>${pageName}</strong></summary>\n\n`;
-                body += `![${pageName}](${imageUrl})\n\n`;
-                body += `</details>\n\n`;
+                body += `- ${pageName}\n`;
               }
+              body += `\n</details>\n`;
             }
 
             body += `\n---\n`;
-            body += `*Commit: ${context.sha.substring(0, 7)} | [Workflow run](${runUrl}) | [Download artifact](${runUrl}#artifacts)*`;
+            body += `*Commit: ${context.sha.substring(0, 7)} | [Workflow run](${runUrl})*`;
 
             // Find and update existing comment or create new one.
             const { data: comments } = await github.rest.issues.listComments({
@@ -164,24 +141,23 @@ jobs:
         if: always()
         working-directory: ui
         run: |
-          if [ -d screenshots ] && [ "$(ls -A screenshots/*.png 2>/dev/null)" ]; then
-            BRANCH="screenshots/pr-${{ github.event.pull_request.number }}"
-            RAW_BASE="https://raw.githubusercontent.com/${{ github.repository }}/${BRANCH}"
+          echo "## UI Screenshots" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-            echo "## UI Screenshots" >> $GITHUB_STEP_SUMMARY
+          if [ -d screenshots ] && [ "$(ls -A screenshots/*.png 2>/dev/null)" ]; then
+            COUNT=$(ls screenshots/*.png | wc -l)
+            echo "Captured **${COUNT} screenshots** from this PR." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Screenshots are attached as the \`ui-screenshots\` artifact on this workflow run." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
 
+            echo "### Screenshot list" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
             for f in screenshots/*.png; do
               name=$(basename "$f" .png | sed 's/-/ /g')
-              filename=$(basename "$f")
-              echo "### ${name}" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
-              echo "![${name}](${RAW_BASE}/${filename})" >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "- ${name}" >> $GITHUB_STEP_SUMMARY
             done
           else
-            echo "## UI Screenshots" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
             echo "No screenshots were captured." >> $GITHUB_STEP_SUMMARY
           fi
 
