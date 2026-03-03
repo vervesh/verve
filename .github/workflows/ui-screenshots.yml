@@ -11,6 +11,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  contents: write
   pull-requests: write
 
 jobs:
@@ -22,6 +23,9 @@ jobs:
         working-directory: ui
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: pnpm/action-setup@v4
         with:
@@ -49,30 +53,40 @@ jobs:
           pnpm exec playwright test --project=desktop 2>&1 | tee playwright-output.txt
           exit ${PIPESTATUS[0]}
 
-      - name: Upload screenshots as artifact
+      - name: Push screenshots to branch
         if: always()
-        id: upload-screenshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: ui-screenshots
-          path: ui/screenshots/
-          retention-days: 30
-          if-no-files-found: warn
+        id: push-screenshots
+        working-directory: .
+        run: |
+          if [ ! -d ui/screenshots ] || [ -z "$(ls -A ui/screenshots/*.png 2>/dev/null)" ]; then
+            echo "pushed=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-      - name: Upload Playwright results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results
-          path: |
-            ui/playwright-output.txt
-            ui/e2e/results/
-          retention-days: 30
-          if-no-files-found: ignore
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Force-add screenshots (overrides .gitignore)
+          git add -f ui/screenshots/*.png
+
+          # Only commit if there are actual changes
+          if git diff --cached --quiet; then
+            echo "No screenshot changes to commit"
+            echo "pushed=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "ci: update UI screenshots [skip ci]"
+            git push
+            echo "pushed=true" >> $GITHUB_OUTPUT
+          fi
+
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Post screenshot comment on PR
         if: always()
         uses: actions/github-script@v7
+        env:
+          SCREENSHOTS_PUSHED: ${{ steps.push-screenshots.outputs.pushed }}
+          SCREENSHOTS_SHA: ${{ steps.push-screenshots.outputs.sha }}
         with:
           script: |
             const fs = require('fs');
@@ -86,29 +100,62 @@ jobs:
             }
 
             const runUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            const artifactUrl = `${runUrl}#artifacts`;
             const marker = '<!-- ui-screenshots-bot -->';
+            const branch = context.payload.pull_request.head.ref;
+            const sha = process.env.SCREENSHOTS_SHA || context.sha;
+            const pushed = process.env.SCREENSHOTS_PUSHED === 'true';
             let body = marker + '\n';
 
             if (files.length === 0) {
-              body += `## UI Screenshots\n\n`;
+              body += `## 📸 UI Screenshots\n\n`;
               body += `No screenshots were captured. Check the [workflow run](${runUrl}) for errors.\n`;
             } else {
-              body += `## UI Screenshots\n\n`;
+              body += `## 📸 UI Screenshots\n\n`;
               body += `Captured **${files.length} screenshots** from this PR.\n\n`;
-              body += `Screenshots are available as workflow artifacts:\n`;
-              body += `- **[View workflow run](${runUrl})** — see the job summary for inline previews\n`;
-              body += `- **[Download screenshots](${artifactUrl})** — download the \`ui-screenshots\` artifact\n\n`;
-              body += `<details>\n<summary>Screenshot list</summary>\n\n`;
-              for (const file of files) {
-                const pageName = file.replace('-desktop.png', '').replace(/-/g, ' ');
-                body += `- ${pageName}\n`;
+
+              if (!pushed) {
+                body += `> ⚠️ Screenshots could not be pushed to the branch. Check the [workflow run](${runUrl}).\n\n`;
               }
-              body += `\n</details>\n`;
+
+              // Group screenshots by category (prefix before first hyphen).
+              const groups = {};
+              for (const file of files) {
+                const name = file.replace('.png', '');
+                const parts = name.split('-');
+                // Category is everything before the last segment (device name)
+                // e.g. "task-review-desktop" -> category "task review", label "task review"
+                const device = parts[parts.length - 1];
+                const category = parts.slice(0, -1).join(' ');
+
+                // Group by top-level category (first word)
+                const groupKey = parts[0];
+                if (!groups[groupKey]) {
+                  groups[groupKey] = [];
+                }
+                groups[groupKey].push({ file, name, category, device });
+              }
+
+              const rawBase = `https://raw.githubusercontent.com/${context.repo.owner}/${context.repo.repo}/${sha}/ui/screenshots`;
+
+              for (const [group, items] of Object.entries(groups)) {
+                const groupTitle = group.charAt(0).toUpperCase() + group.slice(1);
+                body += `### ${groupTitle}\n\n`;
+
+                for (const item of items) {
+                  const label = item.category.replace(/-/g, ' ');
+                  if (pushed) {
+                    body += `<details>\n<summary>${label}</summary>\n\n`;
+                    body += `![${label}](${rawBase}/${item.file})\n\n`;
+                    body += `</details>\n\n`;
+                  } else {
+                    body += `- ${label}\n`;
+                  }
+                }
+              }
             }
 
             body += `\n---\n`;
-            body += `*Commit: ${context.sha.substring(0, 7)} | [Workflow run](${runUrl})*`;
+            body += `*Commit: ${sha.substring(0, 7)} | [Workflow run](${runUrl})*`;
 
             // Find and update existing comment or create new one.
             const { data: comments } = await github.rest.issues.listComments({
@@ -140,6 +187,9 @@ jobs:
       - name: Write job summary
         if: always()
         working-directory: ui
+        env:
+          SCREENSHOTS_PUSHED: ${{ steps.push-screenshots.outputs.pushed }}
+          SCREENSHOTS_SHA: ${{ steps.push-screenshots.outputs.sha }}
         run: |
           echo "## UI Screenshots" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -148,15 +198,31 @@ jobs:
             COUNT=$(ls screenshots/*.png | wc -l)
             echo "Captured **${COUNT} screenshots** from this PR." >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Screenshots are attached as the \`ui-screenshots\` artifact on this workflow run." >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
 
-            echo "### Screenshot list" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            for f in screenshots/*.png; do
-              name=$(basename "$f" .png | sed 's/-/ /g')
-              echo "- ${name}" >> $GITHUB_STEP_SUMMARY
-            done
+            SHA="${SCREENSHOTS_SHA:-${{ github.sha }}}"
+            RAW_BASE="https://raw.githubusercontent.com/${{ github.repository }}/${SHA}/ui/screenshots"
+
+            if [ "$SCREENSHOTS_PUSHED" = "true" ]; then
+              for f in screenshots/*.png; do
+                name=$(basename "$f" .png | sed 's/-/ /g')
+                echo "<details>" >> $GITHUB_STEP_SUMMARY
+                echo "<summary>${name}</summary>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "![${name}](${RAW_BASE}/$(basename "$f"))" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+                echo "</details>" >> $GITHUB_STEP_SUMMARY
+                echo "" >> $GITHUB_STEP_SUMMARY
+              done
+            else
+              echo "Screenshots could not be pushed to branch." >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "### Screenshot list" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              for f in screenshots/*.png; do
+                name=$(basename "$f" .png | sed 's/-/ /g')
+                echo "- ${name}" >> $GITHUB_STEP_SUMMARY
+              done
+            fi
           else
             echo "No screenshots were captured." >> $GITHUB_STEP_SUMMARY
           fi
@@ -170,3 +236,23 @@ jobs:
             cat playwright-output.txt >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Upload screenshots as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots
+          path: ui/screenshots/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Upload Playwright results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: |
+            ui/playwright-output.txt
+            ui/e2e/results/
+          retention-days: 30
+          if-no-files-found: ignore
