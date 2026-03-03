@@ -6,7 +6,47 @@ const MOCK_REPO = {
 	owner: 'acme',
 	name: 'webapp',
 	full_name: 'acme/webapp',
+	summary: '',
+	tech_stack: [],
+	setup_status: 'ready',
+	has_code: true,
+	has_claude_md: false,
+	has_readme: true,
+	expectations: '',
+	setup_completed_at: '2025-01-15T10:05:00Z',
 	created_at: '2025-01-15T10:00:00Z'
+};
+
+// Repo variant: scanning in progress (setup_status = 'scanning')
+const MOCK_REPO_SCANNING = {
+	...MOCK_REPO,
+	setup_status: 'scanning',
+	setup_completed_at: undefined
+};
+
+// Repo variant: scan complete, needs user configuration (setup_status = 'needs_setup')
+const MOCK_REPO_NEEDS_SETUP = {
+	...MOCK_REPO,
+	setup_status: 'needs_setup',
+	summary:
+		'A full-stack web application built with SvelteKit and Express. The frontend uses Tailwind CSS for styling with a component library based on shadcn-svelte. The backend API serves RESTful endpoints backed by PostgreSQL with Drizzle ORM. The project includes comprehensive test coverage using Vitest and Playwright for E2E tests.',
+	tech_stack: [
+		'TypeScript',
+		'SvelteKit',
+		'Tailwind CSS',
+		'Express',
+		'PostgreSQL',
+		'Drizzle ORM',
+		'Vitest',
+		'Playwright',
+		'Docker',
+		'pnpm'
+	],
+	has_code: true,
+	has_claude_md: true,
+	has_readme: true,
+	expectations: '',
+	setup_completed_at: undefined
 };
 
 // Sample agent logs that showcase all the different log types and syntax highlighting.
@@ -757,7 +797,13 @@ index 8e2f1a0..b3c4d72 100644
 
 // Intercept all API calls so the UI renders with mock data instead of hitting a real server.
 // Routes are registered most-specific first because Playwright matches in FIFO order.
-async function setupMockAPI(page: import('@playwright/test').Page) {
+// The `repoOverride` parameter allows individual tests to swap the mock repo (e.g. to
+// simulate scanning or needs_setup states) without affecting other tests.
+async function setupMockAPI(
+	page: import('@playwright/test').Page,
+	repoOverride?: typeof MOCK_REPO
+) {
+	const activeRepo = repoOverride ?? MOCK_REPO;
 	// GitHub token status - report as configured so the UI shows the dashboard.
 	await page.route('**/api/v1/settings/github-token', (route) =>
 		route.fulfill({ json: { data: { configured: true, fine_grained: true } } })
@@ -782,12 +828,23 @@ async function setupMockAPI(page: import('@playwright/test').Page) {
 		route.fulfill({ json: { data: MOCK_METRICS } })
 	);
 
+	// Repo setup endpoints (must be before generic /repos/* routes)
+	await page.route('**/api/v1/repos/*/setup/expectations', (route) =>
+		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
+	);
+	await page.route('**/api/v1/repos/*/setup/rescan', (route) =>
+		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'scanning' } } })
+	);
+	await page.route('**/api/v1/repos/*/setup', (route) =>
+		route.fulfill({ json: { data: activeRepo } })
+	);
+
 	// Repos list
 	await page.route('**/api/v1/repos', (route) => {
 		if (route.request().method() === 'GET') {
-			return route.fulfill({ json: { data: [MOCK_REPO] } });
+			return route.fulfill({ json: { data: [activeRepo] } });
 		}
-		return route.fulfill({ json: { data: MOCK_REPO } });
+		return route.fulfill({ json: { data: activeRepo } });
 	});
 
 	// SSE events endpoint - send an init event with mock tasks then keep connection open.
@@ -935,6 +992,74 @@ test.describe('UI Screenshots', () => {
 		await page.screenshot({
 			path: `screenshots/dashboard-${testInfo.project.name}.png`,
 			fullPage: true
+		});
+	});
+
+	// --- Repo Setup Screenshots ---
+
+	test('dashboard - repo scanning banner', async ({ page }, testInfo) => {
+		await setupMockAPI(page, MOCK_REPO_SCANNING);
+		await page.goto('/');
+
+		// Wait for tasks to render.
+		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
+			timeout: 5000
+		}).catch(() => {});
+
+		await page.waitForTimeout(1500);
+
+		await page.screenshot({
+			path: `screenshots/repo-setup-scanning-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('dashboard - repo needs setup banner', async ({ page }, testInfo) => {
+		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP);
+		await page.goto('/');
+
+		// Wait for tasks to render.
+		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
+			timeout: 5000
+		}).catch(() => {});
+
+		await page.waitForTimeout(1500);
+
+		// Expand the "Scan Results" section to show the RepoSummary
+		const scanResultsBtn = page.getByText('Scan Results');
+		if (await scanResultsBtn.isVisible()) {
+			await scanResultsBtn.click();
+			await page.waitForTimeout(500);
+		}
+
+		await page.screenshot({
+			path: `screenshots/repo-setup-needs-setup-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('repo setup wizard dialog', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 1280, height: 1600 });
+		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP);
+		await page.goto('/');
+
+		// Wait for tasks to render.
+		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
+			timeout: 5000
+		}).catch(() => {});
+		await page.waitForTimeout(1500);
+
+		// Click the "Configure" button in the needs_setup banner to open the wizard
+		const configureBtn = page.getByRole('button', { name: /configure/i });
+		await configureBtn.click();
+
+		// Wait for dialog to appear and settle.
+		await page.waitForTimeout(1000);
+
+		// Screenshot the dialog element directly to capture its full content.
+		const dialog = page.locator('[role="dialog"]');
+		await dialog.screenshot({
+			path: `screenshots/repo-setup-wizard-${testInfo.project.name}.png`
 		});
 	});
 

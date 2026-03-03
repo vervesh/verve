@@ -51,6 +51,10 @@ class RepoStore {
 			this.selectRepo(this.repos.length > 0 ? this.repos[0].id : null);
 		}
 	}
+
+	updateRepo(updated: Repo) {
+		this.repos = this.repos.map((r) => (r.id === updated.id ? updated : r));
+	}
 }
 
 export const repoStore = new RepoStore();
