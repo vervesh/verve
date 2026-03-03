@@ -309,6 +309,16 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	case status := <-statusCh:
 		exitCode = status.StatusCode
 	case <-ctx.Done():
+		// Context was cancelled (task stopped by user or shutdown).
+		// Explicitly stop the container so the agent process is killed immediately
+		// rather than waiting for the deferred ContainerRemove.
+		d.logger.Info("stopping container due to context cancellation", "container.name", containerName)
+		stopTimeout := 5 // seconds
+		if err := d.client.ContainerStop(context.Background(), containerID, container.StopOptions{Timeout: &stopTimeout}); err != nil {
+			d.logger.Warn("failed to stop container, will force-remove", "container.name", containerName, "error", err)
+		}
+		// Wait for log streaming goroutine to finish (it will end once the container stops)
+		wg.Wait()
 		return RunResult{Error: ctx.Err()}
 	}
 
