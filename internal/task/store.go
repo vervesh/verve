@@ -80,7 +80,7 @@ func (s *Store) CreateTaskFromEpic(ctx context.Context, repoID, title, descripti
 	if model == "" {
 		model = "sonnet"
 	}
-	t := NewTask(repoID, title, description, dependsOn, acceptanceCriteria, 0, false, model, ready)
+	t := NewTask(repoID, title, description, dependsOn, acceptanceCriteria, 0, false, false, model, ready)
 	t.EpicID = epicID
 	if err := s.repo.CreateTask(ctx, t); err != nil {
 		return "", err

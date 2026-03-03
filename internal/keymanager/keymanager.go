@@ -105,12 +105,12 @@ func loadKey() (string, error) {
 
 func storeKey(key string) error {
 	dir := configDir()
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.MarshalIndent(config{EncryptionKey: key}, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(configPath(), data, 0600)
+	return os.WriteFile(configPath(), data, 0o600)
 }

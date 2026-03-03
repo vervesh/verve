@@ -117,7 +117,7 @@ func (f *fixture) workersURL() string {
 func (f *fixture) seedRunningTask() *task.Task {
 	f.t.Helper()
 	ctx := context.Background()
-	tsk := task.NewTask(f.Repo.ID.String(), "Test Task", "description", nil, nil, 0, false, "sonnet", true)
+	tsk := task.NewTask(f.Repo.ID.String(), "Test Task", "description", nil, nil, 0, false, false, "sonnet", true)
 	require.NoError(f.t, f.taskRepo.CreateTask(ctx, tsk))
 	require.NoError(f.t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
 	return tsk

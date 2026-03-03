@@ -5,7 +5,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import { Badge } from '$lib/components/ui/badge';
 	import type { Task } from '$lib/models/task';
-	import { FileText, Link2, Search, X, Loader2, ChevronDown, ChevronRight, Target, DollarSign, GitBranch, Plus, Type, Cpu, Pencil, Check } from 'lucide-svelte';
+	import { FileText, Link2, Search, X, Loader2, ChevronDown, ChevronRight, Target, DollarSign, GitBranch, GitPullRequestDraft, Plus, Type, Cpu, Pencil, Check } from 'lucide-svelte';
 
 	let {
 		open = $bindable(false),
@@ -22,6 +22,7 @@
 	let editCriteria = $state<string[]>([]);
 	let editMaxCostUsd = $state<number | undefined>(undefined);
 	let editSkipPr = $state(false);
+	let editDraftPr = $state(false);
 	let editNotReady = $state(false);
 	let editShowAdvanced = $state(false);
 	let editModel = $state('');
@@ -35,9 +36,10 @@
 			editDeps = [...(task.depends_on ?? [])];
 			editMaxCostUsd = task.max_cost_usd;
 			editSkipPr = task.skip_pr;
+			editDraftPr = task.draft_pr;
 			editModel = task.model ?? '';
 			editNotReady = !task.ready;
-			editShowAdvanced = !!(task.model || task.max_cost_usd || task.skip_pr);
+			editShowAdvanced = !!(task.model || task.max_cost_usd || task.skip_pr || task.draft_pr);
 			editDepSearch = '';
 			error = null;
 		}
@@ -103,6 +105,10 @@
 
 			if (editSkipPr !== task.skip_pr) {
 				updates.skip_pr = editSkipPr;
+			}
+
+			if (editDraftPr !== task.draft_pr) {
+				updates.draft_pr = editDraftPr;
 			}
 
 			const oldModel = task.model ?? '';
@@ -386,14 +392,15 @@
 							</div>
 							<label
 								for="edit-skip-pr"
-								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors"
+								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors {editDraftPr ? 'opacity-50' : ''}"
 							>
 								<input
 									id="edit-skip-pr"
 									type="checkbox"
 									bind:checked={editSkipPr}
+									onchange={() => { if (editSkipPr) editDraftPr = false; }}
 									class="w-4 h-4 rounded border-input accent-primary"
-									disabled={loading}
+									disabled={loading || editDraftPr}
 								/>
 								<div class="flex-1">
 									<div class="text-sm font-medium flex items-center gap-1.5">
@@ -402,6 +409,28 @@
 									</div>
 									<p class="text-xs text-muted-foreground mt-0.5">
 										Skip PR creation. You can create the PR manually.
+									</p>
+								</div>
+							</label>
+							<label
+								for="edit-draft-pr"
+								class="flex items-center gap-3 p-3 rounded-lg border cursor-pointer hover:bg-accent/50 transition-colors {editSkipPr ? 'opacity-50' : ''}"
+							>
+								<input
+									id="edit-draft-pr"
+									type="checkbox"
+									bind:checked={editDraftPr}
+									onchange={() => { if (editDraftPr) editSkipPr = false; }}
+									class="w-4 h-4 rounded border-input accent-primary"
+									disabled={loading || editSkipPr}
+								/>
+								<div class="flex-1">
+									<div class="text-sm font-medium flex items-center gap-1.5">
+										<GitPullRequestDraft class="w-3.5 h-3.5 text-muted-foreground" />
+										Create as draft PR
+									</div>
+									<p class="text-xs text-muted-foreground mt-0.5">
+										Open the pull request as a draft. Useful for work-in-progress or early review.
 									</p>
 								</div>
 							</label>

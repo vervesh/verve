@@ -77,6 +77,75 @@ func TestCreateTask_WithModel(t *testing.T) {
 	assert.Equal(t, "opus", res.Data.Model)
 }
 
+func TestCreateTask_WithDraftPR(t *testing.T) {
+	f := newFixture(t)
+
+	req := taskapi.CreateTaskRequest{
+		Title:       "Fix bug",
+		Description: "desc",
+		DraftPR:     true,
+	}
+	res := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), req)
+	assert.Equal(t, true, res.Data.DraftPR)
+	assert.Equal(t, false, res.Data.SkipPR)
+}
+
+func TestCreateTask_SkipPRAndDraftPR_MutuallyExclusive(t *testing.T) {
+	f := newFixture(t)
+
+	req := taskapi.CreateTaskRequest{
+		Title:       "Fix bug",
+		Description: "desc",
+		SkipPR:      true,
+		DraftPR:     true,
+	}
+	httpRes := doJSON(t, http.MethodPost, f.repoTasksURL(), req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected validation error for mutually exclusive skip_pr and draft_pr")
+}
+
+func TestCreateTask_WithSkipPR(t *testing.T) {
+	f := newFixture(t)
+
+	req := taskapi.CreateTaskRequest{
+		Title:       "Fix bug",
+		Description: "desc",
+		SkipPR:      true,
+	}
+	res := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), req)
+	assert.Equal(t, true, res.Data.SkipPR)
+	assert.Equal(t, false, res.Data.DraftPR)
+}
+
+// --- UpdateTask draft_pr ---
+
+func TestUpdateTask_SetDraftPR(t *testing.T) {
+	f := newFixture(t)
+	tsk := f.seedTask("title", "desc")
+
+	draftPR := true
+	req := taskapi.UpdateTaskRequest{DraftPR: &draftPR}
+	httpRes := doJSON(t, http.MethodPatch, f.taskURL(tsk.ID), req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusOK, httpRes.StatusCode)
+
+	updated := f.readTask(tsk.ID)
+	assert.Equal(t, true, updated.DraftPR)
+	assert.Equal(t, false, updated.SkipPR)
+}
+
+func TestUpdateTask_SkipPRAndDraftPR_MutuallyExclusive(t *testing.T) {
+	f := newFixture(t)
+	tsk := f.seedTask("title", "desc")
+
+	skipPR := true
+	draftPR := true
+	req := taskapi.UpdateTaskRequest{SkipPR: &skipPR, DraftPR: &draftPR}
+	httpRes := doJSON(t, http.MethodPatch, f.taskURL(tsk.ID), req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected error for mutually exclusive skip_pr and draft_pr")
+}
+
 // --- GetTask ---
 
 func TestGetTask_Success(t *testing.T) {
@@ -208,7 +277,7 @@ func TestRemoveDependency_Success(t *testing.T) {
 
 	dep := f.seedTask("dep", "dep desc")
 
-	tsk := task.NewTask(f.Repo.ID.String(), "title", "desc", []string{dep.ID.String()}, nil, 0, false, "sonnet", true)
+	tsk := task.NewTask(f.Repo.ID.String(), "title", "desc", []string{dep.ID.String()}, nil, 0, false, false, "sonnet", true)
 	require.NoError(t, f.TaskRepo.CreateTask(ctx, tsk))
 
 	req := taskapi.RemoveDependencyRequest{DependsOn: dep.ID.String()}

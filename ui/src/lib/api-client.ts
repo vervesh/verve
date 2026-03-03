@@ -70,6 +70,7 @@ export class VerveClient {
 		acceptanceCriteria?: string[],
 		maxCostUsd?: number,
 		skipPr?: boolean,
+		draftPr?: boolean,
 		model?: string,
 		notReady?: boolean
 	): Promise<Task> {
@@ -78,6 +79,7 @@ export class VerveClient {
 			body.acceptance_criteria = acceptanceCriteria;
 		if (maxCostUsd && maxCostUsd > 0) body.max_cost_usd = maxCostUsd;
 		if (skipPr) body.skip_pr = true;
+		if (draftPr) body.draft_pr = true;
 		if (model) body.model = model;
 		if (notReady) body.not_ready = true;
 		const res = await fetch(`${this.baseUrl}/repos/${repoId}/tasks`, {
@@ -106,6 +108,7 @@ export class VerveClient {
 			acceptance_criteria?: string[];
 			max_cost_usd?: number;
 			skip_pr?: boolean;
+			draft_pr?: boolean;
 			model?: string;
 			not_ready?: boolean;
 		}

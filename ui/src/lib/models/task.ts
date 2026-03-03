@@ -21,6 +21,7 @@ export interface Task {
 	cost_usd: number;
 	max_cost_usd?: number;
 	skip_pr: boolean;
+	draft_pr: boolean;
 	ready: boolean;
 	epic_id?: string;
 	model?: string;

@@ -20,7 +20,7 @@ func TestManualRetryTask_PreservesPRInfo(t *testing.T) {
 	store := NewStore(repo, broker)
 
 	// Create a failed task with PR info
-	tsk := NewTask("repo_123", "Fix bug", "desc", nil, nil, 0, false, "", true)
+	tsk := NewTask("repo_123", "Fix bug", "desc", nil, nil, 0, false, false, "", true)
 	tsk.Status = StatusFailed
 	tsk.PullRequestURL = "https://github.com/owner/repo/pull/42"
 	tsk.PRNumber = 42

@@ -73,6 +73,7 @@ type Task struct {
 	EpicID                 *string
 	CreatedAt              int64
 	UpdatedAt              int64
+	DraftPr                int64
 }
 
 type TaskLog struct {

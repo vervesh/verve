@@ -14,7 +14,7 @@ type SaveGitHubTokenRequest struct {
 func (r SaveGitHubTokenRequest) Validate() error {
 	return valgo.Is(
 		valgo.String(r.Token, "token").Not().Blank().Passing(
-			func(s string) bool { return githubtoken.IsValidTokenPrefix(s) },
+			githubtoken.IsValidTokenPrefix,
 			"Must be a GitHub personal access token starting with ghp_ or github_pat_",
 		),
 	).ToError()

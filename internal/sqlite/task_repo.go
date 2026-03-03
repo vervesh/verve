@@ -65,6 +65,10 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 	if t.SkipPR {
 		skipPR = 1
 	}
+	var draftPR int64
+	if t.DraftPR {
+		draftPR = 1
+	}
 	var ready int64
 	if t.Ready {
 		ready = 1
@@ -89,6 +93,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 		AcceptanceCriteriaList: marshalJSONStrings(t.AcceptanceCriteria),
 		MaxCostUsd:            maxCostUSD,
 		SkipPr:                skipPR,
+		DraftPr:               draftPR,
 		Model:                 model,
 		Ready:                 ready,
 		EpicID:                epicID,
@@ -136,7 +141,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	if len(repoIDs) == 0 {
 		return nil, nil
 	}
-	query := "SELECT id, repo_id, title, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria_list, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, skip_pr, branch_name, model, started_at, ready, last_heartbeat_at, epic_id, created_at, updated_at FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
+	query := "SELECT id, repo_id, title, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria_list, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, skip_pr, draft_pr, branch_name, model, started_at, ready, last_heartbeat_at, epic_id, created_at, updated_at FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
 	args := make([]any, len(repoIDs))
 	for i, id := range repoIDs {
 		args[i] = id
@@ -149,7 +154,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	var tasks []*task.Task
 	for rows.Next() {
 		var t sqlc.Task
-		if err := rows.Scan(&t.ID, &t.RepoID, &t.Title, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteriaList, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.SkipPr, &t.BranchName, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.RepoID, &t.Title, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteriaList, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.SkipPr, &t.DraftPr, &t.BranchName, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID, &t.CreatedAt, &t.UpdatedAt); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, unmarshalTask(&t))
@@ -389,6 +394,10 @@ func (r *TaskRepository) UpdatePendingTask(ctx context.Context, id task.TaskID, 
 	if params.SkipPR {
 		skipPR = 1
 	}
+	var draftPR int64
+	if params.DraftPR {
+		draftPR = 1
+	}
 	var ready int64
 	if params.Ready {
 		ready = 1
@@ -404,6 +413,7 @@ func (r *TaskRepository) UpdatePendingTask(ctx context.Context, id task.TaskID, 
 		AcceptanceCriteriaList: marshalJSONStrings(params.AcceptanceCriteria),
 		MaxCostUsd:             maxCostUSD,
 		SkipPr:                 skipPR,
+		DraftPr:                draftPR,
 		Model:                  model,
 		Ready:                  ready,
 		ID:                     id.String(),

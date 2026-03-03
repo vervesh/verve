@@ -36,6 +36,7 @@ type Task struct {
 	CostUSD             float64   `json:"cost_usd"`
 	MaxCostUSD          float64   `json:"max_cost_usd,omitempty"`
 	SkipPR              bool      `json:"skip_pr"`
+	DraftPR             bool      `json:"draft_pr"`
 	Ready               bool      `json:"ready"`
 	EpicID              string     `json:"epic_id,omitempty"`
 	Model               string     `json:"model,omitempty"`
@@ -75,6 +76,7 @@ type UpdatePendingTaskParams struct {
 	AcceptanceCriteria []string
 	MaxCostUSD         float64
 	SkipPR             bool
+	DraftPR            bool
 	Model              string
 	Ready              bool
 }
@@ -87,7 +89,7 @@ type StartOverTaskParams struct {
 }
 
 // NewTask creates a new Task with a generated TaskID and pending status.
-func NewTask(repoID, title, description string, dependsOn, acceptanceCriteria []string, maxCostUSD float64, skipPR bool, model string, ready bool) *Task {
+func NewTask(repoID, title, description string, dependsOn, acceptanceCriteria []string, maxCostUSD float64, skipPR, draftPR bool, model string, ready bool) *Task {
 	now := time.Now()
 	if dependsOn == nil {
 		dependsOn = []string{}
@@ -107,6 +109,7 @@ func NewTask(repoID, title, description string, dependsOn, acceptanceCriteria []
 		AcceptanceCriteria: acceptanceCriteria,
 		MaxCostUSD:         maxCostUSD,
 		SkipPR:             skipPR,
+		DraftPR:            draftPR,
 		Ready:              ready,
 		Model:              model,
 		CreatedAt:          now,

@@ -83,7 +83,7 @@ func (f *fixture) taskActionURL(id task.TaskID, action string) string {
 func (f *fixture) seedTask(title, description string) *task.Task {
 	f.t.Helper()
 	ctx := context.Background()
-	tsk := task.NewTask(f.Repo.ID.String(), title, description, nil, nil, 0, false, "sonnet", true)
+	tsk := task.NewTask(f.Repo.ID.String(), title, description, nil, nil, 0, false, false, "sonnet", true)
 	require.NoError(f.t, f.TaskRepo.CreateTask(ctx, tsk))
 	return tsk
 }

@@ -91,7 +91,7 @@ func (h *HTTPHandler) CreateTask(c echo.Context) error {
 	if model == "" {
 		model = "sonnet"
 	}
-	t := task.NewTask(repoID.String(), req.Title, req.Description, req.DependsOn, req.AcceptanceCriteria, req.MaxCostUSD, req.SkipPR, model, !req.NotReady)
+	t := task.NewTask(repoID.String(), req.Title, req.Description, req.DependsOn, req.AcceptanceCriteria, req.MaxCostUSD, req.SkipPR, req.DraftPR, model, !req.NotReady)
 	if err := h.store.CreateTask(c.Request().Context(), t); err != nil {
 		return err
 	}
@@ -138,6 +138,7 @@ func (h *HTTPHandler) UpdateTask(c echo.Context) error {
 		AcceptanceCriteria: existing.AcceptanceCriteria,
 		MaxCostUSD:         existing.MaxCostUSD,
 		SkipPR:             existing.SkipPR,
+		DraftPR:            existing.DraftPR,
 		Model:              existing.Model,
 		Ready:              existing.Ready,
 	}
@@ -160,11 +161,18 @@ func (h *HTTPHandler) UpdateTask(c echo.Context) error {
 	if req.SkipPR != nil {
 		params.SkipPR = *req.SkipPR
 	}
+	if req.DraftPR != nil {
+		params.DraftPR = *req.DraftPR
+	}
 	if req.Model != nil {
 		params.Model = *req.Model
 	}
 	if req.NotReady != nil {
 		params.Ready = !*req.NotReady
+	}
+
+	if params.SkipPR && params.DraftPR {
+		return echo.NewHTTPError(http.StatusBadRequest, "skip_pr and draft_pr are mutually exclusive")
 	}
 
 	if params.DependsOn == nil {

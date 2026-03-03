@@ -49,12 +49,17 @@ create_pr() {
     json_title=$(printf '%s' "$title" | jq -Rs .)
     json_body=$(printf '%s' "$body" | jq -Rs .)
 
+    local draft_field=""
+    if [ "${DRAFT_PR}" = "true" ]; then
+        draft_field=",\"draft\":true"
+    fi
+
     local response
     response=$(curl -s -w "\n%{http_code}" $(_curl_opts) -X POST \
         -H "Authorization: token ${GITHUB_TOKEN}" \
         -H "Accept: application/vnd.github.v3+json" \
         "https://api.github.com/repos/${GITHUB_REPO}/pulls" \
-        -d "{\"title\":${json_title},\"body\":${json_body},\"head\":\"${head}\",\"base\":\"${base}\"}")
+        -d "{\"title\":${json_title},\"body\":${json_body},\"head\":\"${head}\",\"base\":\"${base}\"${draft_field}}")
 
     local http_code response_body
     http_code=$(echo "$response" | tail -1)

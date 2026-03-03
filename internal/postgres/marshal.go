@@ -45,6 +45,7 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 		t.MaxCostUSD = *in.MaxCostUsd
 	}
 	t.SkipPR = in.SkipPr
+	t.DraftPR = in.DraftPr
 	t.Ready = in.Ready
 	if in.Model != nil {
 		t.Model = *in.Model

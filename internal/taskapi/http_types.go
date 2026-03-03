@@ -39,16 +39,21 @@ type CreateTaskRequest struct {
 	AcceptanceCriteria []string `json:"acceptance_criteria,omitempty"`
 	MaxCostUSD         float64  `json:"max_cost_usd,omitempty"`
 	SkipPR             bool     `json:"skip_pr,omitempty"`
+	DraftPR            bool     `json:"draft_pr,omitempty"`
 	Model              string   `json:"model,omitempty"`
 	NotReady           bool     `json:"not_ready,omitempty"`
 }
 
 func (r CreateTaskRequest) Validate() error {
-	return valgo.
+	v := valgo.
 		In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).
 		Is(
 			valgo.String(r.Title, "title").Not().Blank().MaxLength(150),
-		).ToError()
+		)
+	if r.SkipPR && r.DraftPR {
+		v = v.AddErrorMessage("skip_pr", "skip_pr and draft_pr are mutually exclusive")
+	}
+	return v.ToError()
 }
 
 // UpdateTaskRequest is the request body for updating a pending task.
@@ -61,6 +66,7 @@ type UpdateTaskRequest struct {
 	AcceptanceCriteria []string `json:"acceptance_criteria,omitempty"`
 	MaxCostUSD         *float64 `json:"max_cost_usd,omitempty"`
 	SkipPR             *bool    `json:"skip_pr,omitempty"`
+	DraftPR            *bool    `json:"draft_pr,omitempty"`
 	Model              *string  `json:"model,omitempty"`
 	NotReady           *bool    `json:"not_ready,omitempty"`
 }

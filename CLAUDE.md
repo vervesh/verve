@@ -14,6 +14,7 @@ Key constraint: User source code and secrets never leave their network. We send 
 ## Important Rules
 
 - **Never build binaries to the project root.** The root directory is not gitignored, so any binary there will pollute git status. **Never run `go build .` or `go build` without `-o`** — this outputs a binary to the current directory. Always use `go build -o bin/ .` or `make build`. The `bin/` directory is git-ignored.
+- **Always check if UI changes are required when updating backend APIs.** When adding, modifying, or removing API endpoints, request/response types, or entity fields, check if the UI needs corresponding updates. This includes: TypeScript type definitions in `ui/src/lib/models/`, API client methods in `ui/src/lib/api-client.ts`, and Svelte components in `ui/src/lib/components/` that render or interact with the changed data. Failing to update the UI alongside backend changes results in an incomplete feature.
 
 ## Commit Convention
 
