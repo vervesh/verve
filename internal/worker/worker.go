@@ -737,16 +737,16 @@ func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
 	switch {
 	case result.Error != nil:
 		setupLogger.Error("setup scan failed", "error", result.Error)
-		_ = w.completeTask(ctx, setup.TaskID, false, result.Error.Error(), "", 0, "", "", 0, "", false, false)
+		_ = w.completeTask(ctx, setup.TaskID, false, result.Error.Error(), "", 0, "", "", 0, false, false)
 	case result.Success:
 		setupLogger.Info("setup scan completed successfully")
 		// The agent script calls POST /repos/:repo_id/setup-complete directly.
 		// Mark the underlying task as closed.
-		_ = w.completeTask(ctx, setup.TaskID, true, "", "", 0, "", "", 0, "", true, false)
+		_ = w.completeTask(ctx, setup.TaskID, true, "", "", 0, "", "", 0, true, false)
 	default:
 		errMsg := fmt.Sprintf("exit code %d", result.ExitCode)
 		setupLogger.Error("setup scan failed", "container.exit_code", result.ExitCode)
-		_ = w.completeTask(ctx, setup.TaskID, false, errMsg, "", 0, "", "", 0, "", false, false)
+		_ = w.completeTask(ctx, setup.TaskID, false, errMsg, "", 0, "", "", 0, false, false)
 	}
 }
 
