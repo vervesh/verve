@@ -107,6 +107,13 @@ func (r *RepoRepository) UpdateRepoSummary(ctx context.Context, id repo.RepoID, 
 	}))
 }
 
+func (r *RepoRepository) UpdateRepoTechStack(ctx context.Context, id repo.RepoID, techStack []string) error {
+	return tagRepoErr(r.db.UpdateRepoTechStack(ctx, sqlc.UpdateRepoTechStackParams{
+		ID:        id.String(),
+		TechStack: techStack,
+	}))
+}
+
 func (r *RepoRepository) ListReposBySetupStatus(ctx context.Context, status string) ([]*repo.Repo, error) {
 	rows, err := r.db.ListReposBySetupStatus(ctx, status)
 	if err != nil {

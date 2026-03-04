@@ -35,8 +35,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 
 	// Setup endpoints
 	g.GET("/repos/:repo_id/setup", h.GetSetup)
-	g.PUT("/repos/:repo_id/setup/expectations", h.UpdateExpectations)
-	g.PUT("/repos/:repo_id/setup/summary", h.UpdateSummary)
+	g.PATCH("/repos/:repo_id/setup", h.UpdateSetup)
 	g.POST("/repos/:repo_id/setup/rescan", h.Rescan)
 	g.POST("/repos/:repo_id/setup/skip", h.SkipSetup)
 }
@@ -129,9 +128,10 @@ func (h *HTTPHandler) GetSetup(c echo.Context) error {
 	return server.SetResponse(c, http.StatusOK, r)
 }
 
-// UpdateExpectations handles PUT /repos/:repo_id/setup/expectations
-func (h *HTTPHandler) UpdateExpectations(c echo.Context) error {
-	req, err := server.BindRequest[UpdateExpectationsRequest](c)
+// UpdateSetup handles PUT /repos/:repo_id/setup — updates repo setup
+// configuration. All fields are optional; only provided fields are updated.
+func (h *HTTPHandler) UpdateSetup(c echo.Context) error {
+	req, err := server.BindRequest[UpdateSetupRequest](c)
 	if err != nil {
 		return err
 	}
@@ -141,16 +141,29 @@ func (h *HTTPHandler) UpdateExpectations(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	update := repo.ExpectationsUpdate{
-		Expectations: req.Expectations,
-	}
-	if req.MarkReady {
-		now := time.Now()
-		update.SetupCompletedAt = &now
+	if req.Summary != nil {
+		if err := h.repoStore.UpdateRepoSummary(ctx, id, *req.Summary); err != nil {
+			return err
+		}
 	}
 
-	if err := h.repoStore.UpdateRepoExpectations(ctx, id, update); err != nil {
-		return err
+	if req.TechStack != nil {
+		if err := h.repoStore.UpdateRepoTechStack(ctx, id, *req.TechStack); err != nil {
+			return err
+		}
+	}
+
+	if req.Expectations != nil {
+		update := repo.ExpectationsUpdate{
+			Expectations: *req.Expectations,
+		}
+		if req.MarkReady {
+			now := time.Now()
+			update.SetupCompletedAt = &now
+		}
+		if err := h.repoStore.UpdateRepoExpectations(ctx, id, update); err != nil {
+			return err
+		}
 	}
 
 	if req.MarkReady {
@@ -164,7 +177,6 @@ func (h *HTTPHandler) UpdateExpectations(c echo.Context) error {
 		return err
 	}
 
-	// Publish SSE event for setup status change.
 	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
 
 	return server.SetResponse(c, http.StatusOK, r)
@@ -199,32 +211,6 @@ func (h *HTTPHandler) Rescan(c echo.Context) error {
 	}
 
 	// Publish SSE event for status change.
-	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
-
-	return server.SetResponse(c, http.StatusOK, r)
-}
-
-// UpdateSummary handles PUT /repos/:repo_id/setup/summary
-func (h *HTTPHandler) UpdateSummary(c echo.Context) error {
-	req, err := server.BindRequest[UpdateSummaryRequest](c)
-	if err != nil {
-		return err
-	}
-
-	id := repo.MustParseRepoID(req.RepoID)
-	c.Set(logkey.RepoID, id.String())
-
-	ctx := c.Request().Context()
-
-	if err := h.repoStore.UpdateRepoSummary(ctx, id, req.Summary); err != nil {
-		return err
-	}
-
-	r, err := h.repoStore.ReadRepo(ctx, id)
-	if err != nil {
-		return err
-	}
-
 	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
 
 	return server.SetResponse(c, http.StatusOK, r)

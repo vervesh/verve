@@ -40,5 +40,10 @@ UPDATE repo
 SET summary = $2
 WHERE id = $1;
 
+-- name: UpdateRepoTechStack :exec
+UPDATE repo
+SET tech_stack = $2
+WHERE id = $1;
+
 -- name: ListReposBySetupStatus :many
 SELECT * FROM repo WHERE setup_status = $1 ORDER BY created_at DESC;

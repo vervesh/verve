@@ -251,3 +251,19 @@ func (q *Queries) UpdateRepoSummary(ctx context.Context, arg UpdateRepoSummaryPa
 	_, err := q.db.Exec(ctx, updateRepoSummary, arg.ID, arg.Summary)
 	return err
 }
+
+const updateRepoTechStack = `-- name: UpdateRepoTechStack :exec
+UPDATE repo
+SET tech_stack = $2
+WHERE id = $1
+`
+
+type UpdateRepoTechStackParams struct {
+	ID        string   `json:"id"`
+	TechStack []string `json:"tech_stack"`
+}
+
+func (q *Queries) UpdateRepoTechStack(ctx context.Context, arg UpdateRepoTechStackParams) error {
+	_, err := q.db.Exec(ctx, updateRepoTechStack, arg.ID, arg.TechStack)
+	return err
+}

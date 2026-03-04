@@ -94,6 +94,14 @@ func (s *Store) UpdateRepoSummary(ctx context.Context, id RepoID, summary string
 	return s.repo.UpdateRepoSummary(ctx, id, summary)
 }
 
+// UpdateRepoTechStack updates the tech stack list for a repo.
+func (s *Store) UpdateRepoTechStack(ctx context.Context, id RepoID, techStack []string) error {
+	if techStack == nil {
+		techStack = []string{}
+	}
+	return s.repo.UpdateRepoTechStack(ctx, id, techStack)
+}
+
 // ListReposBySetupStatus returns all repos with the given setup status.
 func (s *Store) ListReposBySetupStatus(ctx context.Context, status string) ([]*Repo, error) {
 	return s.repo.ListReposBySetupStatus(ctx, status)

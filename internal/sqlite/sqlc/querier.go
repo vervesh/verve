@@ -83,6 +83,7 @@ type Querier interface {
 	UpdateRepoSetupScan(ctx context.Context, arg UpdateRepoSetupScanParams) error
 	UpdateRepoSetupStatus(ctx context.Context, arg UpdateRepoSetupStatusParams) error
 	UpdateRepoSummary(ctx context.Context, arg UpdateRepoSummaryParams) error
+	UpdateRepoTechStack(ctx context.Context, arg UpdateRepoTechStackParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpsertGitHubToken(ctx context.Context, arg UpsertGitHubTokenParams) error
 	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error

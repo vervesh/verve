@@ -43,7 +43,7 @@
 		savingSummary = true;
 		error = null;
 		try {
-			const updated = await client.updateRepoSummary(repo.id, summaryText);
+			const updated = await client.updateRepoSetup(repo.id, { summary: summaryText });
 			repoStore.updateRepo(updated);
 			editingSummary = false;
 		} catch (err) {

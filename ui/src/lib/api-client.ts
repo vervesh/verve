@@ -62,17 +62,21 @@ export class VerveClient {
 		return this.request<Repo>(res, 'Failed to fetch repo setup');
 	}
 
-	async updateRepoExpectations(
+	async updateRepoSetup(
 		repoId: string,
-		expectations: string,
-		markReady?: boolean
+		updates: {
+			summary?: string;
+			expectations?: string;
+			tech_stack?: string[];
+			mark_ready?: boolean;
+		}
 	): Promise<Repo> {
-		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/expectations`, {
-			method: 'PUT',
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup`, {
+			method: 'PATCH',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ expectations, mark_ready: markReady ?? false })
+			body: JSON.stringify(updates)
 		});
-		return this.request<Repo>(res, 'Failed to update expectations');
+		return this.request<Repo>(res, 'Failed to update repo setup');
 	}
 
 	async rescanRepo(repoId: string): Promise<Repo> {
@@ -80,15 +84,6 @@ export class VerveClient {
 			method: 'POST'
 		});
 		return this.request<Repo>(res, 'Failed to trigger rescan');
-	}
-
-	async updateRepoSummary(repoId: string, summary: string): Promise<Repo> {
-		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/summary`, {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ summary })
-		});
-		return this.request<Repo>(res, 'Failed to update summary');
 	}
 
 	async skipRepoSetup(repoId: string): Promise<Repo> {

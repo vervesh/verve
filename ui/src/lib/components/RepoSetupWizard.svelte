@@ -3,6 +3,7 @@
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import type { Repo } from '$lib/models/repo';
 	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import RepoSummary from './RepoSummary.svelte';
 	import {
@@ -19,7 +20,9 @@
 		FileText,
 		ChevronDown,
 		ChevronRight,
-		SkipForward
+		SkipForward,
+		Plus,
+		Layers
 	} from 'lucide-svelte';
 
 	let {
@@ -29,6 +32,8 @@
 	}: { open: boolean; repo: Repo; onComplete: (updated: Repo) => void } = $props();
 
 	let expectations = $state('');
+	let techStack = $state<string[]>([]);
+	let techStackInput = $state('');
 	let saving = $state(false);
 	let skipping = $state(false);
 	let rescanning = $state(false);
@@ -88,10 +93,12 @@
 		}
 	];
 
-	// Initialize expectations from repo when dialog opens
+	// Initialize state from repo when dialog opens
 	$effect(() => {
 		if (open) {
 			expectations = repo.expectations || '';
+			techStack = [...(repo.tech_stack || [])];
+			techStackInput = '';
 			error = null;
 		}
 	});
@@ -111,11 +118,44 @@
 		expectations = expectations ? expectations.trimEnd() + '\n\n' + header : header;
 	}
 
+	function addTechStackItem() {
+		const item = techStackInput.trim();
+		if (item && !techStack.some((t) => t.toLowerCase() === item.toLowerCase())) {
+			techStack = [...techStack, item];
+		}
+		techStackInput = '';
+	}
+
+	function removeTechStackItem(index: number) {
+		techStack = techStack.filter((_, i) => i !== index);
+	}
+
+	function handleTechStackKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			addTechStackItem();
+		}
+	}
+
+	// Check if tech stack was modified
+	function techStackChanged(): boolean {
+		const original = repo.tech_stack || [];
+		if (original.length !== techStack.length) return true;
+		return original.some((item, i) => item !== techStack[i]);
+	}
+
 	async function handleSave() {
 		saving = true;
 		error = null;
 		try {
-			const updated = await client.updateRepoExpectations(repo.id, expectations, true);
+			const updates: { expectations: string; mark_ready: boolean; tech_stack?: string[] } = {
+				expectations,
+				mark_ready: true
+			};
+			if (techStackChanged()) {
+				updates.tech_stack = techStack;
+			}
+			const updated = await client.updateRepoSetup(repo.id, updates);
 			repoStore.updateRepo(updated);
 			open = false;
 			onComplete(updated);
@@ -130,7 +170,14 @@
 		skipping = true;
 		error = null;
 		try {
-			const updated = await client.updateRepoExpectations(repo.id, '', true);
+			const updates: { expectations: string; mark_ready: boolean; tech_stack?: string[] } = {
+				expectations: '',
+				mark_ready: true
+			};
+			if (techStackChanged()) {
+				updates.tech_stack = techStack;
+			}
+			const updated = await client.updateRepoSetup(repo.id, updates);
 			repoStore.updateRepo(updated);
 			open = false;
 			onComplete(updated);
@@ -172,7 +219,7 @@
 				Configure Repository
 			</Dialog.Title>
 			<Dialog.Description>
-				Set up expectations for how the AI agent should work with this repository.
+				Set up the tech stack and expectations for how the AI agent should work with this repository.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -180,6 +227,57 @@
 			<!-- Repo Summary -->
 			<div class="bg-muted/30 rounded-lg p-4 border">
 				<RepoSummary {repo} />
+			</div>
+
+			<!-- Tech Stack Editor -->
+			<div>
+				<label for="tech-stack-input" class="text-sm font-medium mb-2 flex items-center gap-2">
+					<Layers class="w-4 h-4 text-muted-foreground" />
+					Tech Stack
+				</label>
+				<p class="text-xs text-muted-foreground mb-3">
+					Specify the technologies used in this repository. This helps the AI agent understand the project context.
+				</p>
+				{#if techStack.length > 0}
+					<div class="flex flex-wrap gap-1.5 mb-3">
+						{#each techStack as tech, i}
+							<Badge variant="secondary" class="text-xs gap-1 pr-1">
+								{tech}
+								<button
+									type="button"
+									class="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
+									onclick={() => removeTechStackItem(i)}
+									disabled={saving || skipping}
+									aria-label="Remove {tech}"
+								>
+									<X class="w-3 h-3" />
+								</button>
+							</Badge>
+						{/each}
+					</div>
+				{/if}
+				<div class="flex gap-2">
+					<input
+						id="tech-stack-input"
+						type="text"
+						bind:value={techStackInput}
+						onkeydown={handleTechStackKeydown}
+						class="flex-1 border rounded-lg px-3 py-2 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+						placeholder="e.g., TypeScript, React, PostgreSQL..."
+						disabled={saving || skipping}
+					/>
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						onclick={addTechStackItem}
+						disabled={saving || skipping || !techStackInput.trim()}
+						class="gap-1 shrink-0"
+					>
+						<Plus class="w-4 h-4" />
+						Add
+					</Button>
+				</div>
 			</div>
 
 			<!-- Section shortcuts -->

@@ -56,6 +56,19 @@ const MOCK_REPO_NEEDS_SETUP = {
 	setup_completed_at: undefined
 };
 
+// Repo variant: scan complete but no tech stack detected (empty repo scenario)
+const MOCK_REPO_NEEDS_SETUP_EMPTY = {
+	...MOCK_REPO,
+	setup_status: 'needs_setup',
+	summary: 'Empty repository with no source code detected.',
+	tech_stack: [],
+	has_code: false,
+	has_claude_md: false,
+	has_readme: false,
+	expectations: '',
+	setup_completed_at: undefined
+};
+
 // Sample agent logs that showcase all the different log types and syntax highlighting.
 // These are used by the running/review task detail screenshots so we can preview how
 // the terminal rendering looks for each prefix and inline formatting rule.
@@ -836,21 +849,18 @@ async function setupMockAPI(
 	);
 
 	// Repo setup endpoints (must be before generic /repos/* routes)
-	await page.route('**/api/v1/repos/*/setup/expectations', (route) =>
-		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
-	);
-	await page.route('**/api/v1/repos/*/setup/summary', (route) =>
-		route.fulfill({ json: { data: activeRepo } })
-	);
 	await page.route('**/api/v1/repos/*/setup/rescan', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'scanning' } } })
 	);
 	await page.route('**/api/v1/repos/*/setup/skip', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
 	);
-	await page.route('**/api/v1/repos/*/setup', (route) =>
-		route.fulfill({ json: { data: activeRepo } })
-	);
+	await page.route('**/api/v1/repos/*/setup', (route) => {
+		if (route.request().method() === 'PATCH') {
+			return route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } });
+		}
+		return route.fulfill({ json: { data: activeRepo } });
+	});
 
 	// Repos list
 	await page.route('**/api/v1/repos', (route) => {
@@ -1065,6 +1075,29 @@ test.describe('UI Screenshots', () => {
 		const dialog = page.locator('[role="dialog"]');
 		await dialog.screenshot({
 			path: `screenshots/repo-setup-wizard-${testInfo.project.name}.png`
+		});
+	});
+
+	test('repo setup wizard dialog - empty tech stack', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 1280, height: 1600 });
+		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP_EMPTY);
+		await page.goto('/');
+
+		// Wait for the needs-setup banner to render.
+		await page.waitForSelector('text=Repository needs configuration', { timeout: 5000 });
+		await page.waitForTimeout(1500);
+
+		// Click the "Configure" button in the needs_setup banner to open the wizard
+		const configureBtn = page.getByRole('button', { name: /configure/i });
+		await configureBtn.click();
+
+		// Wait for dialog to appear and settle.
+		await page.waitForTimeout(1000);
+
+		// Screenshot the dialog element directly to capture its full content.
+		const dialog = page.locator('[role="dialog"]');
+		await dialog.screenshot({
+			path: `screenshots/repo-setup-wizard-empty-stack-${testInfo.project.name}.png`
 		});
 	});
 

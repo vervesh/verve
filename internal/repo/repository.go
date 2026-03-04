@@ -33,5 +33,6 @@ type Repository interface {
 	UpdateRepoSetupStatus(ctx context.Context, id RepoID, status string) error
 	UpdateRepoExpectations(ctx context.Context, id RepoID, update ExpectationsUpdate) error
 	UpdateRepoSummary(ctx context.Context, id RepoID, summary string) error
+	UpdateRepoTechStack(ctx context.Context, id RepoID, techStack []string) error
 	ListReposBySetupStatus(ctx context.Context, status string) ([]*Repo, error)
 }

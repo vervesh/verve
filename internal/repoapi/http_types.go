@@ -40,23 +40,16 @@ func (r RepoIDRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
 
-// UpdateExpectationsRequest is the request body for updating repo expectations.
-type UpdateExpectationsRequest struct {
-	RepoID       string `param:"repo_id" json:"-"`
-	Expectations string `json:"expectations"`
-	MarkReady    bool   `json:"mark_ready"`
+// UpdateSetupRequest is the request body for updating repo setup configuration.
+// All fields are optional — only provided fields are updated.
+type UpdateSetupRequest struct {
+	RepoID       string   `param:"repo_id" json:"-"`
+	Summary      *string  `json:"summary,omitempty"`
+	Expectations *string  `json:"expectations,omitempty"`
+	TechStack    *[]string `json:"tech_stack,omitempty"`
+	MarkReady    bool     `json:"mark_ready"`
 }
 
-func (r UpdateExpectationsRequest) Validate() error {
-	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
-}
-
-// UpdateSummaryRequest is the request body for updating repo summary.
-type UpdateSummaryRequest struct {
-	RepoID  string `param:"repo_id" json:"-"`
-	Summary string `json:"summary"`
-}
-
-func (r UpdateSummaryRequest) Validate() error {
+func (r UpdateSetupRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
