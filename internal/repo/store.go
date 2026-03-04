@@ -8,10 +8,11 @@ import (
 // validSetupTransitions defines which status transitions are allowed.
 // The key is the current status, and the values are the allowed target statuses.
 var validSetupTransitions = map[string][]string{
-	SetupStatusPending:    {SetupStatusScanning, SetupStatusReady},
-	SetupStatusScanning:   {SetupStatusNeedsSetup, SetupStatusReady},
-	SetupStatusNeedsSetup: {SetupStatusReady, SetupStatusScanning},
-	SetupStatusReady:      {SetupStatusScanning},
+	SetupStatusPending:     {SetupStatusScanning, SetupStatusReady},
+	SetupStatusScanning:    {SetupStatusNeedsSetup, SetupStatusReady},
+	SetupStatusNeedsSetup:  {SetupStatusReady, SetupStatusScanning, SetupStatusConfiguring},
+	SetupStatusConfiguring: {SetupStatusNeedsSetup, SetupStatusReady, SetupStatusScanning},
+	SetupStatusReady:       {SetupStatusScanning, SetupStatusConfiguring},
 }
 
 // Store wraps a Repository and adds application-level concerns.

@@ -16,8 +16,9 @@ const (
 
 // TaskType distinguishes regular coding tasks from internal system tasks.
 const (
-	TaskTypeTask  = "task"  // Regular coding task
-	TaskTypeSetup = "setup" // Internal repo setup scan
+	TaskTypeTask        = "task"         // Regular coding task
+	TaskTypeSetup       = "setup"        // Internal repo setup scan
+	TaskTypeSetupReview = "setup-review" // Internal repo setup review (AI refines user config)
 )
 
 // Task represents a unit of work dispatched to an AI coding agent.
@@ -104,6 +105,29 @@ func NewSetupTask(repoID string) *Task {
 		Type:               TaskTypeSetup,
 		Title:              "Repository setup scan",
 		Description:        "Scan the repository to detect tech stack, configuration files, and setup requirements.",
+		Status:             StatusPending,
+		DependsOn:          []string{},
+		Attempt:            1,
+		MaxAttempts:        3,
+		AcceptanceCriteria: []string{},
+		SkipPR:             true,
+		Ready:              true,
+		Model:              "sonnet",
+		CreatedAt:          now,
+		UpdatedAt:          now,
+	}
+}
+
+// NewSetupReviewTask creates a new internal setup review task. The AI agent
+// reviews and fleshes out the user's raw configuration input.
+func NewSetupReviewTask(repoID string) *Task {
+	now := time.Now()
+	return &Task{
+		ID:                 NewTaskID(),
+		RepoID:             repoID,
+		Type:               TaskTypeSetupReview,
+		Title:              "Repository setup review",
+		Description:        "Review and flesh out the user's repository configuration input.",
 		Status:             StatusPending,
 		DependsOn:          []string{},
 		Attempt:            1,

@@ -116,16 +116,17 @@ func (r RepoSetupHeartbeatRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
 
-// RepoSetupCompleteRequest is the request for completing a repo setup scan.
+// RepoSetupCompleteRequest is the request for completing a repo setup scan or review.
 type RepoSetupCompleteRequest struct {
-	RepoID     string   `param:"repo_id" json:"-"`
-	Success    bool     `json:"success"`
-	Summary    string   `json:"summary"`
-	TechStack  []string `json:"tech_stack"`
-	HasCode    bool     `json:"has_code"`
-	HasClaudeMD bool    `json:"has_claude_md"`
-	HasREADME  bool     `json:"has_readme"`
-	NeedsSetup bool     `json:"needs_setup"`
+	RepoID       string   `param:"repo_id" json:"-"`
+	Success      bool     `json:"success"`
+	Summary      string   `json:"summary"`
+	TechStack    []string `json:"tech_stack"`
+	HasCode      bool     `json:"has_code"`
+	HasClaudeMD  bool     `json:"has_claude_md"`
+	HasREADME    bool     `json:"has_readme"`
+	NeedsSetup   bool     `json:"needs_setup"`
+	Expectations string   `json:"expectations,omitempty"`
 }
 
 func (r RepoSetupCompleteRequest) Validate() error {

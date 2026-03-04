@@ -16,8 +16,9 @@ import (
 )
 
 const (
-	workTypeEpic  = "epic"
-	workTypeSetup = "setup"
+	workTypeEpic        = "epic"
+	workTypeSetup       = "setup"
+	workTypeSetupReview = "setup-review"
 )
 
 // Config holds the worker configuration
@@ -196,10 +197,11 @@ func (w *Worker) Run(ctx context.Context) error {
 					"epic.title", p.Epic.Title,
 				)
 				w.executeEpicPlanning(ctx, p)
-			case workTypeSetup:
-				w.logger.Info("claimed setup scan",
+			case workTypeSetup, workTypeSetupReview:
+				w.logger.Info("claimed setup work",
 					"setup.task_id", p.Setup.TaskID,
 					"setup.repo_id", p.Setup.RepoID,
+					"setup.type", p.Type,
 					"repo.full_name", p.RepoFullName,
 					"worker.active_tasks", activeCount,
 				)
@@ -694,8 +696,8 @@ func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
 	setup := poll.Setup
 	githubToken := poll.GitHubToken
 	repoFullName := poll.RepoFullName
-	setupLogger := w.logger.With("setup.task_id", setup.TaskID, "setup.repo_id", setup.RepoID)
-	setupLogger.Info("starting repo setup scan", "repo.full_name", repoFullName)
+	setupLogger := w.logger.With("setup.task_id", setup.TaskID, "setup.repo_id", setup.RepoID, "setup.type", poll.Type)
+	setupLogger.Info("starting repo setup work", "repo.full_name", repoFullName)
 
 	// Create log streamer for real-time log streaming (uses task log endpoint)
 	streamer := newLogStreamer(ctx, w, setup.TaskID, 1)
@@ -706,8 +708,14 @@ func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
 		streamer.AddLine(line)
 	}
 
+	// Determine work type: "setup" for initial scan, "setup-review" for AI review of user config
+	workType := workTypeSetup
+	if poll.Type == workTypeSetupReview {
+		workType = workTypeSetupReview
+	}
+
 	agentCfg := AgentConfig{
-		WorkType:                  workTypeSetup,
+		WorkType:                  workType,
 		SetupRepoID:              setup.RepoID,
 		TaskID:                    setup.TaskID,
 		APIURL:                    w.config.APIURL,
@@ -719,6 +727,9 @@ func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
 		ClaudeModel:               "sonnet",
 		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
 		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
+		RepoSummary:              poll.RepoSummary,
+		RepoExpectations:         poll.RepoExpectations,
+		RepoTechStack:            poll.RepoTechStack,
 	}
 
 	// Start heartbeat goroutine using the setup heartbeat endpoint

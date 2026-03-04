@@ -3,6 +3,7 @@ package repoapi_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -261,6 +262,93 @@ func TestSkipSetup_NotAllowedFromScanning(t *testing.T) {
 	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should be ready after skip from scanning")
 }
 
+func TestSubmitSetup_FromNeedsSetup(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move repo to needs_setup (pending → scanning → needs_setup)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup))
+
+	expectations := "## Code Quality\n- Use conventional commits"
+	techStack := []string{"Go", "Docker"}
+	req := repoapi.SubmitSetupRequest{
+		Expectations: &expectations,
+		TechStack:    &techStack,
+	}
+	res := doPost[server.Response[repo.Repo]](t, f.repoSubmitSetupURL(r.ID), req)
+	assert.Equal(t, repo.SetupStatusConfiguring, res.Data.SetupStatus, "should be configuring after submit")
+	assert.Equal(t, "## Code Quality\n- Use conventional commits", res.Data.Expectations)
+	assert.Equal(t, []string{"Go", "Docker"}, res.Data.TechStack)
+}
+
+func TestSubmitSetup_FromReady(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move to ready (pending → scanning → ready)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusReady))
+
+	expectations := "## Testing\n- Use Jest"
+	req := repoapi.SubmitSetupRequest{
+		Expectations: &expectations,
+	}
+	res := doPost[server.Response[repo.Repo]](t, f.repoSubmitSetupURL(r.ID), req)
+	assert.Equal(t, repo.SetupStatusConfiguring, res.Data.SetupStatus, "should be configuring after submit from ready")
+}
+
+func TestConfirmSetup_FromNeedsSetup(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move repo to needs_setup
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup))
+
+	res := doPost[server.Response[repo.Repo]](t, f.repoConfirmSetupURL(r.ID), nil)
+	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should be ready after confirm")
+	assert.NotNil(t, res.Data.SetupCompletedAt, "setup_completed_at should be set")
+}
+
+func TestConfirmSetup_FromConfiguring(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move repo to configuring (pending → scanning → needs_setup → configuring)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusConfiguring))
+
+	// Simulate AI review completing (configuring → needs_setup)
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup))
+
+	res := doPost[server.Response[repo.Repo]](t, f.repoConfirmSetupURL(r.ID), nil)
+	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should be ready after confirm")
+	assert.NotNil(t, res.Data.SetupCompletedAt, "setup_completed_at should be set")
+}
+
+func TestSubmitSetup_SummaryOnly(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup))
+
+	summary := "Updated summary for review"
+	req := repoapi.SubmitSetupRequest{
+		Summary: &summary,
+	}
+	res := doPost[server.Response[repo.Repo]](t, f.repoSubmitSetupURL(r.ID), req)
+	assert.Equal(t, repo.SetupStatusConfiguring, res.Data.SetupStatus)
+	assert.Equal(t, "Updated summary for review", res.Data.Summary)
+}
+
 // doPatch sends a PATCH request with JSON body and decodes the typed response.
 func doPatch[T any](t *testing.T, url string, body any) T {
 	t.Helper()
@@ -268,6 +356,22 @@ func doPatch[T any](t *testing.T, url string, body any) T {
 	require.NoError(t, err)
 	req.Header.Set("Content-Type", "application/json")
 	httpRes, err := testutil.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer httpRes.Body.Close()
+	require.Equal(t, http.StatusOK, httpRes.StatusCode, "expected 200 OK")
+	var result T
+	require.NoError(t, json.NewDecoder(httpRes.Body).Decode(&result))
+	return result
+}
+
+// doPost sends a POST request with JSON body and decodes the typed response.
+func doPost[T any](t *testing.T, url string, body any) T {
+	t.Helper()
+	var reader io.Reader
+	if body != nil {
+		reader = mustJSONReader(body)
+	}
+	httpRes, err := testutil.DefaultClient.Post(url, "application/json", reader)
 	require.NoError(t, err)
 	defer httpRes.Body.Close()
 	require.Equal(t, http.StatusOK, httpRes.StatusCode, "expected 200 OK")

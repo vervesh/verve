@@ -8,10 +8,11 @@ import (
 
 // SetupStatus represents the current state of repository setup.
 const (
-	SetupStatusPending    = "pending"
-	SetupStatusScanning   = "scanning"
-	SetupStatusNeedsSetup = "needs_setup"
-	SetupStatusReady      = "ready"
+	SetupStatusPending     = "pending"
+	SetupStatusScanning    = "scanning"
+	SetupStatusNeedsSetup  = "needs_setup"
+	SetupStatusConfiguring = "configuring"
+	SetupStatusReady       = "ready"
 )
 
 // Repo represents a GitHub repository added to Verve.
@@ -51,7 +52,7 @@ func NewRepo(fullName string) (*Repo, error) {
 // ValidSetupStatus returns true if the given status is a valid setup status.
 func ValidSetupStatus(s string) bool {
 	switch s {
-	case SetupStatusPending, SetupStatusScanning, SetupStatusNeedsSetup, SetupStatusReady:
+	case SetupStatusPending, SetupStatusScanning, SetupStatusNeedsSetup, SetupStatusConfiguring, SetupStatusReady:
 		return true
 	}
 	return false

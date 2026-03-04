@@ -1,4 +1,4 @@
-export type SetupStatus = 'pending' | 'scanning' | 'needs_setup' | 'ready';
+export type SetupStatus = 'pending' | 'scanning' | 'needs_setup' | 'configuring' | 'ready';
 
 export interface Repo {
 	id: string;

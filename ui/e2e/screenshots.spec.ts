@@ -69,6 +69,14 @@ const MOCK_REPO_NEEDS_SETUP_EMPTY = {
 	setup_completed_at: undefined
 };
 
+// Repo variant: AI is reviewing user's configuration (setup_status = 'configuring')
+const MOCK_REPO_CONFIGURING = {
+	...MOCK_REPO_NEEDS_SETUP,
+	setup_status: 'configuring',
+	expectations:
+		'## Code Quality\n- Follow ESLint rules\n- Use Prettier for formatting\n\n## Testing\n- Write unit tests for new functions\n- Use Vitest'
+};
+
 // Sample agent logs that showcase all the different log types and syntax highlighting.
 // These are used by the running/review task detail screenshots so we can preview how
 // the terminal rendering looks for each prefix and inline formatting rule.
@@ -855,6 +863,12 @@ async function setupMockAPI(
 	await page.route('**/api/v1/repos/*/setup/skip', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
 	);
+	await page.route('**/api/v1/repos/*/setup/submit', (route) =>
+		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'configuring' } } })
+	);
+	await page.route('**/api/v1/repos/*/setup/confirm', (route) =>
+		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
+	);
 	await page.route('**/api/v1/repos/*/setup', (route) => {
 		if (route.request().method() === 'PATCH') {
 			return route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } });
@@ -1098,6 +1112,20 @@ test.describe('UI Screenshots', () => {
 		const dialog = page.locator('[role="dialog"]');
 		await dialog.screenshot({
 			path: `screenshots/repo-setup-wizard-empty-stack-${testInfo.project.name}.png`
+		});
+	});
+
+	test('dashboard - repo configuring banner', async ({ page }, testInfo) => {
+		await setupMockAPI(page, MOCK_REPO_CONFIGURING);
+		await page.goto('/');
+
+		// Wait for the configuring banner to render.
+		await page.waitForSelector('text=AI reviewing configuration', { timeout: 5000 });
+		await page.waitForTimeout(1500);
+
+		await page.screenshot({
+			path: `screenshots/repo-setup-configuring-${testInfo.project.name}.png`,
+			fullPage: true
 		});
 	});
 

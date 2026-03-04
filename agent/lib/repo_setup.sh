@@ -300,3 +300,230 @@ _setup_complete_fail() {
         -d "$body" \
         "${SETUP_COMPLETE_URL}" > /dev/null 2>&1 || true
 }
+
+# ── Setup Review (AI reviews and enhances user-provided configuration) ──
+
+run_repo_setup_review() {
+    log_header "Verve Repo Setup Review Starting"
+    echo "Repo ID: ${REPO_ID}"
+    echo "Repository: ${GITHUB_REPO}"
+    echo "Model: ${CLAUDE_MODEL:-sonnet}"
+    log_blank
+
+    # Validate required env vars
+    if [ -z "$REPO_ID" ] || [ -z "$API_URL" ]; then
+        log_error "REPO_ID and API_URL are required for repo setup review"
+        _setup_complete_fail
+        exit 1
+    fi
+
+    if [ -z "$ANTHROPIC_API_KEY" ] && [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+        log_error "ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN must be set"
+        _setup_complete_fail
+        exit 1
+    fi
+
+    # Clone repo (read-only) so the agent can inspect the actual codebase
+    configure_git
+    clone_repo
+    log_agent "Repository cloned for review"
+    log_blank
+
+    log_agent "Running Claude Code agent to review configuration..."
+
+    _run_setup_review
+
+    local review_result=$?
+
+    if [ "$review_result" -eq 0 ]; then
+        log_agent "Repository configuration review completed successfully"
+    else
+        log_agent "Repository configuration review failed"
+        _setup_complete_fail
+    fi
+
+    log_blank
+    log_header "Repo Setup Review Completed"
+}
+
+_run_setup_review() {
+    local prompt
+    prompt=$(_build_review_prompt)
+
+    local raw_output_file
+    raw_output_file=$(mktemp /tmp/setup_review_claude_raw.XXXXXX)
+
+    local model="${CLAUDE_MODEL:-sonnet}"
+
+    local claude_exit=0
+    set -o pipefail
+    set +e
+    claude --output-format stream-json --verbose --dangerously-skip-permissions \
+        --model "$model" "$prompt" 2>&1 \
+        | tee "$raw_output_file" \
+        | _parse_stream
+    claude_exit=$?
+    set -e
+    set +o pipefail
+
+    # Extract the result text from the saved raw output
+    local output=""
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        local event_type
+        event_type=$(echo "$line" | jq -r '.type // empty' 2>/dev/null)
+        if [ "$event_type" = "result" ]; then
+            output=$(echo "$line" | jq -r '.result // empty' 2>/dev/null)
+        fi
+    done < "$raw_output_file"
+    rm -f "$raw_output_file"
+
+    log_blank
+    log_agent "Claude Code session completed"
+
+    if [ "$claude_exit" -ne 0 ]; then
+        log_error "Claude Code session failed with exit code ${claude_exit}"
+        return 1
+    fi
+
+    if [ -z "$output" ]; then
+        log_error "Claude produced no output"
+        return 1
+    fi
+
+    # Parse the structured review from Claude's output
+    local review_json
+    review_json=$(_extract_setup_analysis "$output")
+
+    if [ -z "$review_json" ] || [ "$review_json" = "null" ] || [ "$review_json" = "{}" ]; then
+        log_error "Could not extract review from Claude output"
+        return 1
+    fi
+
+    # Extract fields and submit. The review always transitions to needs_setup
+    # so the user can review the AI's enhanced configuration.
+    local summary tech_stack has_code has_claude_md has_readme
+    summary=$(printf '%s\n' "$review_json" | jq -r '.summary // ""')
+    tech_stack=$(printf '%s\n' "$review_json" | jq -c '.tech_stack // []')
+    has_code=$(printf '%s\n' "$review_json" | jq -r '.has_code // true')
+    has_claude_md=$(printf '%s\n' "$review_json" | jq -r '.has_claude_md // false')
+    has_readme=$(printf '%s\n' "$review_json" | jq -r '.has_readme // false')
+
+    # Extract expectations if the agent produced them
+    local expectations
+    expectations=$(printf '%s\n' "$review_json" | jq -r '.expectations // ""')
+
+    log_agent "Reviewed summary: ${summary}"
+    log_agent "Reviewed tech stack: $(printf '%s\n' "$tech_stack" | jq -r 'join(", ")')"
+    if [ -n "$expectations" ]; then
+        log_agent "Enhanced expectations provided"
+    fi
+
+    # Submit as needs_setup so the user reviews the AI's output
+    _setup_review_complete "$summary" "$tech_stack" "$has_code" "$has_claude_md" "$has_readme" "$expectations"
+}
+
+_build_review_prompt() {
+    local prompt
+    prompt="You are a repository configuration review agent. A user has provided initial configuration for this repository and you need to review it, enhance it, and produce a more complete version.
+
+You have access to the full repository at the current working directory. Use your tools (Read, Glob, Grep, Bash) to explore the codebase and validate/enhance the user's input.
+
+## Current User-Provided Configuration"
+
+    if [ -n "${REPO_SUMMARY:-}" ]; then
+        prompt="${prompt}
+
+**Summary:**
+${REPO_SUMMARY}"
+    fi
+
+    if [ -n "${REPO_TECH_STACK:-}" ]; then
+        prompt="${prompt}
+
+**Tech Stack:**
+${REPO_TECH_STACK}"
+    fi
+
+    if [ -n "${REPO_EXPECTATIONS:-}" ]; then
+        prompt="${prompt}
+
+**Expectations:**
+${REPO_EXPECTATIONS}"
+    fi
+
+    prompt="${prompt}
+
+## Your Task
+
+1. **Review the summary**: Is it accurate? Improve it if it's vague or missing important details. Keep it to 2-3 sentences.
+
+2. **Review the tech stack**: Are there missing technologies? Are any listed incorrectly? Add any technologies you discover from inspecting the actual codebase (build files, configs, source files).
+
+3. **Review/enhance expectations**: Take the user's expectations and flesh them out:
+   - If expectations are sparse, add more detail based on what you observe in the codebase
+   - If coding patterns exist in the codebase, document them
+   - If configuration files exist (linters, formatters, CI), reference them
+   - Keep the user's intent but make the guidance more actionable and specific
+   - Use markdown formatting with section headers (## Code Quality, ## Testing, etc.)
+
+4. **Check documentation**: Verify if CLAUDE.md and README exist.
+
+## Output Format
+
+Output your enhanced configuration as a JSON object wrapped in a markdown code block with the language tag \`verve-setup\`:
+
+\`\`\`verve-setup
+{
+  \"summary\": \"Enhanced 2-3 sentence summary.\",
+  \"tech_stack\": [\"Go\", \"PostgreSQL\", \"Docker\"],
+  \"has_code\": true,
+  \"has_claude_md\": false,
+  \"has_readme\": true,
+  \"expectations\": \"## Code Quality\\n\\nDetailed expectations here...\"
+}
+\`\`\`
+
+Field descriptions:
+- \`summary\` (string): Enhanced concise summary of the project
+- \`tech_stack\` (string array): Complete list of technologies (keep user's + add any missing)
+- \`has_code\` (boolean): Whether the repository contains source code
+- \`has_claude_md\` (boolean): Whether a CLAUDE.md file exists
+- \`has_readme\` (boolean): Whether a README file exists
+- \`expectations\` (string): Enhanced markdown-formatted expectations for AI coding agents
+
+Be thorough but concise. Actually inspect the codebase to validate and enhance the configuration."
+
+    printf '%s' "$prompt"
+}
+
+_setup_review_complete() {
+    local summary="$1"
+    local tech_stack="$2"
+    local has_code="$3"
+    local has_claudemd="$4"
+    local has_readme="$5"
+    local expectations="$6"
+
+    local body
+    body=$(jq -n \
+        --arg summary "$summary" \
+        --argjson tech_stack "$tech_stack" \
+        --argjson has_code "$has_code" \
+        --argjson has_claude_md "$has_claudemd" \
+        --argjson has_readme "$has_readme" \
+        --arg expectations "$expectations" \
+        '{
+            "success": true,
+            "summary": $summary,
+            "tech_stack": $tech_stack,
+            "has_code": $has_code,
+            "has_claude_md": $has_claude_md,
+            "has_readme": $has_readme,
+            "needs_setup": true,
+            "expectations": $expectations
+        }')
+
+    log_agent "Reporting setup review results..."
+    _post_setup_complete "$body"
+}

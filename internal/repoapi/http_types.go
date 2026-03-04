@@ -53,3 +53,16 @@ type UpdateSetupRequest struct {
 func (r UpdateSetupRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
+
+// SubmitSetupRequest is the request body for submitting repo setup configuration
+// to the AI agent for review. The agent will flesh out the user's input.
+type SubmitSetupRequest struct {
+	RepoID       string    `param:"repo_id" json:"-"`
+	Summary      *string   `json:"summary,omitempty"`
+	Expectations *string   `json:"expectations,omitempty"`
+	TechStack    *[]string `json:"tech_stack,omitempty"`
+}
+
+func (r SubmitSetupRequest) Validate() error {
+	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}

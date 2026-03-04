@@ -22,7 +22,9 @@
 		ChevronRight,
 		SkipForward,
 		Plus,
-		Layers
+		Layers,
+		Sparkles,
+		Send
 	} from 'lucide-svelte';
 
 	let {
@@ -37,6 +39,8 @@
 	let saving = $state(false);
 	let skipping = $state(false);
 	let rescanning = $state(false);
+	let submitting = $state(false);
+	let confirming = $state(false);
 	let error = $state<string | null>(null);
 
 	// Section expansion state
@@ -144,6 +148,44 @@
 		return original.some((item, i) => item !== techStack[i]);
 	}
 
+	// Submit for AI review — saves user input and triggers AI to flesh it out
+	async function handleSubmitForReview() {
+		submitting = true;
+		error = null;
+		try {
+			const updates: { expectations?: string; tech_stack?: string[]; summary?: string } = {};
+			updates.expectations = expectations;
+			if (techStackChanged()) {
+				updates.tech_stack = techStack;
+			}
+			const updated = await client.submitRepoSetup(repo.id, updates);
+			repoStore.updateRepo(updated);
+			open = false;
+			onComplete(updated);
+		} catch (err) {
+			error = (err as Error).message;
+		} finally {
+			submitting = false;
+		}
+	}
+
+	// Confirm the AI-reviewed configuration
+	async function handleConfirm() {
+		confirming = true;
+		error = null;
+		try {
+			const updated = await client.confirmRepoSetup(repo.id);
+			repoStore.updateRepo(updated);
+			open = false;
+			onComplete(updated);
+		} catch (err) {
+			error = (err as Error).message;
+		} finally {
+			confirming = false;
+		}
+	}
+
+	// Save directly without AI review (mark ready immediately)
 	async function handleSave() {
 		saving = true;
 		error = null;
@@ -207,6 +249,8 @@
 		open = false;
 		error = null;
 	}
+
+	const isDisabled = $derived(saving || skipping || submitting || confirming);
 </script>
 
 <Dialog.Root bind:open>
@@ -247,7 +291,7 @@
 									type="button"
 									class="ml-0.5 rounded-full hover:bg-muted-foreground/20 p-0.5 transition-colors"
 									onclick={() => removeTechStackItem(i)}
-									disabled={saving || skipping}
+									disabled={isDisabled}
 									aria-label="Remove {tech}"
 								>
 									<X class="w-3 h-3" />
@@ -264,14 +308,14 @@
 						onkeydown={handleTechStackKeydown}
 						class="flex-1 border rounded-lg px-3 py-2 bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
 						placeholder="e.g., TypeScript, React, PostgreSQL..."
-						disabled={saving || skipping}
+						disabled={isDisabled}
 					/>
 					<Button
 						type="button"
 						variant="outline"
 						size="sm"
 						onclick={addTechStackItem}
-						disabled={saving || skipping || !techStackInput.trim()}
+						disabled={isDisabled || !techStackInput.trim()}
 						class="gap-1 shrink-0"
 					>
 						<Plus class="w-4 h-4" />
@@ -316,7 +360,7 @@
 					bind:value={expectations}
 					class="w-full border rounded-lg p-3 min-h-[280px] bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring transition-shadow font-mono text-sm"
 					placeholder="Describe how the AI agent should work with this repository...&#10;&#10;You can use markdown formatting. Use the section buttons above to add category headers."
-					disabled={saving || skipping}
+					disabled={isDisabled}
 				></textarea>
 			</div>
 
@@ -361,7 +405,7 @@
 						type="button"
 						variant="outline"
 						onclick={handleRescan}
-						disabled={saving || skipping || rescanning}
+						disabled={isDisabled || rescanning}
 						class="gap-1.5"
 					>
 						<RefreshCw class="w-4 h-4 {rescanning ? 'animate-spin' : ''}" />
@@ -369,14 +413,14 @@
 					</Button>
 				</div>
 				<div class="flex items-center gap-2">
-					<Button type="button" variant="ghost" onclick={handleClose} disabled={saving || skipping}>
+					<Button type="button" variant="ghost" onclick={handleClose} disabled={isDisabled}>
 						Cancel
 					</Button>
 					<Button
 						type="button"
 						variant="outline"
 						onclick={handleSkip}
-						disabled={saving || skipping}
+						disabled={isDisabled}
 						class="gap-1.5"
 					>
 						{#if skipping}
@@ -389,8 +433,23 @@
 					</Button>
 					<Button
 						type="button"
+						variant="outline"
+						onclick={handleSubmitForReview}
+						disabled={isDisabled}
+						class="gap-1.5"
+					>
+						{#if submitting}
+							<Loader2 class="w-4 h-4 animate-spin" />
+							Submitting...
+						{:else}
+							<Sparkles class="w-4 h-4" />
+							Submit for AI Review
+						{/if}
+					</Button>
+					<Button
+						type="button"
 						onclick={handleSave}
-						disabled={saving || skipping}
+						disabled={isDisabled}
 						class="gap-1.5"
 					>
 						{#if saving}
@@ -398,7 +457,7 @@
 							Saving...
 						{:else}
 							<Check class="w-4 h-4" />
-							Save & Complete Setup
+							Save & Complete
 						{/if}
 					</Button>
 				</div>

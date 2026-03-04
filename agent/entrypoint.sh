@@ -28,6 +28,12 @@ if [ "${WORK_TYPE}" = "setup" ]; then
     exit $?
 fi
 
+if [ "${WORK_TYPE}" = "setup-review" ]; then
+    source "${LIB_DIR}/repo_setup.sh"
+    run_repo_setup_review
+    exit $?
+fi
+
 # ── Task execution (default) ────────────────────────────────────────
 
 # ── Failure trap ─────────────────────────────────────────────────────

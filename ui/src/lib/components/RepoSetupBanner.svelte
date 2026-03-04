@@ -13,13 +13,16 @@
 		ChevronDown,
 		ChevronRight,
 		ScanSearch,
-		SkipForward
+		SkipForward,
+		Check,
+		Sparkles
 	} from 'lucide-svelte';
 
 	let wizardOpen = $state(false);
 	let showDetails = $state(false);
 	let startingScan = $state(false);
 	let skippingSetup = $state(false);
+	let confirmingSetup = $state(false);
 
 	// Polling state
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -29,11 +32,12 @@
 	const isPending = $derived(setupStatus === 'pending');
 	const isScanning = $derived(setupStatus === 'scanning');
 	const needsSetup = $derived(setupStatus === 'needs_setup');
+	const isConfiguring = $derived(setupStatus === 'configuring');
 	const showBanner = $derived(setupStatus !== 'ready' && repo != null);
 
-	// Start/stop polling based on scanning state
+	// Start/stop polling based on scanning or configuring state
 	$effect(() => {
-		if (isScanning && repo) {
+		if ((isScanning || isConfiguring) && repo) {
 			startPolling(repo.id);
 		} else {
 			stopPolling();
@@ -50,7 +54,7 @@
 			try {
 				const updated = await client.getRepoSetup(repoId);
 				repoStore.updateRepo(updated);
-				if (updated.setup_status !== 'scanning') {
+				if (updated.setup_status !== 'scanning' && updated.setup_status !== 'configuring') {
 					stopPolling();
 				}
 			} catch {
@@ -96,10 +100,23 @@
 		}
 	}
 
+	async function handleConfirmSetup() {
+		if (!repo) return;
+		confirmingSetup = true;
+		try {
+			const updated = await client.confirmRepoSetup(repo.id);
+			repoStore.updateRepo(updated);
+		} catch {
+			// Ignore errors
+		} finally {
+			confirmingSetup = false;
+		}
+	}
+
 </script>
 
 {#if showBanner && repo}
-	<Card.Root class="mb-4 {isScanning ? 'border-violet-500/20 bg-violet-500/5' : isPending ? 'border-blue-500/20 bg-blue-500/5' : 'border-amber-500/20 bg-amber-500/5'}">
+	<Card.Root class="mb-4 {isScanning || isConfiguring ? 'border-violet-500/20 bg-violet-500/5' : isPending ? 'border-blue-500/20 bg-blue-500/5' : 'border-amber-500/20 bg-amber-500/5'}">
 		<Card.Content class="p-4">
 			<div class="flex items-start gap-3">
 				{#if isPending}
@@ -138,12 +155,20 @@
 							An agent is analyzing your repository structure, tech stack, and configuration files.
 						</p>
 					</div>
+				{:else if isConfiguring}
+					<Loader2 class="w-5 h-5 animate-spin text-violet-400 shrink-0 mt-0.5" />
+					<div class="flex-1 min-w-0">
+						<p class="text-sm font-medium text-violet-400">AI reviewing configuration...</p>
+						<p class="text-xs text-muted-foreground mt-0.5">
+							An AI agent is reviewing and enhancing your configuration. The updated configuration will be available for your review shortly.
+						</p>
+					</div>
 				{:else if needsSetup}
 					<Settings class="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
 					<div class="flex-1 min-w-0">
 						<p class="text-sm font-medium text-amber-400">Repository needs configuration</p>
 						<p class="text-xs text-muted-foreground mt-0.5">
-							The scan is complete. Configure expectations to guide the AI agent when working on tasks.
+							Review the configuration below. You can edit it, submit it for AI review, or confirm it as-is.
 						</p>
 
 						<!-- Inline repo summary for needs_setup -->
@@ -172,6 +197,15 @@
 								<Settings class="w-3.5 h-3.5" />
 								Configure
 							</Button>
+							<Button size="sm" variant="outline" onclick={handleConfirmSetup} disabled={confirmingSetup} class="gap-1.5">
+								{#if confirmingSetup}
+									<Loader2 class="w-3.5 h-3.5 animate-spin" />
+									Confirming...
+								{:else}
+									<Check class="w-3.5 h-3.5" />
+									Confirm & Complete
+								{/if}
+							</Button>
 						</div>
 					</div>
 				{/if}
@@ -180,6 +214,6 @@
 	</Card.Root>
 {/if}
 
-{#if repo && needsSetup}
+{#if repo && (needsSetup || isConfiguring)}
 	<RepoSetupWizard bind:open={wizardOpen} {repo} onComplete={handleSetupComplete} />
 {/if}

@@ -164,8 +164,8 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	}
 
 	switch workType {
-	case workTypeSetup:
-		// Setup-specific env vars
+	case workTypeSetup, workTypeSetupReview:
+		// Setup-specific env vars (both initial scan and AI review)
 		env = append(env,
 			"REPO_ID="+cfg.SetupRepoID,
 			"TASK_ID="+cfg.TaskID,
@@ -232,7 +232,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	// Container name
 	containerName := "verve-"
 	switch workType {
-	case workTypeSetup:
+	case workTypeSetup, workTypeSetupReview:
 		containerName += "setup-" + cfg.SetupRepoID
 	case workTypeEpic:
 		containerName += "epic-" + cfg.EpicID
@@ -254,7 +254,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	//    server (e.g. EC2) — no rewrite needed, the container reaches
 	//    the remote server over the default bridge network.
 	var networkConfig *network.NetworkingConfig
-	if workType == workTypeEpic || workType == workTypeSetup {
+	if workType == workTypeEpic || workType == workTypeSetup || workType == workTypeSetupReview {
 		if netName := d.detectNetwork(ctx); netName != "" {
 			d.logger.Info("attaching epic container to worker network", "container.network", netName)
 			networkConfig = &network.NetworkingConfig{

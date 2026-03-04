@@ -93,6 +93,29 @@ export class VerveClient {
 		return this.request<Repo>(res, 'Failed to skip setup');
 	}
 
+	async submitRepoSetup(
+		repoId: string,
+		updates: {
+			summary?: string;
+			expectations?: string;
+			tech_stack?: string[];
+		}
+	): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/submit`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(updates)
+		});
+		return this.request<Repo>(res, 'Failed to submit setup for review');
+	}
+
+	async confirmRepoSetup(repoId: string): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/confirm`, {
+			method: 'POST'
+		});
+		return this.request<Repo>(res, 'Failed to confirm repo setup');
+	}
+
 	// --- Repo-scoped Task APIs ---
 
 	async listTasksByRepo(repoId: string): Promise<Task[]> {

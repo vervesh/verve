@@ -95,7 +95,7 @@ func (h *HTTPHandler) Poll(c echo.Context) error {
 			return err
 		}
 		if t != nil {
-			if t.Type == task.TaskTypeSetup {
+			if t.Type == task.TaskTypeSetup || t.Type == task.TaskTypeSetupReview {
 				resp, err := h.buildSetupPollResponse(c, t)
 				if err != nil {
 					return err
@@ -162,15 +162,24 @@ func (h *HTTPHandler) buildSetupPollResponse(c echo.Context, t *task.Task) (*Pol
 	if h.githubToken != nil {
 		token = h.githubToken.GetToken()
 	}
+
+	workType := "setup"
+	if t.Type == task.TaskTypeSetupReview {
+		workType = "setup-review"
+	}
+
 	return &PollResponse{
-		Type: "setup",
+		Type: workType,
 		Setup: &Setup{
 			TaskID:   t.ID.String(),
 			RepoID:   t.RepoID,
 			FullName: r.FullName,
 		},
-		GitHubToken:  token,
-		RepoFullName: r.FullName,
+		GitHubToken:      token,
+		RepoFullName:     r.FullName,
+		RepoSummary:      r.Summary,
+		RepoExpectations: r.Expectations,
+		RepoTechStack:    strings.Join(r.TechStack, ", "),
 	}, nil
 }
 
@@ -405,6 +414,16 @@ func (h *HTTPHandler) RepoSetupComplete(c echo.Context) error {
 
 	if err := h.repoStore.UpdateRepoSetupScan(ctx, repoID, result); err != nil {
 		return err
+	}
+
+	// If the agent provided enhanced expectations (from setup-review), update them.
+	if req.Expectations != "" {
+		update := repo.ExpectationsUpdate{
+			Expectations: req.Expectations,
+		}
+		if err := h.repoStore.UpdateRepoExpectations(ctx, repoID, update); err != nil {
+			return err
+		}
 	}
 
 	// Read updated repo and publish SSE event.

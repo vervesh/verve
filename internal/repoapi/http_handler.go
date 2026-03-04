@@ -38,6 +38,8 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	g.PATCH("/repos/:repo_id/setup", h.UpdateSetup)
 	g.POST("/repos/:repo_id/setup/rescan", h.Rescan)
 	g.POST("/repos/:repo_id/setup/skip", h.SkipSetup)
+	g.POST("/repos/:repo_id/setup/submit", h.SubmitSetup)
+	g.POST("/repos/:repo_id/setup/confirm", h.ConfirmSetup)
 }
 
 // ListRepos handles GET /repos
@@ -220,6 +222,96 @@ func (h *HTTPHandler) Rescan(c echo.Context) error {
 // without requiring a scan. Useful for pre-existing repos that were added
 // before the setup scan feature.
 func (h *HTTPHandler) SkipSetup(c echo.Context) error {
+	req, err := server.BindRequest[RepoIDRequest](c)
+	if err != nil {
+		return err
+	}
+
+	id := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, id.String())
+
+	ctx := c.Request().Context()
+
+	now := time.Now()
+	update := repo.ExpectationsUpdate{
+		SetupCompletedAt: &now,
+	}
+	if err := h.repoStore.UpdateRepoExpectations(ctx, id, update); err != nil {
+		return err
+	}
+
+	if err := h.repoStore.UpdateRepoSetupStatus(ctx, id, repo.SetupStatusReady); err != nil {
+		return err
+	}
+
+	r, err := h.repoStore.ReadRepo(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
+
+	return server.SetResponse(c, http.StatusOK, r)
+}
+
+// SubmitSetup handles POST /repos/:repo_id/setup/submit — saves the user's
+// configuration input and triggers an AI review task to flesh it out.
+// This is part of the review loop: user submits → AI reviews → user confirms.
+func (h *HTTPHandler) SubmitSetup(c echo.Context) error {
+	req, err := server.BindRequest[SubmitSetupRequest](c)
+	if err != nil {
+		return err
+	}
+
+	id := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, id.String())
+
+	ctx := c.Request().Context()
+
+	// Save the user's raw input.
+	if req.Summary != nil {
+		if err := h.repoStore.UpdateRepoSummary(ctx, id, *req.Summary); err != nil {
+			return err
+		}
+	}
+	if req.TechStack != nil {
+		if err := h.repoStore.UpdateRepoTechStack(ctx, id, *req.TechStack); err != nil {
+			return err
+		}
+	}
+	if req.Expectations != nil {
+		update := repo.ExpectationsUpdate{
+			Expectations: *req.Expectations,
+		}
+		if err := h.repoStore.UpdateRepoExpectations(ctx, id, update); err != nil {
+			return err
+		}
+	}
+
+	// Transition to configuring — AI is reviewing.
+	if err := h.repoStore.UpdateRepoSetupStatus(ctx, id, repo.SetupStatusConfiguring); err != nil {
+		return err
+	}
+
+	// Create a setup-review task for the AI agent to flesh out the config.
+	reviewTask := task.NewSetupReviewTask(id.String())
+	if err := h.taskStore.CreateTask(ctx, reviewTask); err != nil {
+		return err
+	}
+
+	r, err := h.repoStore.ReadRepo(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
+
+	return server.SetResponse(c, http.StatusOK, r)
+}
+
+// ConfirmSetup handles POST /repos/:repo_id/setup/confirm — user approves
+// the AI-reviewed configuration and marks the repo as ready.
+func (h *HTTPHandler) ConfirmSetup(c echo.Context) error {
 	req, err := server.BindRequest[RepoIDRequest](c)
 	if err != nil {
 		return err
