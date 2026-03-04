@@ -414,15 +414,16 @@ func (ls *logStreamer) flush() {
 	ls.mu.Unlock()
 
 	// Send to API server
-	if ls.taskID != "" {
+	switch {
+	case ls.taskID != "":
 		if err := ls.worker.sendLogs(ls.ctx, ls.taskID, ls.attempt, toSend); err != nil {
 			ls.worker.logger.Error("failed to send logs", "task.id", ls.taskID, "error", err)
 		}
-	} else if ls.epicID != "" {
+	case ls.epicID != "":
 		if err := ls.worker.sendEpicLogs(ls.ctx, ls.epicID, toSend); err != nil {
 			ls.worker.logger.Error("failed to send epic logs", "epic.id", ls.epicID, "error", err)
 		}
-	} else if ls.conversationID != "" {
+	case ls.conversationID != "":
 		if err := ls.worker.sendConversationLogs(ls.ctx, ls.conversationID, toSend); err != nil {
 			ls.worker.logger.Error("failed to send conversation logs", "conversation.id", ls.conversationID, "error", err)
 		}
