@@ -4,6 +4,21 @@
 
 package sqlc
 
+type Conversation struct {
+	ID              string
+	RepoID          string
+	Title           string
+	Status          string
+	Messages        string
+	Model           *string
+	ClaimedAt       *int64
+	LastHeartbeatAt *int64
+	PendingMessage  *string
+	EpicID          *string
+	CreatedAt       int64
+	UpdatedAt       int64
+}
+
 type Epic struct {
 	ID              string
 	RepoID          string

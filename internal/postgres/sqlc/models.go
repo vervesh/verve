@@ -79,6 +79,21 @@ func AllTaskStatusValues() []TaskStatus {
 	}
 }
 
+type Conversation struct {
+	ID              string  `json:"id"`
+	RepoID          string  `json:"repo_id"`
+	Title           string  `json:"title"`
+	Status          string  `json:"status"`
+	Messages        []byte  `json:"messages"`
+	Model           *string `json:"model"`
+	ClaimedAt       *int64  `json:"claimed_at"`
+	LastHeartbeatAt *int64  `json:"last_heartbeat_at"`
+	PendingMessage  *string `json:"pending_message"`
+	EpicID          *string `json:"epic_id"`
+	CreatedAt       int64   `json:"created_at"`
+	UpdatedAt       int64   `json:"updated_at"`
+}
+
 type Epic struct {
 	ID              string   `json:"id"`
 	RepoID          string   `json:"repo_id"`

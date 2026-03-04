@@ -16,9 +16,10 @@ import (
 	_ "github.com/tursodatabase/libsql-client-go/libsql" // registers "libsql" database/sql driver
 
 	"github.com/joshjon/verve/internal/agentapi"
+	"github.com/joshjon/verve/internal/conversation"
 	"github.com/joshjon/verve/internal/epic"
-	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/epicapi"
+	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/eventapi"
 	"github.com/joshjon/verve/internal/frontend"
 	"github.com/joshjon/verve/internal/github"
@@ -39,11 +40,12 @@ import (
 )
 
 type stores struct {
-	task        *task.Store
-	repo        *repo.Store
-	epic        *epic.Store
-	githubToken *githubtoken.Service
-	setting     *setting.Service
+	task         *task.Store
+	repo         *repo.Store
+	epic         *epic.Store
+	conversation *conversation.Store
+	githubToken  *githubtoken.Service
+	setting      *setting.Service
 }
 
 // Run starts the API server. If Postgres is not configured, it falls back to
@@ -136,7 +138,10 @@ func initPostgres(ctx context.Context, logger log.Logger, cfg PostgresConfig, en
 	epicStore := epic.NewStore(epicRepo, taskCreator, logger)
 	epicStore.SetTaskStatusReader(epic.NewTaskStatusReaderFunc(taskStore.ReadTaskStatus))
 
-	return stores{task: taskStore, repo: repoStore, epic: epicStore, githubToken: ghTokenService, setting: settingService}, func() { pool.Close() }, nil
+	convRepo := postgres.NewConversationRepository(pool)
+	convStore := conversation.NewStore(convRepo, logger)
+
+	return stores{task: taskStore, repo: repoStore, epic: epicStore, conversation: convStore, githubToken: ghTokenService, setting: settingService}, func() { pool.Close() }, nil
 }
 
 func initSQLite(ctx context.Context, encryptionKey []byte, ghInsecureSkipVerify bool, logger log.Logger, dbOpts []sqlitedb.OpenOption, taskRepoOpts ...sqlite.TaskRepoOption) (stores, func(), error) {
@@ -171,7 +176,10 @@ func initSQLite(ctx context.Context, encryptionKey []byte, ghInsecureSkipVerify 
 	epicStore := epic.NewStore(epicRepo, taskCreator, logger)
 	epicStore.SetTaskStatusReader(epic.NewTaskStatusReaderFunc(taskStore.ReadTaskStatus))
 
-	return stores{task: taskStore, repo: repoStore, epic: epicStore, githubToken: ghTokenService, setting: settingService}, func() { _ = db.Close() }, nil
+	convRepo := sqlite.NewConversationRepository(db)
+	convStore := conversation.NewStore(convRepo, logger)
+
+	return stores{task: taskStore, repo: repoStore, epic: epicStore, conversation: convStore, githubToken: ghTokenService, setting: settingService}, func() { _ = db.Close() }, nil
 }
 
 func serve(ctx context.Context, logger log.Logger, cfg Config, s stores) error {

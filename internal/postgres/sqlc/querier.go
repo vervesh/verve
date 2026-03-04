@@ -10,6 +10,7 @@ import (
 
 type Querier interface {
 	AddTaskCost(ctx context.Context, arg AddTaskCostParams) error
+	AppendConversationMessage(ctx context.Context, arg AppendConversationMessageParams) error
 	AppendSessionLog(ctx context.Context, arg AppendSessionLogParams) error
 	AppendTaskLogs(ctx context.Context, arg AppendTaskLogsParams) error
 	BulkCloseTasksByEpic(ctx context.Context, arg BulkCloseTasksByEpicParams) error
@@ -17,14 +18,18 @@ type Querier interface {
 	BulkDeleteTaskLogsByIDs(ctx context.Context, dollar_1 []string) error
 	BulkDeleteTasksByEpic(ctx context.Context, epicID *string) error
 	BulkDeleteTasksByIDs(ctx context.Context, dollar_1 []string) error
+	ClaimConversation(ctx context.Context, id string) (int64, error)
 	ClaimEpic(ctx context.Context, id string) (int64, error)
 	ClaimTask(ctx context.Context, id string) (int64, error)
 	ClearEpicFeedback(ctx context.Context, id string) error
 	ClearEpicIDForTasks(ctx context.Context, epicID *string) error
 	CloseTask(ctx context.Context, arg CloseTaskParams) error
+	ConversationHeartbeat(ctx context.Context, id string) error
+	CreateConversation(ctx context.Context, arg CreateConversationParams) error
 	CreateEpic(ctx context.Context, arg CreateEpicParams) error
 	CreateRepo(ctx context.Context, arg CreateRepoParams) error
 	CreateTask(ctx context.Context, arg CreateTaskParams) error
+	DeleteConversation(ctx context.Context, id string) error
 	DeleteEpic(ctx context.Context, id string) error
 	DeleteExpiredLogs(ctx context.Context, createdAt int64) (int64, error)
 	DeleteGitHubToken(ctx context.Context) error
@@ -36,15 +41,19 @@ type Querier interface {
 	FeedbackRetryTask(ctx context.Context, arg FeedbackRetryTaskParams) (int64, error)
 	HasTasksForRepo(ctx context.Context, repoID string) (bool, error)
 	Heartbeat(ctx context.Context, id string) (int64, error)
+	ListActiveConversations(ctx context.Context) ([]*Conversation, error)
 	ListActiveEpics(ctx context.Context) ([]*Epic, error)
+	ListConversationsByRepo(ctx context.Context, repoID string) ([]*Conversation, error)
 	ListEpics(ctx context.Context) ([]*Epic, error)
 	ListEpicsByRepo(ctx context.Context, repoID string) ([]*Epic, error)
+	ListPendingConversations(ctx context.Context) ([]*Conversation, error)
 	ListPendingTasks(ctx context.Context) ([]*Task, error)
 	ListPendingTasksByRepos(ctx context.Context, dollar_1 []string) ([]*Task, error)
 	ListPlanningEpics(ctx context.Context) ([]*Epic, error)
 	ListRepos(ctx context.Context) ([]*Repo, error)
 	ListReposBySetupStatus(ctx context.Context, setupStatus string) ([]*Repo, error)
 	ListSettings(ctx context.Context) ([]*ListSettingsRow, error)
+	ListStaleConversations(ctx context.Context, lastHeartbeatAt *int64) ([]*Conversation, error)
 	ListStaleEpics(ctx context.Context, lastHeartbeatAt *int64) ([]*Epic, error)
 	ListStaleTasks(ctx context.Context, lastHeartbeatAt *int64) ([]*Task, error)
 	ListTasks(ctx context.Context) ([]*Task, error)
@@ -54,6 +63,7 @@ type Querier interface {
 	ListTasksInReviewByRepo(ctx context.Context, repoID string) ([]*Task, error)
 	ListTasksInReviewNoPR(ctx context.Context) ([]*Task, error)
 	ManualRetryTask(ctx context.Context, arg ManualRetryTaskParams) (int64, error)
+	ReadConversation(ctx context.Context, id string) (*Conversation, error)
 	ReadEpic(ctx context.Context, id string) (*Epic, error)
 	ReadGitHubToken(ctx context.Context) (string, error)
 	ReadRepo(ctx context.Context, id string) (*Repo, error)
@@ -62,6 +72,7 @@ type Querier interface {
 	ReadTask(ctx context.Context, id string) (*Task, error)
 	ReadTaskLogs(ctx context.Context, id string) ([]*ReadTaskLogsRow, error)
 	ReadTaskStatus(ctx context.Context, id string) (TaskStatus, error)
+	ReleaseConversationClaim(ctx context.Context, id string) error
 	ReleaseEpicClaim(ctx context.Context, id string) error
 	RemoveDependency(ctx context.Context, arg RemoveDependencyParams) error
 	RemoveEpicTaskID(ctx context.Context, arg RemoveEpicTaskIDParams) error
@@ -71,14 +82,18 @@ type Querier interface {
 	SetBranchName(ctx context.Context, arg SetBranchNameParams) error
 	SetCloseReason(ctx context.Context, arg SetCloseReasonParams) error
 	SetConsecutiveFailures(ctx context.Context, arg SetConsecutiveFailuresParams) error
+	SetConversationEpicID(ctx context.Context, arg SetConversationEpicIDParams) error
+	SetConversationMessages(ctx context.Context, arg SetConversationMessagesParams) error
 	SetEpicFeedback(ctx context.Context, arg SetEpicFeedbackParams) error
 	SetEpicTaskIDs(ctx context.Context, arg SetEpicTaskIDsParams) error
+	SetPendingMessage(ctx context.Context, arg SetPendingMessageParams) error
 	SetReady(ctx context.Context, arg SetReadyParams) error
 	SetRetryContext(ctx context.Context, arg SetRetryContextParams) error
 	SetTaskPullRequest(ctx context.Context, arg SetTaskPullRequestParams) error
 	StartOverTask(ctx context.Context, arg StartOverTaskParams) (int64, error)
 	StopTask(ctx context.Context, arg StopTaskParams) (int64, error)
 	TaskExists(ctx context.Context, id string) (bool, error)
+	UpdateConversationStatus(ctx context.Context, arg UpdateConversationStatusParams) error
 	UpdateEpic(ctx context.Context, arg UpdateEpicParams) error
 	UpdateEpicStatus(ctx context.Context, arg UpdateEpicStatusParams) error
 	UpdatePendingTask(ctx context.Context, arg UpdatePendingTaskParams) (int64, error)
