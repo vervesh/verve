@@ -281,3 +281,96 @@ func TestListWorkers_WithWorkers(t *testing.T) {
 	assert.Equal(t, "worker-1", res.Data[0].WorkerID)
 	assert.Equal(t, 4, res.Data[0].MaxConcurrentTasks)
 }
+
+// --- Conversation Agent Endpoints ---
+
+func TestConversationComplete_Success(t *testing.T) {
+	f := newFixture(t)
+	conv := f.seedClaimedConversation()
+
+	req := agentapi.ConversationCompleteRequest{
+		Success:  true,
+		Response: "Here is my analysis of the codebase.",
+	}
+	postNoContent(t, f.conversationCompleteURL(conv.ID), req)
+
+	// Verify assistant message was appended and claim was released
+	stored, err := f.ConversationStore.ReadConversation(context.Background(), conv.ID)
+	assert.NoError(t, err)
+	// Should have user message + assistant response
+	assert.Len(t, stored.Messages, 2)
+	assert.Equal(t, "assistant", stored.Messages[1].Role)
+	assert.Equal(t, "Here is my analysis of the codebase.", stored.Messages[1].Content)
+	assert.Nil(t, stored.PendingMessage, "pending message should be cleared")
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+}
+
+func TestConversationComplete_Failure(t *testing.T) {
+	f := newFixture(t)
+	conv := f.seedClaimedConversation()
+
+	req := agentapi.ConversationCompleteRequest{
+		Success: false,
+		Error:   "something went wrong",
+	}
+	postNoContent(t, f.conversationCompleteURL(conv.ID), req)
+
+	// Verify claim released and pending cleared, no assistant message added
+	stored, err := f.ConversationStore.ReadConversation(context.Background(), conv.ID)
+	assert.NoError(t, err)
+	assert.Len(t, stored.Messages, 1) // only the user message
+	assert.Nil(t, stored.PendingMessage, "pending message should be cleared")
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+}
+
+func TestConversationComplete_InvalidID(t *testing.T) {
+	f := newFixture(t)
+
+	url := f.Server.Address() + "/api/v1/agent/conversations/bad-id/complete"
+	req := agentapi.ConversationCompleteRequest{Success: true, Response: "test"}
+	httpRes := doJSON(t, http.MethodPost, url, req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode)
+}
+
+func TestConversationHeartbeat(t *testing.T) {
+	f := newFixture(t)
+	conv := f.seedClaimedConversation()
+
+	postNoContent(t, f.conversationHeartbeatURL(conv.ID), nil)
+
+	// Verify heartbeat updated
+	stored, err := f.ConversationStore.ReadConversation(context.Background(), conv.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, stored.LastHeartbeatAt)
+}
+
+func TestConversationAppendLogs(t *testing.T) {
+	f := newFixture(t)
+	conv := f.seedClaimedConversation()
+
+	req := agentapi.ConversationLogsRequest{
+		Lines: []string{"agent: processing message", "agent: generating response"},
+	}
+	postNoContent(t, f.conversationLogsURL(conv.ID), req)
+}
+
+func TestPoll_ReturnsConversation(t *testing.T) {
+	f := newFixture(t)
+	// Need to mark the repo as ready for setup tasks
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(context.Background(), f.Repo.ID, "ready"))
+
+	conv := f.seedPendingConversation()
+
+	// Poll should return the conversation
+	res := testutil.Get[server.Response[agentapi.PollResponse]](t, f.pollURL())
+	assert.Equal(t, "conversation", res.Data.Type)
+	assert.NotNil(t, res.Data.Conversation)
+	assert.Equal(t, conv.ID.String(), res.Data.Conversation.ID.String())
+	assert.Equal(t, "owner/test-repo", res.Data.RepoFullName)
+
+	// After claiming, verify conversation is claimed
+	stored, err := f.ConversationStore.ReadConversation(context.Background(), conv.ID)
+	assert.NoError(t, err)
+	assert.NotNil(t, stored.ClaimedAt, "conversation should be claimed after poll")
+}

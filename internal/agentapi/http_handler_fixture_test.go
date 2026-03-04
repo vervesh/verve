@@ -25,16 +25,18 @@ import (
 )
 
 type fixture struct {
-	Server         *server.Server
-	TaskStore      *task.Store
-	EpicStore      *epic.Store
-	RepoStore      *repo.Store
-	WorkerRegistry *workertracker.Registry
-	Repo           *repo.Repo
-	t              *testing.T
+	Server            *server.Server
+	TaskStore         *task.Store
+	EpicStore         *epic.Store
+	RepoStore         *repo.Store
+	ConversationStore *conversation.Store
+	WorkerRegistry    *workertracker.Registry
+	Repo              *repo.Repo
+	t                 *testing.T
 
 	taskRepo task.Repository
 	epicRepo epic.Repository
+	convRepo conversation.Repository
 }
 
 func newFixture(t *testing.T) *fixture {
@@ -74,15 +76,17 @@ func newFixture(t *testing.T) *fixture {
 	t.Cleanup(func() { srv.Stop(context.Background()) })
 
 	return &fixture{
-		Server:         srv,
-		TaskStore:      taskStore,
-		EpicStore:      epicStore,
-		RepoStore:      repoStore,
-		WorkerRegistry: registry,
-		Repo:           r,
-		t:              t,
-		taskRepo:       taskRepo,
-		epicRepo:       epicRepo,
+		Server:            srv,
+		TaskStore:         taskStore,
+		EpicStore:         epicStore,
+		RepoStore:         repoStore,
+		ConversationStore: convStore,
+		WorkerRegistry:    registry,
+		Repo:              r,
+		t:                 t,
+		taskRepo:          taskRepo,
+		epicRepo:          epicRepo,
+		convRepo:          convRepo,
 	}
 }
 
@@ -120,6 +124,22 @@ func (f *fixture) repoSetupCompleteURL(repoID repo.RepoID) string {
 	return fmt.Sprintf("%s/api/v1/agent/repos/%s/setup-complete", f.Server.Address(), repoID)
 }
 
+func (f *fixture) conversationCompleteURL(id conversation.ConversationID) string {
+	return fmt.Sprintf("%s/api/v1/agent/conversations/%s/complete", f.Server.Address(), id)
+}
+
+func (f *fixture) conversationHeartbeatURL(id conversation.ConversationID) string {
+	return fmt.Sprintf("%s/api/v1/agent/conversations/%s/heartbeat", f.Server.Address(), id)
+}
+
+func (f *fixture) conversationLogsURL(id conversation.ConversationID) string {
+	return fmt.Sprintf("%s/api/v1/agent/conversations/%s/logs", f.Server.Address(), id)
+}
+
+func (f *fixture) pollURL() string {
+	return fmt.Sprintf("%s/api/v1/agent/poll", f.Server.Address())
+}
+
 // --- Seed helpers ---
 
 func (f *fixture) seedRunningTask() *task.Task {
@@ -129,6 +149,28 @@ func (f *fixture) seedRunningTask() *task.Task {
 	require.NoError(f.t, f.taskRepo.CreateTask(ctx, tsk))
 	require.NoError(f.t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
 	return tsk
+}
+
+func (f *fixture) seedPendingConversation() *conversation.Conversation {
+	f.t.Helper()
+	ctx := context.Background()
+	conv := conversation.NewConversation(f.Repo.ID.String(), "Test Conv", "sonnet")
+	require.NoError(f.t, f.ConversationStore.CreateConversation(ctx, conv))
+	require.NoError(f.t, f.ConversationStore.SendMessage(ctx, conv.ID, "Hello"))
+	updated, err := f.ConversationStore.ReadConversation(ctx, conv.ID)
+	require.NoError(f.t, err)
+	return updated
+}
+
+func (f *fixture) seedClaimedConversation() *conversation.Conversation {
+	f.t.Helper()
+	ctx := context.Background()
+	conv := f.seedPendingConversation()
+	claimed, err := f.ConversationStore.ClaimPendingConversation(ctx)
+	require.NoError(f.t, err)
+	require.NotNil(f.t, claimed)
+	require.Equal(f.t, conv.ID.String(), claimed.ID.String())
+	return claimed
 }
 
 func (f *fixture) seedPlanningEpic() *epic.Epic {
