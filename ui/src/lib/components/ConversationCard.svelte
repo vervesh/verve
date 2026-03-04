@@ -31,7 +31,7 @@
 		lastMessage ? lastMessage.content.slice(0, 100) + (lastMessage.content.length > 100 ? '...' : '') : 'No messages yet'
 	);
 
-	const timeAgo = $derived(() => {
+	const timeAgo = $derived.by(() => {
 		const date = new Date(conversation.updated_at);
 		const now = new Date();
 		const diffMs = now.getTime() - date.getTime();
@@ -65,7 +65,7 @@
 		<span class="text-[10px] text-muted-foreground">
 			{conversation.messages.length} message{conversation.messages.length !== 1 ? 's' : ''}
 		</span>
-		<span class="text-[10px] text-muted-foreground">{timeAgo()}</span>
+		<span class="text-[10px] text-muted-foreground">{timeAgo}</span>
 		{#if conversation.pending_message}
 			<span class="text-[10px] text-blue-400 flex items-center gap-1">
 				<span class="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
