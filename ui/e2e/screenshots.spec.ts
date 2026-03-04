@@ -621,6 +621,127 @@ const MOCK_EPIC_MAP: Record<string, typeof MOCK_EPIC_DRAFT> = {
 	epc_active01: MOCK_EPIC_ACTIVE
 };
 
+// --- Mock Conversation Data ---
+
+// Active conversation with sample messages.
+const MOCK_CONVERSATION_ACTIVE = {
+	id: 'cnv_active01',
+	repo_id: 'repo_mock01',
+	title: 'Plan authentication system',
+	status: 'active',
+	messages: [
+		{
+			role: 'user',
+			content: 'I want to add JWT-based authentication to our Express API. What approach would you recommend?',
+			timestamp: 1717225200
+		},
+		{
+			role: 'assistant',
+			content: 'For JWT-based authentication in your Express API, I\'d recommend the following approach:\n\n1. **Token Strategy**: Use short-lived access tokens (15 min) with longer-lived refresh tokens (7 days) stored in httpOnly cookies.\n\n2. **Middleware**: Create an auth middleware that validates JWTs on protected routes and extracts user context.\n\n3. **Password Hashing**: Use bcrypt with a cost factor of 12 for password storage.\n\n4. **Endpoints**:\n   - POST /auth/login - Issue tokens\n   - POST /auth/register - Create account\n   - POST /auth/refresh - Rotate refresh token\n   - POST /auth/logout - Invalidate refresh token\n\nWould you like me to break this down into specific implementation tasks?',
+			timestamp: 1717225260
+		},
+		{
+			role: 'user',
+			content: 'Yes, that sounds good. Also, should we add rate limiting to the auth endpoints?',
+			timestamp: 1717225320
+		},
+		{
+			role: 'assistant',
+			content: 'Absolutely — rate limiting on auth endpoints is critical for security. I\'d recommend:\n\n- **Login endpoint**: 5 attempts per IP per 15 minutes\n- **Register endpoint**: 3 attempts per IP per hour\n- **Refresh endpoint**: 30 attempts per IP per hour\n\nYou can use `express-rate-limit` with a Redis store for distributed rate limiting, or a simple in-memory store for single-server deployments.\n\nI\'ll include rate limiting as a task when we generate the implementation plan.',
+			timestamp: 1717225380
+		}
+	],
+	created_at: '2025-06-01T09:00:00Z',
+	updated_at: '2025-06-01T09:23:00Z'
+};
+
+// Conversation with a pending message (waiting for agent response).
+const MOCK_CONVERSATION_PENDING = {
+	id: 'cnv_pending01',
+	repo_id: 'repo_mock01',
+	title: 'Debug database performance',
+	status: 'active',
+	messages: [
+		{
+			role: 'user',
+			content: 'Our database queries are slow on the orders table. Can you help investigate?',
+			timestamp: 1717225200
+		},
+		{
+			role: 'assistant',
+			content: 'I\'d be happy to help investigate the slow queries on the orders table. Let me look at a few common causes:\n\n1. Missing indexes on frequently queried columns\n2. N+1 query patterns in the ORM\n3. Large table scans without proper WHERE clauses\n\nCan you share which specific queries are slow, or should I analyze the table schema and suggest optimizations?',
+			timestamp: 1717225260
+		},
+		{
+			role: 'user',
+			content: 'The main issue is the order listing endpoint. It joins with users and products tables.',
+			timestamp: 1717225320
+		}
+	],
+	pending_message: 'The main issue is the order listing endpoint. It joins with users and products tables.',
+	created_at: '2025-06-01T10:00:00Z',
+	updated_at: '2025-06-01T10:05:00Z'
+};
+
+// Conversation with an epic already linked.
+const MOCK_CONVERSATION_WITH_EPIC = {
+	id: 'cnv_withepic01',
+	repo_id: 'repo_mock01',
+	title: 'Design API refactoring plan',
+	status: 'active',
+	messages: [
+		{
+			role: 'user',
+			content: 'We need to refactor our API to follow REST best practices.',
+			timestamp: 1717225200
+		},
+		{
+			role: 'assistant',
+			content: 'I\'ve reviewed your API structure and identified several areas for improvement. The main changes would be:\n\n1. Consistent resource naming (plural nouns)\n2. Proper HTTP status codes for each operation\n3. Pagination on list endpoints\n4. HATEOAS links in responses\n\nI\'ve generated an epic with specific tasks for each area.',
+			timestamp: 1717225260
+		}
+	],
+	epic_id: 'epc_active01',
+	created_at: '2025-06-01T08:00:00Z',
+	updated_at: '2025-06-01T08:30:00Z'
+};
+
+// Archived conversation.
+const MOCK_CONVERSATION_ARCHIVED = {
+	id: 'cnv_archived01',
+	repo_id: 'repo_mock01',
+	title: 'Initial project setup discussion',
+	status: 'archived',
+	messages: [
+		{
+			role: 'user',
+			content: 'What tools should we use for our new project?',
+			timestamp: 1717138800
+		},
+		{
+			role: 'assistant',
+			content: 'Based on your requirements, I\'d suggest SvelteKit for the frontend and Go for the backend API.',
+			timestamp: 1717138860
+		}
+	],
+	created_at: '2025-05-31T09:00:00Z',
+	updated_at: '2025-05-31T09:15:00Z'
+};
+
+const MOCK_CONVERSATIONS = [
+	MOCK_CONVERSATION_ACTIVE,
+	MOCK_CONVERSATION_PENDING,
+	MOCK_CONVERSATION_WITH_EPIC,
+	MOCK_CONVERSATION_ARCHIVED
+];
+
+const MOCK_CONVERSATION_MAP: Record<string, typeof MOCK_CONVERSATION_ACTIVE> = {
+	cnv_active01: MOCK_CONVERSATION_ACTIVE,
+	cnv_pending01: MOCK_CONVERSATION_PENDING,
+	cnv_withepic01: MOCK_CONVERSATION_WITH_EPIC,
+	cnv_archived01: MOCK_CONVERSATION_ARCHIVED
+};
+
 // Mock agent metrics data for the agents observability page.
 const MOCK_METRICS = {
 	running_agents: 3,
@@ -967,6 +1088,38 @@ async function setupMockAPI(
 		const task = MOCK_TASKS.find((t) => t.id === taskId);
 		if (task) {
 			return route.fulfill({ json: { data: task } });
+		}
+		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
+	});
+
+	// --- Conversation API mocks ---
+
+	// List conversations for a repo (must be before generic /repos/* catch-all).
+	await page.route('**/api/v1/repos/*/conversations', (route) => {
+		if (route.request().method() === 'POST') {
+			return route.fulfill({ json: { data: MOCK_CONVERSATION_ACTIVE } });
+		}
+		return route.fulfill({ json: { data: MOCK_CONVERSATIONS } });
+	});
+
+	// Conversation sub-resource routes (must be before the generic /conversations/* catch-all).
+	await page.route('**/api/v1/conversations/*/messages', (route) =>
+		route.fulfill({ json: { data: MOCK_CONVERSATION_PENDING } })
+	);
+	await page.route('**/api/v1/conversations/*/archive', (route) =>
+		route.fulfill({ json: { data: { ...MOCK_CONVERSATION_ACTIVE, status: 'archived' } } })
+	);
+	await page.route('**/api/v1/conversations/*/generate-tasks', (route) =>
+		route.fulfill({ json: { data: { epic_id: 'epc_active01' } } })
+	);
+
+	// Individual conversation detail (generic catch-all for /conversations/*).
+	await page.route('**/api/v1/conversations/*', (route) => {
+		const url = route.request().url();
+		const convId = url.split('/conversations/')[1]?.split('/')[0]?.split('?')[0];
+		const conv = convId ? MOCK_CONVERSATION_MAP[convId] : undefined;
+		if (conv) {
+			return route.fulfill({ json: { data: conv } });
 		}
 		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 	});
@@ -1377,6 +1530,73 @@ test.describe('UI Screenshots', () => {
 
 		await page.screenshot({
 			path: `screenshots/epic-active-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	// --- Conversation Screenshots ---
+
+	test('conversation list page', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/conversations');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-list-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('conversation list page - empty state', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+
+		// Override conversations route to return empty list.
+		await page.route('**/api/v1/repos/*/conversations', (route) =>
+			route.fulfill({ json: { data: [] } })
+		);
+
+		await page.goto('/conversations');
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-list-empty-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('conversation detail - message history', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/conversations/cnv_active01');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-detail-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('conversation detail - pending response', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/conversations/cnv_pending01');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-pending-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('conversation detail - with linked epic', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/conversations/cnv_withepic01');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-with-epic-${testInfo.project.name}.png`,
 			fullPage: true
 		});
 	});
