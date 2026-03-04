@@ -93,7 +93,13 @@ type AgentConfig struct {
 	EpicPlanningPrompt string
 	EpicFeedback       string // User feedback for re-planning
 	EpicPreviousPlan   string // JSON of previous proposed tasks for re-planning context
-	APIURL             string // For epic/setup agent to call back to server
+	APIURL             string // For epic/setup/conversation agent to call back to server
+
+	// Conversation fields
+	ConversationID             string
+	ConversationTitle          string
+	ConversationMessages       string // JSON string of full message history
+	ConversationPendingMessage string // Latest user message to respond to
 
 	// Setup fields
 	SetupRepoID string
@@ -188,6 +194,16 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		if cfg.EpicPreviousPlan != "" {
 			env = append(env, "EPIC_PREVIOUS_PLAN="+cfg.EpicPreviousPlan)
 		}
+	case workTypeConversation:
+		// Conversation-specific env vars
+		env = append(env,
+			"CONVERSATION_ID="+cfg.ConversationID,
+			"CONVERSATION_TITLE="+cfg.ConversationTitle,
+			"CONVERSATION_MESSAGES="+cfg.ConversationMessages,
+			"CONVERSATION_PENDING_MESSAGE="+cfg.ConversationPendingMessage,
+			"API_URL="+cfg.APIURL,
+			"CLAUDE_MODEL="+cfg.ClaudeModel,
+		)
 	default:
 		// Task-specific env vars
 		env = append(env,
@@ -236,6 +252,8 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		containerName += "setup-" + cfg.SetupRepoID
 	case workTypeEpic:
 		containerName += "epic-" + cfg.EpicID
+	case workTypeConversation:
+		containerName += "conversation-" + cfg.ConversationID
 	default:
 		containerName += "task-" + cfg.TaskID
 	}
@@ -254,7 +272,7 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 	//    server (e.g. EC2) — no rewrite needed, the container reaches
 	//    the remote server over the default bridge network.
 	var networkConfig *network.NetworkingConfig
-	if workType == workTypeEpic || workType == workTypeSetup || workType == workTypeSetupReview {
+	if workType == workTypeEpic || workType == workTypeSetup || workType == workTypeSetupReview || workType == workTypeConversation {
 		if netName := d.detectNetwork(ctx); netName != "" {
 			d.logger.Info("attaching epic container to worker network", "container.network", netName)
 			networkConfig = &network.NetworkingConfig{
