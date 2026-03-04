@@ -16,9 +16,10 @@ import (
 )
 
 const (
-	workTypeEpic        = "epic"
-	workTypeSetup       = "setup"
-	workTypeSetupReview = "setup-review"
+	workTypeEpic         = "epic"
+	workTypeSetup        = "setup"
+	workTypeSetupReview  = "setup-review"
+	workTypeConversation = "conversation"
 )
 
 // Config holds the worker configuration
@@ -70,14 +71,24 @@ type Setup struct {
 	FullName string `json:"full_name"`
 }
 
+type Conversation struct {
+	ID             string          `json:"id"`
+	RepoID         string          `json:"repo_id"`
+	Title          string          `json:"title"`
+	Messages       json.RawMessage `json:"messages"`
+	PendingMessage string          `json:"pending_message"`
+	Model          string          `json:"model,omitempty"`
+}
+
 // PollResponse is a discriminated union returned by the unified poll endpoint.
 type PollResponse struct {
-	Type         string `json:"type"` // "task", "epic", or "setup"
-	Task         *Task  `json:"task,omitempty"`
-	Epic         *Epic  `json:"epic,omitempty"`
-	Setup        *Setup `json:"setup,omitempty"`
-	GitHubToken  string `json:"github_token"`
-	RepoFullName string `json:"repo_full_name"`
+	Type         string        `json:"type"` // "task", "epic", "setup", or "conversation"
+	Task         *Task         `json:"task,omitempty"`
+	Epic         *Epic         `json:"epic,omitempty"`
+	Setup        *Setup        `json:"setup,omitempty"`
+	Conversation *Conversation `json:"conversation,omitempty"`
+	GitHubToken  string        `json:"github_token"`
+	RepoFullName string        `json:"repo_full_name"`
 
 	// Repo setup data (injected into agent prompts)
 	RepoSummary      string `json:"repo_summary,omitempty"`
@@ -197,6 +208,14 @@ func (w *Worker) Run(ctx context.Context) error {
 					"epic.title", p.Epic.Title,
 				)
 				w.executeEpicPlanning(ctx, p)
+			case workTypeConversation:
+				w.logger.Info("claimed conversation",
+					"conversation.id", p.Conversation.ID,
+					"repo.full_name", p.RepoFullName,
+					"worker.active_tasks", activeCount,
+					"conversation.title", p.Conversation.Title,
+				)
+				w.executeConversation(ctx, p)
 			case workTypeSetup, workTypeSetupReview:
 				w.logger.Info("claimed setup work",
 					"setup.task_id", p.Setup.TaskID,
@@ -286,17 +305,18 @@ func (w *Worker) poll(ctx context.Context) (*PollResponse, error) {
 
 // logStreamer buffers log lines and periodically sends them to the API server
 type logStreamer struct {
-	worker    *Worker
-	taskID    string
-	epicID    string
-	attempt   int
-	ctx       context.Context
-	buffer    []string
-	mu        sync.Mutex
-	done      chan struct{}
-	flushed   chan struct{}
-	interval  time.Duration
-	batchSize int
+	worker         *Worker
+	taskID         string
+	epicID         string
+	conversationID string
+	attempt        int
+	ctx            context.Context
+	buffer         []string
+	mu             sync.Mutex
+	done           chan struct{}
+	flushed        chan struct{}
+	interval       time.Duration
+	batchSize      int
 }
 
 func newLogStreamer(ctx context.Context, w *Worker, taskID string, attempt int) *logStreamer {
@@ -325,6 +345,21 @@ func newEpicLogStreamer(ctx context.Context, w *Worker, epicID string) *logStrea
 		flushed:   make(chan struct{}),
 		interval:  2 * time.Second,
 		batchSize: 50,
+	}
+	go ls.flushLoop()
+	return ls
+}
+
+func newConversationLogStreamer(ctx context.Context, w *Worker, conversationID string) *logStreamer {
+	ls := &logStreamer{
+		worker:         w,
+		conversationID: conversationID,
+		ctx:            ctx,
+		buffer:         make([]string, 0, 100),
+		done:           make(chan struct{}),
+		flushed:        make(chan struct{}),
+		interval:       2 * time.Second,
+		batchSize:      50,
 	}
 	go ls.flushLoop()
 	return ls
@@ -386,6 +421,10 @@ func (ls *logStreamer) flush() {
 	} else if ls.epicID != "" {
 		if err := ls.worker.sendEpicLogs(ls.ctx, ls.epicID, toSend); err != nil {
 			ls.worker.logger.Error("failed to send epic logs", "epic.id", ls.epicID, "error", err)
+		}
+	} else if ls.conversationID != "" {
+		if err := ls.worker.sendConversationLogs(ls.ctx, ls.conversationID, toSend); err != nil {
+			ls.worker.logger.Error("failed to send conversation logs", "conversation.id", ls.conversationID, "error", err)
 		}
 	}
 }
@@ -759,6 +798,159 @@ func (w *Worker) executeSetup(ctx context.Context, poll *PollResponse) {
 		setupLogger.Error("setup scan failed", "container.exit_code", result.ExitCode)
 		_ = w.completeTask(ctx, setup.TaskID, false, errMsg, "", 0, "", "", 0, false, false)
 	}
+}
+
+func (w *Worker) executeConversation(ctx context.Context, poll *PollResponse) {
+	conv := poll.Conversation
+	githubToken := poll.GitHubToken
+	repoFullName := poll.RepoFullName
+	convLogger := w.logger.With("conversation.id", conv.ID)
+	convLogger.Info("starting conversation processing", "conversation.title", conv.Title)
+
+	// Create log streamer for real-time log streaming
+	streamer := newConversationLogStreamer(ctx, w, conv.ID)
+
+	// Serialize messages to JSON string for the agent container
+	messagesJSON := string(conv.Messages)
+	if messagesJSON == "" {
+		messagesJSON = "[]"
+	}
+
+	agentCfg := AgentConfig{
+		WorkType:                  workTypeConversation,
+		ConversationID:            conv.ID,
+		ConversationTitle:         conv.Title,
+		ConversationMessages:      messagesJSON,
+		ConversationPendingMessage: conv.PendingMessage,
+		APIURL:                    w.config.APIURL,
+		GitHubToken:               githubToken,
+		GitHubRepo:                repoFullName,
+		AnthropicAPIKey:           w.config.AnthropicAPIKey,
+		AnthropicBaseURL:          w.config.AnthropicBaseURL,
+		ClaudeCodeOAuthToken:      w.config.ClaudeCodeOAuthToken,
+		ClaudeModel:               conv.Model,
+		GitHubInsecureSkipVerify:  w.config.GitHubInsecureSkipVerify,
+		StripAnthropicBetaHeaders: w.config.StripAnthropicBetaHeaders,
+		RepoSummary:               poll.RepoSummary,
+		RepoExpectations:          poll.RepoExpectations,
+		RepoTechStack:             poll.RepoTechStack,
+	}
+
+	// Start heartbeat goroutine
+	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
+	defer cancelHeartbeat()
+	go w.conversationHeartbeatLoop(heartbeatCtx, conv.ID)
+
+	// Log callback for conversation
+	onLog := func(line string) {
+		convLogger.Debug("conversation agent", "agent.line", line)
+		streamer.AddLine(line)
+	}
+
+	result := w.docker.RunAgent(ctx, agentCfg, onLog)
+
+	// Stop heartbeat before completing
+	cancelHeartbeat()
+
+	// Stop the streamer and flush remaining logs
+	streamer.Stop()
+
+	switch {
+	case result.Error != nil:
+		convLogger.Error("conversation processing failed", "error", result.Error)
+		_ = w.completeConversation(ctx, conv.ID, false, "", result.Error.Error())
+	case result.Success:
+		convLogger.Info("conversation processing completed successfully")
+		// The agent script calls POST /agent/conversations/:id/complete directly
+		// with the response text, so we don't need to complete here on success.
+	default:
+		errMsg := fmt.Sprintf("exit code %d", result.ExitCode)
+		convLogger.Error("conversation container failed", "container.exit_code", result.ExitCode)
+		_ = w.completeConversation(ctx, conv.ID, false, "", errMsg)
+	}
+}
+
+func (w *Worker) conversationHeartbeatLoop(ctx context.Context, conversationID string) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	_ = w.sendConversationHeartbeat(ctx, conversationID)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = w.sendConversationHeartbeat(ctx, conversationID)
+		}
+	}
+}
+
+func (w *Worker) sendConversationHeartbeat(ctx context.Context, conversationID string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		w.config.APIURL+"/api/v1/agent/conversations/"+conversationID+"/heartbeat", http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	_ = resp.Body.Close()
+	return nil
+}
+
+func (w *Worker) completeConversation(ctx context.Context, conversationID string, success bool, response, errMsg string) error {
+	payload := map[string]interface{}{"success": success}
+	if response != "" {
+		payload["response"] = response
+	}
+	if errMsg != "" {
+		payload["error"] = errMsg
+	}
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		w.config.APIURL+"/api/v1/agent/conversations/"+conversationID+"/complete", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+	return nil
+}
+
+func (w *Worker) sendConversationLogs(ctx context.Context, conversationID string, logs []string) error {
+	body, _ := json.Marshal(map[string]any{"lines": logs})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		w.config.APIURL+"/api/v1/agent/conversations/"+conversationID+"/logs", bytes.NewReader(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+	return nil
 }
 
 func (w *Worker) setupHeartbeatLoop(ctx context.Context, repoID string) {

@@ -34,6 +34,12 @@ if [ "${WORK_TYPE}" = "setup-review" ]; then
     exit $?
 fi
 
+if [ "${WORK_TYPE}" = "conversation" ]; then
+    source "${LIB_DIR}/conversation.sh"
+    run_conversation
+    exit $?
+fi
+
 # ── Task execution (default) ────────────────────────────────────────
 
 # ── Failure trap ─────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -155,6 +156,101 @@ func TestPollResponse(t *testing.T) {
 	assert.Equal(t, "tsk_123", resp.Task.ID)
 	assert.Equal(t, "ghp_abc", resp.GitHubToken)
 	assert.Equal(t, "owner/repo", resp.RepoFullName)
+}
+
+func TestPollResponse_Conversation(t *testing.T) {
+	resp := PollResponse{
+		Type: workTypeConversation,
+		Conversation: &Conversation{
+			ID:             "cnv_123",
+			RepoID:         "rpo_456",
+			Title:          "Discuss architecture",
+			Messages:       json.RawMessage(`[{"role":"user","content":"hello"}]`),
+			PendingMessage: "How does auth work?",
+			Model:          "sonnet",
+		},
+		GitHubToken:  "ghp_abc",
+		RepoFullName: "owner/repo",
+	}
+
+	assert.Equal(t, workTypeConversation, resp.Type)
+	assert.NotNil(t, resp.Conversation)
+	assert.Equal(t, "cnv_123", resp.Conversation.ID)
+	assert.Equal(t, "rpo_456", resp.Conversation.RepoID)
+	assert.Equal(t, "Discuss architecture", resp.Conversation.Title)
+	assert.Equal(t, "How does auth work?", resp.Conversation.PendingMessage)
+	assert.Equal(t, "sonnet", resp.Conversation.Model)
+	assert.Equal(t, `[{"role":"user","content":"hello"}]`, string(resp.Conversation.Messages))
+	assert.Equal(t, "ghp_abc", resp.GitHubToken)
+	assert.Equal(t, "owner/repo", resp.RepoFullName)
+}
+
+func TestConversation_EmptyMessages(t *testing.T) {
+	conv := Conversation{
+		ID:             "cnv_123",
+		RepoID:         "rpo_456",
+		Title:          "New conversation",
+		PendingMessage: "What does this repo do?",
+	}
+
+	assert.Equal(t, "cnv_123", conv.ID)
+	assert.Nil(t, conv.Messages)
+	assert.Equal(t, "What does this repo do?", conv.PendingMessage)
+}
+
+func TestWorkTypeConversationConstant(t *testing.T) {
+	assert.Equal(t, "conversation", workTypeConversation)
+}
+
+func TestConversationDispatch(t *testing.T) {
+	// Verify that the conversation work type is correctly dispatched
+	// by checking the PollResponse can hold conversation data alongside
+	// nil task/epic/setup fields
+	resp := PollResponse{
+		Type: workTypeConversation,
+		Conversation: &Conversation{
+			ID:             "cnv_abc",
+			RepoID:         "rpo_xyz",
+			Title:          "Test conversation",
+			Messages:       json.RawMessage(`[]`),
+			PendingMessage: "test message",
+			Model:          "opus",
+		},
+		GitHubToken:  "ghp_token",
+		RepoFullName: "org/repo",
+	}
+
+	// Ensure other work type fields are nil
+	assert.Nil(t, resp.Task)
+	assert.Nil(t, resp.Epic)
+	assert.Nil(t, resp.Setup)
+	assert.NotNil(t, resp.Conversation)
+	assert.Equal(t, "conversation", resp.Type)
+}
+
+func TestConversationLogStreamer(t *testing.T) {
+	ls := &logStreamer{
+		conversationID: "cnv_test",
+		buffer:         make([]string, 0, 100),
+		done:           make(chan struct{}),
+		flushed:        make(chan struct{}),
+		interval:       100 * time.Millisecond,
+		batchSize:      5,
+	}
+
+	// Verify the conversation ID is set
+	assert.Equal(t, "cnv_test", ls.conversationID)
+	assert.Empty(t, ls.taskID)
+	assert.Empty(t, ls.epicID)
+
+	// Add lines to buffer
+	ls.mu.Lock()
+	ls.buffer = append(ls.buffer, "log1", "log2")
+	ls.mu.Unlock()
+
+	ls.mu.Lock()
+	assert.Len(t, ls.buffer, 2)
+	ls.mu.Unlock()
 }
 
 func TestLogStreamer_BufferManagement(t *testing.T) {
