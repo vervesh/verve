@@ -1,0 +1,384 @@
+
+Running 27 tests using 1 worker
+
+  ✘   1 [desktop] › e2e/screenshots.spec.ts:1168:2 › UI Screenshots › dashboard (2ms)
+  ✘   2 [desktop] › e2e/screenshots.spec.ts:1190:2 › UI Screenshots › dashboard - repo scanning banner (2ms)
+  ✘   3 [desktop] › e2e/screenshots.spec.ts:1204:2 › UI Screenshots › dashboard - repo needs setup banner (2ms)
+  ✘   4 [desktop] › e2e/screenshots.spec.ts:1225:2 › UI Screenshots › repo setup wizard dialog (2ms)
+  ✘   5 [desktop] › e2e/screenshots.spec.ts:1248:2 › UI Screenshots › repo setup wizard dialog - empty tech stack (2ms)
+  ✘   6 [desktop] › e2e/screenshots.spec.ts:1271:2 › UI Screenshots › dashboard - repo configuring banner (2ms)
+  ✘   7 [desktop] › e2e/screenshots.spec.ts:1285:2 › UI Screenshots › dashboard - repo pending setup banner (2ms)
+  ✘   8 [desktop] › e2e/screenshots.spec.ts:1299:2 › UI Screenshots › repo settings dialog (2ms)
+  ✘   9 [desktop] › e2e/screenshots.spec.ts:1318:2 › UI Screenshots › task detail - review (2ms)
+  ✘  10 [desktop] › e2e/screenshots.spec.ts:1330:2 › UI Screenshots › task detail - pr view (2ms)
+  ✘  11 [desktop] › e2e/screenshots.spec.ts:1346:2 › UI Screenshots › task detail - running (2ms)
+  ✘  12 [desktop] › e2e/screenshots.spec.ts:1358:2 › UI Screenshots › task detail - retry running (1ms)
+  ✘  13 [desktop] › e2e/screenshots.spec.ts:1370:2 › UI Screenshots › task detail - retry pending (2ms)
+  ✘  14 [desktop] › e2e/screenshots.spec.ts:1382:2 › UI Screenshots › task detail - not ready (2ms)
+  ✘  15 [desktop] › e2e/screenshots.spec.ts:1394:2 › UI Screenshots › edit task dialog (2ms)
+  ✘  16 [desktop] › e2e/screenshots.spec.ts:1417:2 › UI Screenshots › create task dialog (2ms)
+  ✘  17 [desktop] › e2e/screenshots.spec.ts:1445:2 › UI Screenshots › metrics dashboard (2ms)
+  ✘  18 [desktop] › e2e/screenshots.spec.ts:1467:2 › UI Screenshots › create epic dialog (1ms)
+  ✘  19 [desktop] › e2e/screenshots.spec.ts:1489:2 › UI Screenshots › epic detail - draft (2ms)
+  ✘  20 [desktop] › e2e/screenshots.spec.ts:1501:2 › UI Screenshots › epic detail - planning with proposed tasks (2ms)
+  ✘  21 [desktop] › e2e/screenshots.spec.ts:1513:2 › UI Screenshots › epic detail - ready with confirm section (1ms)
+  ✘  22 [desktop] › e2e/screenshots.spec.ts:1525:2 › UI Screenshots › epic detail - active with created tasks (2ms)
+  ✘  23 [desktop] › e2e/screenshots.spec.ts:1539:2 › UI Screenshots › conversation list page (2ms)
+  ✘  24 [desktop] › e2e/screenshots.spec.ts:1551:2 › UI Screenshots › conversation list page - empty state (1ms)
+  ✘  25 [desktop] › e2e/screenshots.spec.ts:1568:2 › UI Screenshots › conversation detail - message history (1ms)
+  ✘  26 [desktop] › e2e/screenshots.spec.ts:1580:2 › UI Screenshots › conversation detail - pending response (1ms)
+  ✘  27 [desktop] › e2e/screenshots.spec.ts:1592:2 › UI Screenshots › conversation detail - with linked epic (2ms)
+
+
+  1) [desktop] › e2e/screenshots.spec.ts:1168:2 › UI Screenshots › dashboard ───────────────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  2) [desktop] › e2e/screenshots.spec.ts:1190:2 › UI Screenshots › dashboard - repo scanning banner 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  3) [desktop] › e2e/screenshots.spec.ts:1204:2 › UI Screenshots › dashboard - repo needs setup banner 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  4) [desktop] › e2e/screenshots.spec.ts:1225:2 › UI Screenshots › repo setup wizard dialog ────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  5) [desktop] › e2e/screenshots.spec.ts:1248:2 › UI Screenshots › repo setup wizard dialog - empty tech stack 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  6) [desktop] › e2e/screenshots.spec.ts:1271:2 › UI Screenshots › dashboard - repo configuring banner 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  7) [desktop] › e2e/screenshots.spec.ts:1285:2 › UI Screenshots › dashboard - repo pending setup banner 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  8) [desktop] › e2e/screenshots.spec.ts:1299:2 › UI Screenshots › repo settings dialog ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  9) [desktop] › e2e/screenshots.spec.ts:1318:2 › UI Screenshots › task detail - review ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  10) [desktop] › e2e/screenshots.spec.ts:1330:2 › UI Screenshots › task detail - pr view ──────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  11) [desktop] › e2e/screenshots.spec.ts:1346:2 › UI Screenshots › task detail - running ──────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  12) [desktop] › e2e/screenshots.spec.ts:1358:2 › UI Screenshots › task detail - retry running ────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  13) [desktop] › e2e/screenshots.spec.ts:1370:2 › UI Screenshots › task detail - retry pending ────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  14) [desktop] › e2e/screenshots.spec.ts:1382:2 › UI Screenshots › task detail - not ready ────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  15) [desktop] › e2e/screenshots.spec.ts:1394:2 › UI Screenshots › edit task dialog ───────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  16) [desktop] › e2e/screenshots.spec.ts:1417:2 › UI Screenshots › create task dialog ─────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  17) [desktop] › e2e/screenshots.spec.ts:1445:2 › UI Screenshots › metrics dashboard ──────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  18) [desktop] › e2e/screenshots.spec.ts:1467:2 › UI Screenshots › create epic dialog ─────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  19) [desktop] › e2e/screenshots.spec.ts:1489:2 › UI Screenshots › epic detail - draft ────────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  20) [desktop] › e2e/screenshots.spec.ts:1501:2 › UI Screenshots › epic detail - planning with proposed tasks 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  21) [desktop] › e2e/screenshots.spec.ts:1513:2 › UI Screenshots › epic detail - ready with confirm section 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  22) [desktop] › e2e/screenshots.spec.ts:1525:2 › UI Screenshots › epic detail - active with created tasks 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  23) [desktop] › e2e/screenshots.spec.ts:1539:2 › UI Screenshots › conversation list page ─────────
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  24) [desktop] › e2e/screenshots.spec.ts:1551:2 › UI Screenshots › conversation list page - empty state 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  25) [desktop] › e2e/screenshots.spec.ts:1568:2 › UI Screenshots › conversation detail - message history 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  26) [desktop] › e2e/screenshots.spec.ts:1580:2 › UI Screenshots › conversation detail - pending response 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  27) [desktop] › e2e/screenshots.spec.ts:1592:2 › UI Screenshots › conversation detail - with linked epic 
+
+    Error: browserType.launch: Executable doesn't exist at /home/agent/.cache/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-linux64/chrome-headless-shell
+    ╔═════════════════════════════════════════════════════════════════════════╗
+    ║ Looks like Playwright Test or Playwright was just installed or updated. ║
+    ║ Please run the following command to download new browsers:              ║
+    ║                                                                         ║
+    ║     pnpm exec playwright install                                        ║
+    ║                                                                         ║
+    ║ <3 Playwright Team                                                      ║
+    ╚═════════════════════════════════════════════════════════════════════════╝
+
+  27 failed
+    [desktop] › e2e/screenshots.spec.ts:1168:2 › UI Screenshots › dashboard ────────────────────────
+    [desktop] › e2e/screenshots.spec.ts:1190:2 › UI Screenshots › dashboard - repo scanning banner ─
+    [desktop] › e2e/screenshots.spec.ts:1204:2 › UI Screenshots › dashboard - repo needs setup banner 
+    [desktop] › e2e/screenshots.spec.ts:1225:2 › UI Screenshots › repo setup wizard dialog ─────────
+    [desktop] › e2e/screenshots.spec.ts:1248:2 › UI Screenshots › repo setup wizard dialog - empty tech stack 
+    [desktop] › e2e/screenshots.spec.ts:1271:2 › UI Screenshots › dashboard - repo configuring banner 
+    [desktop] › e2e/screenshots.spec.ts:1285:2 › UI Screenshots › dashboard - repo pending setup banner 
+    [desktop] › e2e/screenshots.spec.ts:1299:2 › UI Screenshots › repo settings dialog ─────────────
+    [desktop] › e2e/screenshots.spec.ts:1318:2 › UI Screenshots › task detail - review ─────────────
+    [desktop] › e2e/screenshots.spec.ts:1330:2 › UI Screenshots › task detail - pr view ────────────
+    [desktop] › e2e/screenshots.spec.ts:1346:2 › UI Screenshots › task detail - running ────────────
+    [desktop] › e2e/screenshots.spec.ts:1358:2 › UI Screenshots › task detail - retry running ──────
+    [desktop] › e2e/screenshots.spec.ts:1370:2 › UI Screenshots › task detail - retry pending ──────
+    [desktop] › e2e/screenshots.spec.ts:1382:2 › UI Screenshots › task detail - not ready ──────────
+    [desktop] › e2e/screenshots.spec.ts:1394:2 › UI Screenshots › edit task dialog ─────────────────
+    [desktop] › e2e/screenshots.spec.ts:1417:2 › UI Screenshots › create task dialog ───────────────
+    [desktop] › e2e/screenshots.spec.ts:1445:2 › UI Screenshots › metrics dashboard ────────────────
+    [desktop] › e2e/screenshots.spec.ts:1467:2 › UI Screenshots › create epic dialog ───────────────
+    [desktop] › e2e/screenshots.spec.ts:1489:2 › UI Screenshots › epic detail - draft ──────────────
+    [desktop] › e2e/screenshots.spec.ts:1501:2 › UI Screenshots › epic detail - planning with proposed tasks 
+    [desktop] › e2e/screenshots.spec.ts:1513:2 › UI Screenshots › epic detail - ready with confirm section 
+    [desktop] › e2e/screenshots.spec.ts:1525:2 › UI Screenshots › epic detail - active with created tasks 
+    [desktop] › e2e/screenshots.spec.ts:1539:2 › UI Screenshots › conversation list page ───────────
+    [desktop] › e2e/screenshots.spec.ts:1551:2 › UI Screenshots › conversation list page - empty state 
+    [desktop] › e2e/screenshots.spec.ts:1568:2 › UI Screenshots › conversation detail - message history 
+    [desktop] › e2e/screenshots.spec.ts:1580:2 › UI Screenshots › conversation detail - pending response 
+    [desktop] › e2e/screenshots.spec.ts:1592:2 › UI Screenshots › conversation detail - with linked epic 
