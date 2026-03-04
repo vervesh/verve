@@ -849,24 +849,18 @@ async function setupMockAPI(
 	);
 
 	// Repo setup endpoints (must be before generic /repos/* routes)
-	await page.route('**/api/v1/repos/*/setup/expectations', (route) =>
-		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
-	);
-	await page.route('**/api/v1/repos/*/setup/summary', (route) =>
-		route.fulfill({ json: { data: activeRepo } })
-	);
-	await page.route('**/api/v1/repos/*/setup/tech-stack', (route) =>
-		route.fulfill({ json: { data: activeRepo } })
-	);
 	await page.route('**/api/v1/repos/*/setup/rescan', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'scanning' } } })
 	);
 	await page.route('**/api/v1/repos/*/setup/skip', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
 	);
-	await page.route('**/api/v1/repos/*/setup', (route) =>
-		route.fulfill({ json: { data: activeRepo } })
-	);
+	await page.route('**/api/v1/repos/*/setup', (route) => {
+		if (route.request().method() === 'PUT') {
+			return route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } });
+		}
+		return route.fulfill({ json: { data: activeRepo } });
+	});
 
 	// Repos list
 	await page.route('**/api/v1/repos', (route) => {

@@ -148,12 +148,14 @@
 		saving = true;
 		error = null;
 		try {
-			// Save tech stack if changed
+			const updates: { expectations: string; mark_ready: boolean; tech_stack?: string[] } = {
+				expectations,
+				mark_ready: true
+			};
 			if (techStackChanged()) {
-				const tsUpdated = await client.updateRepoTechStack(repo.id, techStack);
-				repoStore.updateRepo(tsUpdated);
+				updates.tech_stack = techStack;
 			}
-			const updated = await client.updateRepoExpectations(repo.id, expectations, true);
+			const updated = await client.updateRepoSetup(repo.id, updates);
 			repoStore.updateRepo(updated);
 			open = false;
 			onComplete(updated);
@@ -168,12 +170,14 @@
 		skipping = true;
 		error = null;
 		try {
-			// Save tech stack if changed even when skipping
+			const updates: { expectations: string; mark_ready: boolean; tech_stack?: string[] } = {
+				expectations: '',
+				mark_ready: true
+			};
 			if (techStackChanged()) {
-				const tsUpdated = await client.updateRepoTechStack(repo.id, techStack);
-				repoStore.updateRepo(tsUpdated);
+				updates.tech_stack = techStack;
 			}
-			const updated = await client.updateRepoExpectations(repo.id, '', true);
+			const updated = await client.updateRepoSetup(repo.id, updates);
 			repoStore.updateRepo(updated);
 			open = false;
 			onComplete(updated);

@@ -77,20 +77,8 @@ func (f *fixture) repoSetupURL(id repo.RepoID) string {
 	return fmt.Sprintf("%s/api/v1/repos/%s/setup", f.Server.Address(), id)
 }
 
-func (f *fixture) repoExpectationsURL(id repo.RepoID) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/setup/expectations", f.Server.Address(), id)
-}
-
 func (f *fixture) repoRescanURL(id repo.RepoID) string {
 	return fmt.Sprintf("%s/api/v1/repos/%s/setup/rescan", f.Server.Address(), id)
-}
-
-func (f *fixture) repoSummaryURL(id repo.RepoID) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/setup/summary", f.Server.Address(), id)
-}
-
-func (f *fixture) repoTechStackURL(id repo.RepoID) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/setup/tech-stack", f.Server.Address(), id)
 }
 
 func (f *fixture) repoSkipSetupURL(id repo.RepoID) string {
