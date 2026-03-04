@@ -75,9 +75,11 @@ func newFixture(t *testing.T) *fixture {
 	err = srv.WaitHealthy(10, 100*time.Millisecond)
 	require.NoError(t, err)
 
-	// Pre-create a repo for use in tests.
+	// Pre-create a repo for use in tests and mark it ready so epics can be created.
 	r, _ := repo.NewRepo("owner/test-repo")
-	require.NoError(t, repoStore.CreateRepo(context.Background(), r))
+	ctx := context.Background()
+	require.NoError(t, repoStore.CreateRepo(ctx, r))
+	require.NoError(t, repoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusReady))
 
 	t.Cleanup(func() { srv.Stop(context.Background()) })
 

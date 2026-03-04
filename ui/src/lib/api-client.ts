@@ -82,6 +82,22 @@ export class VerveClient {
 		return this.request<Repo>(res, 'Failed to trigger rescan');
 	}
 
+	async updateRepoSummary(repoId: string, summary: string): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/summary`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ summary })
+		});
+		return this.request<Repo>(res, 'Failed to update summary');
+	}
+
+	async skipRepoSetup(repoId: string): Promise<Repo> {
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/setup/skip`, {
+			method: 'POST'
+		});
+		return this.request<Repo>(res, 'Failed to skip setup');
+	}
+
 	// --- Repo-scoped Task APIs ---
 
 	async listTasksByRepo(repoId: string): Promise<Task[]> {

@@ -50,3 +50,13 @@ type UpdateExpectationsRequest struct {
 func (r UpdateExpectationsRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
 }
+
+// UpdateSummaryRequest is the request body for updating repo summary.
+type UpdateSummaryRequest struct {
+	RepoID  string `param:"repo_id" json:"-"`
+	Summary string `json:"summary"`
+}
+
+func (r UpdateSummaryRequest) Validate() error {
+	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}

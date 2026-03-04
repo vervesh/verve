@@ -100,6 +100,13 @@ func (r *RepoRepository) UpdateRepoExpectations(ctx context.Context, id repo.Rep
 	}))
 }
 
+func (r *RepoRepository) UpdateRepoSummary(ctx context.Context, id repo.RepoID, summary string) error {
+	return tagRepoErr(r.db.UpdateRepoSummary(ctx, sqlc.UpdateRepoSummaryParams{
+		ID:      id.String(),
+		Summary: summary,
+	}))
+}
+
 func (r *RepoRepository) ListReposBySetupStatus(ctx context.Context, status string) ([]*repo.Repo, error) {
 	rows, err := r.db.ListReposBySetupStatus(ctx, status)
 	if err != nil {

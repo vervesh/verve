@@ -85,6 +85,14 @@ func (f *fixture) repoRescanURL(id repo.RepoID) string {
 	return fmt.Sprintf("%s/api/v1/repos/%s/setup/rescan", f.Server.Address(), id)
 }
 
+func (f *fixture) repoSummaryURL(id repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/repos/%s/setup/summary", f.Server.Address(), id)
+}
+
+func (f *fixture) repoSkipSetupURL(id repo.RepoID) string {
+	return fmt.Sprintf("%s/api/v1/repos/%s/setup/skip", f.Server.Address(), id)
+}
+
 func (f *fixture) availableReposURL() string {
 	return fmt.Sprintf("%s/api/v1/repos/available", f.Server.Address())
 }

@@ -17,6 +17,13 @@ const MOCK_REPO = {
 	created_at: '2025-01-15T10:00:00Z'
 };
 
+// Repo variant: pending setup (pre-existing repo, setup_status = 'pending')
+const MOCK_REPO_PENDING = {
+	...MOCK_REPO,
+	setup_status: 'pending',
+	setup_completed_at: undefined
+};
+
 // Repo variant: scanning in progress (setup_status = 'scanning')
 const MOCK_REPO_SCANNING = {
 	...MOCK_REPO,
@@ -832,8 +839,14 @@ async function setupMockAPI(
 	await page.route('**/api/v1/repos/*/setup/expectations', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
 	);
+	await page.route('**/api/v1/repos/*/setup/summary', (route) =>
+		route.fulfill({ json: { data: activeRepo } })
+	);
 	await page.route('**/api/v1/repos/*/setup/rescan', (route) =>
 		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'scanning' } } })
+	);
+	await page.route('**/api/v1/repos/*/setup/skip', (route) =>
+		route.fulfill({ json: { data: { ...activeRepo, setup_status: 'ready', setup_completed_at: new Date().toISOString() } } })
 	);
 	await page.route('**/api/v1/repos/*/setup', (route) =>
 		route.fulfill({ json: { data: activeRepo } })
@@ -1001,11 +1014,8 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page, MOCK_REPO_SCANNING);
 		await page.goto('/');
 
-		// Wait for tasks to render.
-		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
-			timeout: 5000
-		}).catch(() => {});
-
+		// Wait for the scanning banner to render (no kanban columns visible).
+		await page.waitForSelector('text=Scanning repository', { timeout: 5000 });
 		await page.waitForTimeout(1500);
 
 		await page.screenshot({
@@ -1018,11 +1028,8 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP);
 		await page.goto('/');
 
-		// Wait for tasks to render.
-		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
-			timeout: 5000
-		}).catch(() => {});
-
+		// Wait for the needs-setup banner to render (no kanban columns visible).
+		await page.waitForSelector('text=Repository needs configuration', { timeout: 5000 });
 		await page.waitForTimeout(1500);
 
 		// Expand the "Scan Results" section to show the RepoSummary
@@ -1043,10 +1050,8 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP);
 		await page.goto('/');
 
-		// Wait for tasks to render.
-		await page.waitForSelector('[data-testid="task-card"], .task-card, [class*="Card"]', {
-			timeout: 5000
-		}).catch(() => {});
+		// Wait for the needs-setup banner to render.
+		await page.waitForSelector('text=Repository needs configuration', { timeout: 5000 });
 		await page.waitForTimeout(1500);
 
 		// Click the "Configure" button in the needs_setup banner to open the wizard
@@ -1060,6 +1065,39 @@ test.describe('UI Screenshots', () => {
 		const dialog = page.locator('[role="dialog"]');
 		await dialog.screenshot({
 			path: `screenshots/repo-setup-wizard-${testInfo.project.name}.png`
+		});
+	});
+
+	test('dashboard - repo pending setup banner', async ({ page }, testInfo) => {
+		await setupMockAPI(page, MOCK_REPO_PENDING);
+		await page.goto('/');
+
+		// Wait for the pending setup banner to render (no kanban columns visible).
+		await page.waitForSelector('text=Repository setup required', { timeout: 5000 });
+		await page.waitForTimeout(1500);
+
+		await page.screenshot({
+			path: `screenshots/repo-setup-pending-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('repo settings dialog', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await setupMockAPI(page, MOCK_REPO_NEEDS_SETUP);
+		await page.goto('/');
+
+		await page.waitForTimeout(1500);
+
+		// Click the "Repo Settings" sidebar link
+		const repoSettingsBtn = page.getByRole('button', { name: /repo settings/i });
+		await repoSettingsBtn.click();
+
+		await page.waitForTimeout(1000);
+
+		const dialog = page.locator('[role="dialog"]');
+		await dialog.screenshot({
+			path: `screenshots/repo-settings-dialog-${testInfo.project.name}.png`
 		});
 	});
 

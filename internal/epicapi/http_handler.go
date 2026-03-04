@@ -56,6 +56,15 @@ func (h *HTTPHandler) CreateEpic(c echo.Context) error {
 	repoID := repo.MustParseRepoID(req.RepoID)
 	c.Set(logkey.RepoID, repoID.String())
 
+	// Block epic creation until repo setup is complete.
+	r, err := h.repoStore.ReadRepo(c.Request().Context(), repoID)
+	if err != nil {
+		return err
+	}
+	if r.SetupStatus != repo.SetupStatusReady {
+		return echo.NewHTTPError(http.StatusConflict, "repository setup is not complete — finish setup before adding epics")
+	}
+
 	e := epic.NewEpic(repoID.String(), req.Title, req.Description)
 	e.PlanningPrompt = req.PlanningPrompt
 

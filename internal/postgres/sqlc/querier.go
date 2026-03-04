@@ -86,6 +86,7 @@ type Querier interface {
 	UpdateRepoExpectations(ctx context.Context, arg UpdateRepoExpectationsParams) error
 	UpdateRepoSetupScan(ctx context.Context, arg UpdateRepoSetupScanParams) error
 	UpdateRepoSetupStatus(ctx context.Context, arg UpdateRepoSetupStatusParams) error
+	UpdateRepoSummary(ctx context.Context, arg UpdateRepoSummaryParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpsertGitHubToken(ctx context.Context, arg UpsertGitHubTokenParams) error
 	UpsertSetting(ctx context.Context, arg UpsertSettingParams) error

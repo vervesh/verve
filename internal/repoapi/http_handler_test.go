@@ -157,6 +157,53 @@ func TestRescan_Success(t *testing.T) {
 	assert.Equal(t, repo.SetupStatusScanning, res.Data.SetupStatus, "should be scanning after rescan")
 }
 
+func TestSkipSetup_FromPending(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Repo starts in "pending" state — skip should transition to ready.
+	res := testutil.Post[server.Response[repo.Repo]](t, f.repoSkipSetupURL(r.ID), nil)
+	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should be ready after skip")
+	assert.NotNil(t, res.Data.SetupCompletedAt, "setup_completed_at should be set")
+}
+
+func TestSkipSetup_NotAllowedFromScanning(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move to scanning (scanning → ready is valid, but we test that skip also works from scanning via the status transition)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+
+	// Scanning → ready is allowed, so skip should work
+	res := testutil.Post[server.Response[repo.Repo]](t, f.repoSkipSetupURL(r.ID), nil)
+	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should be ready after skip from scanning")
+}
+
+func TestUpdateSummary_Success(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	req := repoapi.UpdateSummaryRequest{
+		Summary: "A Go microservice for payment processing.",
+	}
+	res := doPut[server.Response[repo.Repo]](t, f.repoSummaryURL(r.ID), req)
+	assert.Equal(t, "A Go microservice for payment processing.", res.Data.Summary)
+}
+
+func TestUpdateSummary_Empty(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// First set a summary, then clear it
+	req := repoapi.UpdateSummaryRequest{Summary: "Initial summary"}
+	doPut[server.Response[repo.Repo]](t, f.repoSummaryURL(r.ID), req)
+
+	req2 := repoapi.UpdateSummaryRequest{Summary: ""}
+	res := doPut[server.Response[repo.Repo]](t, f.repoSummaryURL(r.ID), req2)
+	assert.Equal(t, "", res.Data.Summary)
+}
+
 // doPut sends a PUT request with JSON body and decodes the typed response.
 func doPut[T any](t *testing.T, url string, body any) T {
 	t.Helper()

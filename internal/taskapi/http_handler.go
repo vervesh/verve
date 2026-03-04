@@ -84,6 +84,15 @@ func (h *HTTPHandler) CreateTask(c echo.Context) error {
 	repoID := repo.MustParseRepoID(req.RepoID)
 	c.Set(logkey.RepoID, repoID.String())
 
+	// Block task creation until repo setup is complete.
+	r, err := h.repoStore.ReadRepo(c.Request().Context(), repoID)
+	if err != nil {
+		return err
+	}
+	if r.SetupStatus != repo.SetupStatusReady {
+		return echo.NewHTTPError(http.StatusConflict, "repository setup is not complete — finish setup before adding tasks")
+	}
+
 	model := req.Model
 	if model == "" && h.settingService != nil {
 		model = h.settingService.Get(setting.KeyDefaultModel)

@@ -35,5 +35,10 @@ SET expectations = ?,
     setup_completed_at = ?
 WHERE id = ?;
 
+-- name: UpdateRepoSummary :exec
+UPDATE repo
+SET summary = ?
+WHERE id = ?;
+
 -- name: ListReposBySetupStatus :many
 SELECT * FROM repo WHERE setup_status = ? ORDER BY created_at DESC;

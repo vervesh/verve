@@ -208,8 +208,8 @@ func TestStore_UpdateRepoSetupStatus_InvalidTransition(t *testing.T) {
 	r, _ := repo.NewRepo("owner/name")
 	require.NoError(t, store.CreateRepo(ctx, r))
 
-	// Invalid: pending -> ready (must go through scanning)
-	err := store.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusReady)
+	// Invalid: pending -> needs_setup (must go through scanning first)
+	err := store.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusNeedsSetup)
 	assert.Error(t, err)
 }
 

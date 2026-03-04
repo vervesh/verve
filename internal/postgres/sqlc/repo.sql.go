@@ -235,3 +235,19 @@ func (q *Queries) UpdateRepoSetupStatus(ctx context.Context, arg UpdateRepoSetup
 	_, err := q.db.Exec(ctx, updateRepoSetupStatus, arg.ID, arg.SetupStatus)
 	return err
 }
+
+const updateRepoSummary = `-- name: UpdateRepoSummary :exec
+UPDATE repo
+SET summary = $2
+WHERE id = $1
+`
+
+type UpdateRepoSummaryParams struct {
+	ID      string `json:"id"`
+	Summary string `json:"summary"`
+}
+
+func (q *Queries) UpdateRepoSummary(ctx context.Context, arg UpdateRepoSummaryParams) error {
+	_, err := q.db.Exec(ctx, updateRepoSummary, arg.ID, arg.Summary)
+	return err
+}

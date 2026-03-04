@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/joshjon/verve/internal/repo"
 	"github.com/joshjon/verve/internal/task"
 	"github.com/joshjon/verve/internal/taskapi"
 )
@@ -115,6 +116,22 @@ func TestCreateTask_WithSkipPR(t *testing.T) {
 	res := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), req)
 	assert.Equal(t, true, res.Data.SkipPR)
 	assert.Equal(t, false, res.Data.DraftPR)
+}
+
+func TestCreateTask_BlockedWhenRepoNotReady(t *testing.T) {
+	f := newFixture(t)
+
+	// Set repo to scanning (not ready)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, f.Repo.ID, repo.SetupStatusScanning))
+
+	req := taskapi.CreateTaskRequest{
+		Title:       "Fix bug",
+		Description: "desc",
+	}
+	httpRes := doJSON(t, http.MethodPost, f.repoTasksURL(), req)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusConflict, httpRes.StatusCode, "expected 409 when repo setup is not complete")
 }
 
 // --- UpdateTask draft_pr ---

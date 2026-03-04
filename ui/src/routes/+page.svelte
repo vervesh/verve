@@ -113,6 +113,7 @@
 		taskStore.tasks.filter((t) => ['pending', 'running', 'review'].includes(t.status)).length
 	);
 	const hasRepo = $derived(!!repoStore.selectedRepoId);
+	const repoReady = $derived(repoStore.selectedRepo?.setup_status === 'ready');
 
 	const doneTasks = $derived([
 		...taskStore.tasksByStatus.merged,
@@ -174,7 +175,7 @@
 			<div>
 				<div class="flex items-center gap-3">
 					<h1 class="text-xl sm:text-2xl font-bold">Tasks</h1>
-					{#if totalTasks > 0}
+					{#if repoReady && totalTasks > 0}
 						<div class="flex items-center gap-2">
 							<span
 								class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary"
@@ -192,122 +193,126 @@
 					{/if}
 				</div>
 				<p class="text-muted-foreground text-sm mt-1 hidden sm:block">
-					Manage and monitor your AI-powered tasks
+					{repoReady ? 'Manage and monitor your AI-powered tasks' : 'Complete repository setup to start creating tasks'}
 				</p>
 			</div>
-			<div class="flex items-center gap-2 sm:gap-3">
-				{#if syncResult}
-					<div
-						class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-1.5 rounded-md"
-					>
-						<CheckCircle2 class="w-4 h-4" />
-						<span>Synced {syncResult.synced} PRs, {syncResult.merged} merged</span>
-					</div>
-				{/if}
-				<Button variant="outline" onclick={syncPRs} disabled={syncing} class="gap-2">
-					<RefreshCw class="w-4 h-4 {syncing ? 'animate-spin' : ''}" />
-					<span class="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync PRs'}</span>
-				</Button>
-				<Button variant={selectionMode ? 'default' : 'outline'} onclick={toggleSelectionMode} class="gap-2">
-					<List class="w-4 h-4" />
-					<span class="hidden sm:inline">{selectionMode ? 'Cancel' : 'Bulk Delete'}</span>
-				</Button>
-				<Button onclick={() => (openCreate = true)} class="gap-2">
-					<Plus class="w-4 h-4" />
-					New Task
-				</Button>
-			</div>
+			{#if repoReady}
+				<div class="flex items-center gap-2 sm:gap-3">
+					{#if syncResult}
+						<div
+							class="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 bg-green-500/10 px-3 py-1.5 rounded-md"
+						>
+							<CheckCircle2 class="w-4 h-4" />
+							<span>Synced {syncResult.synced} PRs, {syncResult.merged} merged</span>
+						</div>
+					{/if}
+					<Button variant="outline" onclick={syncPRs} disabled={syncing} class="gap-2">
+						<RefreshCw class="w-4 h-4 {syncing ? 'animate-spin' : ''}" />
+						<span class="hidden sm:inline">{syncing ? 'Syncing...' : 'Sync PRs'}</span>
+					</Button>
+					<Button variant={selectionMode ? 'default' : 'outline'} onclick={toggleSelectionMode} class="gap-2">
+						<List class="w-4 h-4" />
+						<span class="hidden sm:inline">{selectionMode ? 'Cancel' : 'Bulk Delete'}</span>
+					</Button>
+					<Button onclick={() => (openCreate = true)} class="gap-2">
+						<Plus class="w-4 h-4" />
+						New Task
+					</Button>
+				</div>
+			{/if}
 		</header>
 
-		<RepoSetupBanner />
-
-		{#if taskStore.error}
-			<div
-				class="bg-destructive/10 text-destructive p-4 rounded-lg mb-4 flex items-center gap-3 border border-destructive/20"
-			>
-				<AlertCircle class="w-5 h-5 flex-shrink-0" />
-				<span>{taskStore.error}</span>
-			</div>
-		{/if}
-
-		{#if selectionMode && selectedTaskIds.size > 0}
-			<div
-				class="bg-primary/10 border border-primary/20 p-4 rounded-lg mb-4 flex items-center justify-between gap-3"
-			>
-				<div class="flex items-center gap-3">
-					<CheckCircle2 class="w-5 h-5 text-primary" />
-					<span class="font-medium">{selectedTaskIds.size} task{selectedTaskIds.size === 1 ? '' : 's'} selected</span>
+		{#if !repoReady}
+			<RepoSetupBanner />
+		{:else}
+			{#if taskStore.error}
+				<div
+					class="bg-destructive/10 text-destructive p-4 rounded-lg mb-4 flex items-center gap-3 border border-destructive/20"
+				>
+					<AlertCircle class="w-5 h-5 flex-shrink-0" />
+					<span>{taskStore.error}</span>
 				</div>
-				<Button variant="destructive" onclick={openDeleteConfirmation} class="gap-2">
-					<Trash2 class="w-4 h-4" />
-					Delete Selected
-				</Button>
+			{/if}
+
+			{#if selectionMode && selectedTaskIds.size > 0}
+				<div
+					class="bg-primary/10 border border-primary/20 p-4 rounded-lg mb-4 flex items-center justify-between gap-3"
+				>
+					<div class="flex items-center gap-3">
+						<CheckCircle2 class="w-5 h-5 text-primary" />
+						<span class="font-medium">{selectedTaskIds.size} task{selectedTaskIds.size === 1 ? '' : 's'} selected</span>
+					</div>
+					<Button variant="destructive" onclick={openDeleteConfirmation} class="gap-2">
+						<Trash2 class="w-4 h-4" />
+						Delete Selected
+					</Button>
+				</div>
+			{/if}
+
+			{#snippet pendingAction()}
+				<button
+					onclick={() => (openCreate = true)}
+					class="h-6 px-2 gap-1 text-xs inline-flex items-center rounded-md font-medium bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors"
+				>
+					<Plus class="w-3 h-3" />
+					New
+				</button>
+			{/snippet}
+
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 flex-1 min-h-0 sm:auto-rows-[1fr] max-h-96 sm:max-h-none">
+				<TaskColumn
+					label="Pending"
+					icon={Clock}
+					headerBg="bg-amber-500/10"
+					iconClass="text-amber-600 dark:text-amber-400"
+					tasks={taskStore.tasksByStatus.pending}
+					headerAction={pendingAction}
+					{selectionMode}
+					{selectedTaskIds}
+					onToggleSelection={toggleTaskSelection}
+				/>
+				<TaskColumn
+					label="Running"
+					icon={Play}
+					headerBg="bg-blue-500/10"
+					iconClass="text-blue-600 dark:text-blue-400"
+					tasks={taskStore.tasksByStatus.running}
+					{selectionMode}
+					{selectedTaskIds}
+					onToggleSelection={toggleTaskSelection}
+				/>
+				<TaskColumn
+					label="In Review"
+					icon={Eye}
+					headerBg="bg-purple-500/10"
+					iconClass="text-purple-600 dark:text-purple-400"
+					tasks={taskStore.tasksByStatus.review}
+					{selectionMode}
+					{selectedTaskIds}
+					onToggleSelection={toggleTaskSelection}
+				/>
+				<TaskColumn
+					label="Done"
+					icon={CheckCircle2}
+					headerBg="bg-green-500/10"
+					iconClass="text-green-600 dark:text-green-400"
+					tasks={doneTasks}
+					{selectionMode}
+					{selectedTaskIds}
+					onToggleSelection={toggleTaskSelection}
+				/>
+				<TaskColumn
+					label="Failed"
+					icon={XCircle}
+					headerBg="bg-red-500/10"
+					iconClass="text-red-600 dark:text-red-400"
+					tasks={taskStore.tasksByStatus.failed}
+					{selectionMode}
+					{selectedTaskIds}
+					onToggleSelection={toggleTaskSelection}
+				/>
 			</div>
 		{/if}
-
-		{#snippet pendingAction()}
-			<button
-				onclick={() => (openCreate = true)}
-				class="h-6 px-2 gap-1 text-xs inline-flex items-center rounded-md font-medium bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 transition-colors"
-			>
-				<Plus class="w-3 h-3" />
-				New
-			</button>
-		{/snippet}
-
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4 flex-1 min-h-0 sm:auto-rows-[1fr] max-h-96 sm:max-h-none">
-			<TaskColumn
-				label="Pending"
-				icon={Clock}
-				headerBg="bg-amber-500/10"
-				iconClass="text-amber-600 dark:text-amber-400"
-				tasks={taskStore.tasksByStatus.pending}
-				headerAction={pendingAction}
-				{selectionMode}
-				{selectedTaskIds}
-				onToggleSelection={toggleTaskSelection}
-			/>
-			<TaskColumn
-				label="Running"
-				icon={Play}
-				headerBg="bg-blue-500/10"
-				iconClass="text-blue-600 dark:text-blue-400"
-				tasks={taskStore.tasksByStatus.running}
-				{selectionMode}
-				{selectedTaskIds}
-				onToggleSelection={toggleTaskSelection}
-			/>
-			<TaskColumn
-				label="In Review"
-				icon={Eye}
-				headerBg="bg-purple-500/10"
-				iconClass="text-purple-600 dark:text-purple-400"
-				tasks={taskStore.tasksByStatus.review}
-				{selectionMode}
-				{selectedTaskIds}
-				onToggleSelection={toggleTaskSelection}
-			/>
-			<TaskColumn
-				label="Done"
-				icon={CheckCircle2}
-				headerBg="bg-green-500/10"
-				iconClass="text-green-600 dark:text-green-400"
-				tasks={doneTasks}
-				{selectionMode}
-				{selectedTaskIds}
-				onToggleSelection={toggleTaskSelection}
-			/>
-			<TaskColumn
-				label="Failed"
-				icon={XCircle}
-				headerBg="bg-red-500/10"
-				iconClass="text-red-600 dark:text-red-400"
-				tasks={taskStore.tasksByStatus.failed}
-				{selectionMode}
-				{selectedTaskIds}
-				onToggleSelection={toggleTaskSelection}
-			/>
-		</div>
 	{:else}
 		<div class="flex-1 flex flex-col items-center justify-center text-center">
 			<div
@@ -323,7 +328,7 @@
 	{/if}
 </div>
 
-{#if hasRepo}
+{#if hasRepo && repoReady}
 	<CreateTaskDialog bind:open={openCreate} onCreated={() => {}} />
 {/if}
 

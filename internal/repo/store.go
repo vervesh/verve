@@ -8,7 +8,7 @@ import (
 // validSetupTransitions defines which status transitions are allowed.
 // The key is the current status, and the values are the allowed target statuses.
 var validSetupTransitions = map[string][]string{
-	SetupStatusPending:    {SetupStatusScanning},
+	SetupStatusPending:    {SetupStatusScanning, SetupStatusReady},
 	SetupStatusScanning:   {SetupStatusNeedsSetup, SetupStatusReady},
 	SetupStatusNeedsSetup: {SetupStatusReady, SetupStatusScanning},
 	SetupStatusReady:      {SetupStatusScanning},
@@ -87,6 +87,11 @@ func (s *Store) UpdateRepoSetupStatus(ctx context.Context, id RepoID, status str
 // setup as completed.
 func (s *Store) UpdateRepoExpectations(ctx context.Context, id RepoID, update ExpectationsUpdate) error {
 	return s.repo.UpdateRepoExpectations(ctx, id, update)
+}
+
+// UpdateRepoSummary updates the summary text for a repo.
+func (s *Store) UpdateRepoSummary(ctx context.Context, id RepoID, summary string) error {
+	return s.repo.UpdateRepoSummary(ctx, id, summary)
 }
 
 // ListReposBySetupStatus returns all repos with the given setup status.

@@ -36,7 +36,9 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	// Setup endpoints
 	g.GET("/repos/:repo_id/setup", h.GetSetup)
 	g.PUT("/repos/:repo_id/setup/expectations", h.UpdateExpectations)
+	g.PUT("/repos/:repo_id/setup/summary", h.UpdateSummary)
 	g.POST("/repos/:repo_id/setup/rescan", h.Rescan)
+	g.POST("/repos/:repo_id/setup/skip", h.SkipSetup)
 }
 
 // ListRepos handles GET /repos
@@ -197,6 +199,68 @@ func (h *HTTPHandler) Rescan(c echo.Context) error {
 	}
 
 	// Publish SSE event for status change.
+	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
+
+	return server.SetResponse(c, http.StatusOK, r)
+}
+
+// UpdateSummary handles PUT /repos/:repo_id/setup/summary
+func (h *HTTPHandler) UpdateSummary(c echo.Context) error {
+	req, err := server.BindRequest[UpdateSummaryRequest](c)
+	if err != nil {
+		return err
+	}
+
+	id := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, id.String())
+
+	ctx := c.Request().Context()
+
+	if err := h.repoStore.UpdateRepoSummary(ctx, id, req.Summary); err != nil {
+		return err
+	}
+
+	r, err := h.repoStore.ReadRepo(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
+
+	return server.SetResponse(c, http.StatusOK, r)
+}
+
+// SkipSetup handles POST /repos/:repo_id/setup/skip — marks a repo as ready
+// without requiring a scan. Useful for pre-existing repos that were added
+// before the setup scan feature.
+func (h *HTTPHandler) SkipSetup(c echo.Context) error {
+	req, err := server.BindRequest[RepoIDRequest](c)
+	if err != nil {
+		return err
+	}
+
+	id := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, id.String())
+
+	ctx := c.Request().Context()
+
+	now := time.Now()
+	update := repo.ExpectationsUpdate{
+		SetupCompletedAt: &now,
+	}
+	if err := h.repoStore.UpdateRepoExpectations(ctx, id, update); err != nil {
+		return err
+	}
+
+	if err := h.repoStore.UpdateRepoSetupStatus(ctx, id, repo.SetupStatusReady); err != nil {
+		return err
+	}
+
+	r, err := h.repoStore.ReadRepo(ctx, id)
+	if err != nil {
+		return err
+	}
+
 	h.taskStore.PublishRepoEvent(ctx, id.String(), r)
 
 	return server.SetResponse(c, http.StatusOK, r)
