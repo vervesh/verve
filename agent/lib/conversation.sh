@@ -182,11 +182,18 @@ ${CONVERSATION_PENDING_MESSAGE}
 
 Respond helpfully and informatively about the codebase. You may read any files in the repository to provide accurate answers. Reference specific file paths and line numbers when discussing code.
 
-Wrap your final response in a \`\`\`verve-response\`\`\` code block so it can be parsed. Only the content inside this block will be sent to the user. Example:
+Wrap your final response in a verve-response fenced code block using EXACTLY four backticks so it can be parsed. Only the content inside this block will be sent to the user. You MUST use four backticks (not three) so that markdown code blocks inside your response don't break the parsing. Example:
 
-\`\`\`verve-response
+\`\`\`\`verve-response
 Your response here with markdown formatting.
+
+You can safely include triple-backtick code blocks:
+\`\`\`python
+print(\"hello\")
 \`\`\`
+
+The response continues after inner code blocks.
+\`\`\`\`
 
 Remember: You are a read-only assistant. Do NOT modify any files or create any changes to the repository."
 
@@ -196,8 +203,23 @@ Remember: You are a read-only assistant. Do NOT modify any files or create any c
 _extract_conversation_response() {
     local output="$1"
 
-    # Extract content from the first ```verve-response code block
+    # Extract content from the first ````verve-response code block.
+    # We use a 4-backtick fence so that standard 3-backtick markdown code
+    # blocks inside the response don't prematurely close the outer block.
+    # Also try 3-backtick fence as a fallback for backwards compatibility.
     local response
+    response=$(printf '%s\n' "$output" | awk '
+        /^````verve-response/ { if (!found) { capturing=1; found=1 }; next }
+        capturing && /^````[[:space:]]*$/ { capturing=0; next }
+        capturing { print }
+    ')
+
+    if [ -n "$response" ]; then
+        printf '%s\n' "$response"
+        return
+    fi
+
+    # Fallback: try 3-backtick fence (backwards compatibility)
     response=$(printf '%s\n' "$output" | awk '
         /^```verve-response/ { if (!found) { capturing=1; found=1 }; next }
         capturing && /^```[[:space:]]*$/ { capturing=0; next }
