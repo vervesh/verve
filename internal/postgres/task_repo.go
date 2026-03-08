@@ -91,11 +91,41 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 		CreatedAt:             t.CreatedAt.Unix(),
 		UpdatedAt:             t.UpdatedAt.Unix(),
 	})
-	return tagTaskErr(err)
+	if err != nil {
+		return tagTaskErr(err)
+	}
+
+	// Assign a sequential number for regular tasks only.
+	if taskType == task.TaskTypeTask {
+		num, err := r.db.AssignTaskNumber(ctx, sqlc.AssignTaskNumberParams{
+			RepoID: t.RepoID,
+			ID:     t.ID.String(),
+		})
+		if err != nil {
+			return tagTaskErr(err)
+		}
+		if num != nil {
+			t.Number = int(*num)
+		}
+	}
+
+	return nil
 }
 
 func (r *TaskRepository) ReadTask(ctx context.Context, id task.TaskID) (*task.Task, error) {
 	row, err := r.db.ReadTask(ctx, id.String())
+	if err != nil {
+		return nil, tagTaskErr(err)
+	}
+	return unmarshalTask(row), nil
+}
+
+func (r *TaskRepository) ReadTaskByNumber(ctx context.Context, repoID string, number int) (*task.Task, error) {
+	num := safeInt32(number)
+	row, err := r.db.ReadTaskByNumber(ctx, sqlc.ReadTaskByNumberParams{
+		RepoID: repoID,
+		Number: &num,
+	})
 	if err != nil {
 		return nil, tagTaskErr(err)
 	}

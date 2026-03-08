@@ -20,6 +20,7 @@ type Repository interface {
 type TaskRepository interface {
 	CreateTask(ctx context.Context, task *Task) error
 	ReadTask(ctx context.Context, id TaskID) (*Task, error)
+	ReadTaskByNumber(ctx context.Context, repoID string, number int) (*Task, error)
 	ListTasks(ctx context.Context) ([]*Task, error)
 	ListTasksByRepo(ctx context.Context, repoID string) ([]*Task, error)
 	ListPendingTasks(ctx context.Context) ([]*Task, error)

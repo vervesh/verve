@@ -173,6 +173,7 @@ type Task struct {
 	UpdatedAt              int64      `json:"updated_at"`
 	DraftPr                bool       `json:"draft_pr"`
 	Type                   string     `json:"type"`
+	Number                 *int32     `json:"number"`
 }
 
 type TaskLog struct {

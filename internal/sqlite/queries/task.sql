@@ -172,5 +172,11 @@ DELETE FROM task_log WHERE task_id IN (SELECT id FROM task WHERE epic_id = ?);
 -- name: BulkDeleteTasksByEpic :exec
 DELETE FROM task WHERE epic_id = ?;
 
+-- name: AssignTaskNumber :one
+UPDATE task SET number = (SELECT COALESCE(MAX(t2.number), 0) + 1 FROM task t2 WHERE t2.repo_id = sqlc.arg(repo_id)) WHERE task.id = sqlc.arg(id) RETURNING number;
+
+-- name: ReadTaskByNumber :one
+SELECT * FROM task WHERE repo_id = ? AND number = ?;
+
 -- name: DeleteExpiredLogs :execrows
 DELETE FROM task_log WHERE created_at < ?;

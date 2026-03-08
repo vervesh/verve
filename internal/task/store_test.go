@@ -812,6 +812,125 @@ func TestStore_SetAgentStatus_InvalidJSON(t *testing.T) {
 	assert.Equal(t, newStatus, read.AgentStatus)
 }
 
+// --- Task Number tests ---
+
+func TestStore_CreateTask_AssignsSequentialNumber(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	// Create three regular tasks and verify sequential numbering.
+	tsk1 := f.newTask("task 1", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk1))
+	assert.Equal(t, 1, tsk1.Number)
+
+	tsk2 := f.newTask("task 2", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk2))
+	assert.Equal(t, 2, tsk2.Number)
+
+	tsk3 := f.newTask("task 3", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk3))
+	assert.Equal(t, 3, tsk3.Number)
+
+	// Verify numbers are persisted in the database.
+	read1, err := f.store.ReadTask(ctx, tsk1.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, read1.Number)
+
+	read3, err := f.store.ReadTask(ctx, tsk3.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 3, read3.Number)
+}
+
+func TestStore_CreateTask_NumbersIndependentPerRepo(t *testing.T) {
+	db := sqlite.NewTestDB(t)
+	ctx := context.Background()
+
+	repoRepo := sqlite.NewRepoRepository(db)
+	r1, err := repo.NewRepo("owner/repo-a")
+	require.NoError(t, err)
+	require.NoError(t, repoRepo.CreateRepo(ctx, r1))
+
+	r2, err := repo.NewRepo("owner/repo-b")
+	require.NoError(t, err)
+	require.NoError(t, repoRepo.CreateRepo(ctx, r2))
+
+	taskRepo := sqlite.NewTaskRepository(db)
+	broker := task.NewBroker(nil)
+	store := task.NewStore(taskRepo, broker)
+
+	// Create tasks in repo A.
+	tskA1 := task.NewTask(r1.ID.String(), "A task 1", "desc", nil, nil, 0, false, false, "", true)
+	require.NoError(t, store.CreateTask(ctx, tskA1))
+	assert.Equal(t, 1, tskA1.Number)
+
+	tskA2 := task.NewTask(r1.ID.String(), "A task 2", "desc", nil, nil, 0, false, false, "", true)
+	require.NoError(t, store.CreateTask(ctx, tskA2))
+	assert.Equal(t, 2, tskA2.Number)
+
+	// Create tasks in repo B — numbering starts from 1 independently.
+	tskB1 := task.NewTask(r2.ID.String(), "B task 1", "desc", nil, nil, 0, false, false, "", true)
+	require.NoError(t, store.CreateTask(ctx, tskB1))
+	assert.Equal(t, 1, tskB1.Number)
+
+	tskB2 := task.NewTask(r2.ID.String(), "B task 2", "desc", nil, nil, 0, false, false, "", true)
+	require.NoError(t, store.CreateTask(ctx, tskB2))
+	assert.Equal(t, 2, tskB2.Number)
+}
+
+func TestStore_CreateTask_SetupTasksNoNumber(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	// Setup tasks should NOT get a number.
+	setup := task.NewSetupTask(f.repoID)
+	require.NoError(t, f.store.CreateTask(ctx, setup))
+	assert.Equal(t, 0, setup.Number)
+
+	readSetup, err := f.store.ReadTask(ctx, setup.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, readSetup.Number)
+
+	// Setup-review tasks should NOT get a number.
+	setupReview := task.NewSetupReviewTask(f.repoID)
+	require.NoError(t, f.store.CreateTask(ctx, setupReview))
+	assert.Equal(t, 0, setupReview.Number)
+
+	readReview, err := f.store.ReadTask(ctx, setupReview.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 0, readReview.Number)
+
+	// Regular task should still get number 1 (setup tasks don't count).
+	tsk := f.newTask("regular task", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk))
+	assert.Equal(t, 1, tsk.Number)
+}
+
+func TestStore_ReadTaskByNumber(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	tsk1 := f.newTask("task 1", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk1))
+
+	tsk2 := f.newTask("task 2", "desc", true)
+	require.NoError(t, f.store.CreateTask(ctx, tsk2))
+
+	// Read by number.
+	read, err := f.store.ReadTaskByNumber(ctx, f.repoID, 1)
+	require.NoError(t, err)
+	assert.Equal(t, tsk1.ID, read.ID)
+	assert.Equal(t, 1, read.Number)
+
+	read2, err := f.store.ReadTaskByNumber(ctx, f.repoID, 2)
+	require.NoError(t, err)
+	assert.Equal(t, tsk2.ID, read2.ID)
+	assert.Equal(t, 2, read2.Number)
+
+	// Non-existent number returns not found.
+	_, err = f.store.ReadTaskByNumber(ctx, f.repoID, 999)
+	assert.Error(t, err)
+}
+
 func TestMergeAgentStatusFiles(t *testing.T) {
 	db := sqlite.NewTestDB(t)
 	repoRepo := sqlite.NewRepoRepository(db)

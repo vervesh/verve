@@ -105,11 +105,41 @@ func (r *TaskRepository) CreateTask(ctx context.Context, t *task.Task) error {
 		CreatedAt:             t.CreatedAt.Unix(),
 		UpdatedAt:             t.UpdatedAt.Unix(),
 	})
-	return tagTaskErr(err)
+	if err != nil {
+		return tagTaskErr(err)
+	}
+
+	// Assign a sequential number for regular tasks only.
+	if taskType == task.TaskTypeTask {
+		num, err := r.db.AssignTaskNumber(ctx, sqlc.AssignTaskNumberParams{
+			RepoID: t.RepoID,
+			ID:     t.ID.String(),
+		})
+		if err != nil {
+			return tagTaskErr(err)
+		}
+		if num != nil {
+			t.Number = int(*num)
+		}
+	}
+
+	return nil
 }
 
 func (r *TaskRepository) ReadTask(ctx context.Context, id task.TaskID) (*task.Task, error) {
 	row, err := r.db.ReadTask(ctx, id.String())
+	if err != nil {
+		return nil, tagTaskErr(err)
+	}
+	return unmarshalTask(row), nil
+}
+
+func (r *TaskRepository) ReadTaskByNumber(ctx context.Context, repoID string, number int) (*task.Task, error) {
+	num := int64(number)
+	row, err := r.db.ReadTaskByNumber(ctx, sqlc.ReadTaskByNumberParams{
+		RepoID: repoID,
+		Number: &num,
+	})
 	if err != nil {
 		return nil, tagTaskErr(err)
 	}
@@ -146,7 +176,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	if len(repoIDs) == 0 {
 		return nil, nil
 	}
-	query := "SELECT id, repo_id, title, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria_list, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, skip_pr, draft_pr, branch_name, model, started_at, ready, last_heartbeat_at, epic_id, created_at, updated_at FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
+	query := "SELECT id, repo_id, title, description, status, pull_request_url, pr_number, depends_on, close_reason, attempt, max_attempts, retry_reason, acceptance_criteria_list, agent_status, retry_context, consecutive_failures, cost_usd, max_cost_usd, skip_pr, draft_pr, branch_name, model, started_at, ready, last_heartbeat_at, epic_id, created_at, updated_at, type, number FROM task WHERE status = 'pending' AND ready = 1 AND repo_id IN (?" + strings.Repeat(",?", len(repoIDs)-1) + ") ORDER BY created_at ASC"
 	args := make([]any, len(repoIDs))
 	for i, id := range repoIDs {
 		args[i] = id
@@ -159,7 +189,7 @@ func (r *TaskRepository) ListPendingTasksByRepos(ctx context.Context, repoIDs []
 	var tasks []*task.Task
 	for rows.Next() {
 		var t sqlc.Task
-		if err := rows.Scan(&t.ID, &t.RepoID, &t.Title, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteriaList, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.SkipPr, &t.DraftPr, &t.BranchName, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID, &t.CreatedAt, &t.UpdatedAt); err != nil {
+		if err := rows.Scan(&t.ID, &t.RepoID, &t.Title, &t.Description, &t.Status, &t.PullRequestUrl, &t.PrNumber, &t.DependsOn, &t.CloseReason, &t.Attempt, &t.MaxAttempts, &t.RetryReason, &t.AcceptanceCriteriaList, &t.AgentStatus, &t.RetryContext, &t.ConsecutiveFailures, &t.CostUsd, &t.MaxCostUsd, &t.SkipPr, &t.DraftPr, &t.BranchName, &t.Model, &t.StartedAt, &t.Ready, &t.LastHeartbeatAt, &t.EpicID, &t.CreatedAt, &t.UpdatedAt, &t.Type, &t.Number); err != nil {
 			return nil, err
 		}
 		tasks = append(tasks, unmarshalTask(&t))

@@ -13,6 +13,7 @@ type Querier interface {
 	AppendConversationMessage(ctx context.Context, arg AppendConversationMessageParams) error
 	AppendSessionLog(ctx context.Context, arg AppendSessionLogParams) error
 	AppendTaskLogs(ctx context.Context, arg AppendTaskLogsParams) error
+	AssignTaskNumber(ctx context.Context, arg AssignTaskNumberParams) (*int32, error)
 	BulkCloseTasksByEpic(ctx context.Context, arg BulkCloseTasksByEpicParams) error
 	BulkDeleteTaskLogsByEpic(ctx context.Context, epicID *string) error
 	BulkDeleteTaskLogsByIDs(ctx context.Context, dollar_1 []string) error
@@ -70,6 +71,7 @@ type Querier interface {
 	ReadRepoByFullName(ctx context.Context, fullName string) (*Repo, error)
 	ReadSetting(ctx context.Context, key string) (string, error)
 	ReadTask(ctx context.Context, id string) (*Task, error)
+	ReadTaskByNumber(ctx context.Context, arg ReadTaskByNumberParams) (*Task, error)
 	ReadTaskLogs(ctx context.Context, id string) ([]*ReadTaskLogsRow, error)
 	ReadTaskStatus(ctx context.Context, id string) (TaskStatus, error)
 	ReleaseConversationClaim(ctx context.Context, id string) error

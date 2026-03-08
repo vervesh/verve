@@ -25,6 +25,9 @@ func unmarshalTask(in *sqlc.Task) *task.Task {
 		CreatedAt:          unixToTime(in.CreatedAt),
 		UpdatedAt:          unixToTime(in.UpdatedAt),
 	}
+	if in.Number != nil {
+		t.Number = int(*in.Number)
+	}
 	if in.PullRequestUrl != nil {
 		t.PullRequestURL = *in.PullRequestUrl
 	}

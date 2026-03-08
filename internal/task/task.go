@@ -24,6 +24,7 @@ const (
 // Task represents a unit of work dispatched to an AI coding agent.
 type Task struct {
 	ID                  TaskID    `json:"id"`
+	Number              int       `json:"number"`
 	RepoID              string    `json:"repo_id"`
 	Type                string    `json:"type"`
 	Title               string    `json:"title"`

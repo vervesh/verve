@@ -100,6 +100,11 @@ func (s *Store) ReadTask(ctx context.Context, id TaskID) (*Task, error) {
 	return s.repo.ReadTask(ctx, id)
 }
 
+// ReadTaskByNumber reads a task by its repo-scoped sequential number.
+func (s *Store) ReadTaskByNumber(ctx context.Context, repoID string, number int) (*Task, error) {
+	return s.repo.ReadTaskByNumber(ctx, repoID, number)
+}
+
 // ReadTaskStatus reads a task's status by its string ID.
 func (s *Store) ReadTaskStatus(ctx context.Context, idStr string) (string, error) {
 	id, err := ParseTaskID(idStr)

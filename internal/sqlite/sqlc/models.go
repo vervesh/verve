@@ -98,6 +98,7 @@ type Task struct {
 	CreatedAt              int64
 	UpdatedAt              int64
 	Type                   string
+	Number                 *int64
 }
 
 type TaskLog struct {

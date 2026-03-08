@@ -180,5 +180,11 @@ DELETE FROM task_log WHERE task_id = ANY($1::text[]);
 -- name: BulkDeleteTasksByIDs :exec
 DELETE FROM task WHERE id = ANY($1::text[]);
 
+-- name: AssignTaskNumber :one
+UPDATE task SET number = (SELECT COALESCE(MAX(t2.number), 0) + 1 FROM task t2 WHERE t2.repo_id = @repo_id) WHERE task.id = @id RETURNING number;
+
+-- name: ReadTaskByNumber :one
+SELECT * FROM task WHERE repo_id = $1 AND number = $2;
+
 -- name: DeleteExpiredLogs :execrows
 DELETE FROM task_log WHERE created_at < $1;
