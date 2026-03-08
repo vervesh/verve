@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/joshjon/kit/server"
 	"github.com/labstack/echo/v4"
@@ -35,6 +36,7 @@ func NewHTTPHandler(store *task.Store, repoStore *repo.Store, epicStore *epic.St
 func (h *HTTPHandler) Register(g *echo.Group) {
 	// Repo-scoped task operations
 	g.GET("/repos/:repo_id/tasks", h.ListTasksByRepo)
+	g.GET("/repos/:repo_id/tasks/by-number/:number", h.GetTaskByNumber)
 	g.POST("/repos/:repo_id/tasks", h.CreateTask)
 	g.POST("/repos/:repo_id/tasks/sync", h.SyncRepoTasks)
 
@@ -121,6 +123,25 @@ func (h *HTTPHandler) GetTask(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	return server.SetResponse(c, http.StatusOK, t)
+}
+
+// GetTaskByNumber handles GET /repos/:repo_id/tasks/by-number/:number
+func (h *HTTPHandler) GetTaskByNumber(c echo.Context) error {
+	req, err := server.BindRequest[TaskByNumberRequest](c)
+	if err != nil {
+		return err
+	}
+	repoID := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, repoID.String())
+
+	number, _ := strconv.Atoi(req.Number) // safe after validation
+
+	t, err := h.store.ReadTaskByNumber(c.Request().Context(), repoID.String(), number)
+	if err != nil {
+		return err
+	}
+	c.Set(logkey.TaskID, t.ID.String())
 	return server.SetResponse(c, http.StatusOK, t)
 }
 

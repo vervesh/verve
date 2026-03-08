@@ -54,6 +54,7 @@ trap cleanup_on_failure EXIT
 
 # ── Banner ──────────────────────────────────────────────────────────
 log_header "Verve Agent Starting"
+[ -n "${TASK_NUMBER}" ] && echo "Task: #${TASK_NUMBER}"
 echo "Task ID: ${TASK_ID}"
 echo "Repository: ${GITHUB_REPO}"
 [ -n "${TASK_TITLE}" ] && echo "Title: ${TASK_TITLE}"

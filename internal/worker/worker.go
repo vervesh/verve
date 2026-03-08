@@ -37,6 +37,7 @@ type Config struct {
 
 type Task struct {
 	ID                 string   `json:"id"`
+	Number             int      `json:"number"`
 	RepoID             string   `json:"repo_id"`
 	Title              string   `json:"title"`
 	Description        string   `json:"description"`
@@ -564,6 +565,7 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 	agentCfg := AgentConfig{
 		WorkType:                  "task",
 		TaskID:                    task.ID,
+		TaskNumber:                task.Number,
 		TaskTitle:                 task.Title,
 		TaskDescription:           task.Description,
 		GitHubToken:               githubToken,

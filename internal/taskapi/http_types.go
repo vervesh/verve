@@ -1,6 +1,8 @@
 package taskapi
 
 import (
+	"strconv"
+
 	"github.com/cohesivestack/valgo"
 
 	"github.com/joshjon/verve/internal/github"
@@ -26,6 +28,21 @@ type RepoIDRequest struct {
 
 func (r RepoIDRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}
+
+// TaskByNumberRequest captures the :repo_id and :number path parameters for looking up a task by number.
+type TaskByNumberRequest struct {
+	RepoID string `param:"repo_id" json:"-"`
+	Number string `param:"number" json:"-"`
+}
+
+func (r TaskByNumberRequest) Validate() error {
+	v := valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id")))
+	n, err := strconv.Atoi(r.Number)
+	if err != nil || n <= 0 {
+		v = v.AddErrorMessage("number", "must be a positive integer")
+	}
+	return v.ToError()
 }
 
 // --- Param+body request types ---

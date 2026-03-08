@@ -363,3 +363,91 @@ func TestDeleteTask_InvalidID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected validation error for invalid task ID")
 }
 
+// --- GetTaskByNumber ---
+
+func TestGetTaskByNumber_Success(t *testing.T) {
+	f := newFixture(t)
+
+	// Create a task via the API so it gets a number assigned.
+	createReq := taskapi.CreateTaskRequest{
+		Title:       "By number test",
+		Description: "desc",
+	}
+	createRes := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), createReq)
+	require.True(t, createRes.Data.Number > 0, "expected task to have a number assigned")
+
+	// Look it up by number.
+	res := testutil.Get[server.Response[task.Task]](t, f.taskByNumberURL(createRes.Data.Number))
+	assert.Equal(t, createRes.Data.ID, res.Data.ID)
+	assert.Equal(t, createRes.Data.Number, res.Data.Number)
+	assert.Equal(t, "By number test", res.Data.Title)
+}
+
+func TestGetTaskByNumber_NotFound(t *testing.T) {
+	f := newFixture(t)
+
+	httpRes, err := testutil.DefaultClient.Get(f.taskByNumberURL(9999))
+	require.NoError(t, err)
+	defer httpRes.Body.Close()
+
+	assert.Equal(t, http.StatusNotFound, httpRes.StatusCode, "expected 404 for nonexistent number")
+}
+
+func TestGetTaskByNumber_InvalidNumber(t *testing.T) {
+	tests := []struct {
+		name   string
+		number string
+	}{
+		{"non-numeric", "abc"},
+		{"zero", "0"},
+		{"negative", "-1"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+
+			httpRes, err := testutil.DefaultClient.Get(f.taskByNumberRawURL(f.Repo.ID.String(), tt.number))
+			require.NoError(t, err)
+			defer httpRes.Body.Close()
+
+			assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected validation error for invalid number format")
+		})
+	}
+}
+
+func TestGetTaskByNumber_InvalidRepoID(t *testing.T) {
+	f := newFixture(t)
+
+	httpRes, err := testutil.DefaultClient.Get(f.taskByNumberRawURL("invalid", "1"))
+	require.NoError(t, err)
+	defer httpRes.Body.Close()
+
+	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected validation error for invalid repo ID")
+}
+
+// --- Task number in API responses ---
+
+func TestCreateTask_HasNumber(t *testing.T) {
+	f := newFixture(t)
+
+	req := taskapi.CreateTaskRequest{
+		Title:       "First task",
+		Description: "desc",
+	}
+	res := testutil.Post[server.Response[task.Task]](t, f.repoTasksURL(), req)
+	assert.True(t, res.Data.Number > 0, "created task should have a number")
+}
+
+func TestListTasksByRepo_TasksHaveNumbers(t *testing.T) {
+	f := newFixture(t)
+
+	f.seedTask("task 1", "desc")
+	f.seedTask("task 2", "desc")
+
+	res := testutil.Get[server.ResponseList[task.Task]](t, f.repoTasksURL())
+	require.Len(t, res.Data, 2)
+	for _, tsk := range res.Data {
+		assert.True(t, tsk.Number > 0, "each task should have a number")
+	}
+}
+
