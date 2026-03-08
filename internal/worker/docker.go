@@ -76,6 +76,7 @@ type AgentConfig struct {
 
 	// Task fields
 	TaskID               string
+	TaskNumber           int
 	TaskTitle            string
 	TaskDescription      string
 	SkipPR               bool
@@ -212,6 +213,9 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 			"TASK_DESCRIPTION="+cfg.TaskDescription,
 			"CLAUDE_MODEL="+cfg.ClaudeModel,
 		)
+		if cfg.TaskNumber > 0 {
+			env = append(env, fmt.Sprintf("TASK_NUMBER=%d", cfg.TaskNumber))
+		}
 		if cfg.DryRun {
 			env = append(env, "DRY_RUN=true")
 		}

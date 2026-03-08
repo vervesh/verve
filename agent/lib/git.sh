@@ -79,7 +79,7 @@ detect_default_branch() {
 }
 
 setup_branch() {
-    BRANCH="verve/task-${TASK_ID}"
+    BRANCH="verve/task-${TASK_NUMBER:-${TASK_ID}}"
     # Track whether the branch already existed on the remote. Used later to
     # decide between force-push vs first push, and whether a PR still needs
     # to be created.
