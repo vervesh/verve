@@ -1488,12 +1488,15 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page);
 		await page.goto('/acme/webapp/tasks/1');
 
-		// Wait for task detail to fully load (task number badge appears).
-		await page.waitForSelector('text=#1', { timeout: 10000 });
-		await page.waitForTimeout(500);
+		// Wait for task detail to fully load (task title appears).
+		await page.waitForSelector('text=Add user authentication', { timeout: 15000 });
 
 		// Click the "Edit" button to open the dialog.
-		const editButton = page.getByRole('button', { name: /edit/i });
+		// Use locator with hasText instead of getByRole — the "Edit" label is inside
+		// a responsive-visibility span (`hidden sm:inline`) which can make accessible
+		// name detection unreliable in headless CI.
+		const editButton = page.locator('button', { hasText: 'Edit' });
+		await editButton.waitFor({ state: 'visible', timeout: 10000 });
 		await editButton.click();
 
 		// Wait for dialog to appear and settle.
