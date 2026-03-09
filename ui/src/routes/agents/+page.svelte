@@ -2,7 +2,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { client } from '$lib/api-client';
 	import { repoStore } from '$lib/stores/repos.svelte';
-	import { taskUrl } from '$lib/utils';
+	import { taskUrl, epicUrl } from '$lib/utils';
 	import type { Metrics, ActiveAgent, CompletedAgent, WorkerInfo } from '$lib/models/metrics';
 	import {
 		Activity,
@@ -95,6 +95,12 @@
 	function agentTaskUrl(repoId: string, taskNumber: number): string {
 		const r = repoStore.repos.find((r) => r.id === repoId);
 		if (r) return taskUrl(r.owner, r.name, taskNumber);
+		return '#';
+	}
+
+	function agentEpicUrl(repoId: string, epicNumber: number | undefined): string {
+		const r = repoStore.repos.find((r) => r.id === repoId);
+		if (r && epicNumber) return epicUrl(r.owner, r.name, epicNumber);
 		return '#';
 	}
 
@@ -315,7 +321,7 @@
 				<div class="space-y-2">
 					{#each metrics.active_agents as agent (agent.task_id)}
 						<a
-							href={agent.is_planning ? `/epics/${agent.epic_id}` : agentTaskUrl(agent.repo_id, agent.task_number)}
+							href={agent.is_planning ? agentEpicUrl(agent.repo_id, agent.epic_number) : agentTaskUrl(agent.repo_id, agent.task_number)}
 							class="block bg-card border border-border rounded-lg p-4 hover:border-primary/30 transition-colors"
 						>
 							<div class="flex items-start justify-between gap-3">

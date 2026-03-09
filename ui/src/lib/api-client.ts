@@ -508,7 +508,7 @@ export class VerveClient {
 		id: string,
 		title: string,
 		planningPrompt?: string
-	): Promise<{ epic_id: string }> {
+	): Promise<Epic> {
 		const body: Record<string, unknown> = { title };
 		if (planningPrompt) body.planning_prompt = planningPrompt;
 		const res = await fetch(`${this.baseUrl}/conversations/${id}/generate-tasks`, {
@@ -516,7 +516,7 @@ export class VerveClient {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(body)
 		});
-		return this.request<{ epic_id: string }>(res, 'Failed to generate tasks');
+		return this.request<Epic>(res, 'Failed to generate tasks');
 	}
 
 	// --- SSE URLs ---

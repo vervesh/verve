@@ -381,6 +381,7 @@ func (s *Store) ListPlanningEpicsForMetrics(ctx context.Context) ([]PlanningEpic
 		}
 		result = append(result, PlanningEpicForMetrics{
 			ID:        e.ID.String(),
+			Number:    e.Number,
 			Title:     e.Title,
 			RepoID:    e.RepoID,
 			Model:     e.Model,
@@ -393,6 +394,7 @@ func (s *Store) ListPlanningEpicsForMetrics(ctx context.Context) ([]PlanningEpic
 // PlanningEpicForMetrics is a minimal struct for epic planning metrics.
 type PlanningEpicForMetrics struct {
 	ID        string
+	Number    int
 	Title     string
 	RepoID    string
 	Model     string

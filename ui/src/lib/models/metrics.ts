@@ -11,6 +11,7 @@ export interface ActiveAgent {
 	epic_id?: string;
 	is_planning?: boolean;
 	epic_title?: string;
+	epic_number?: number;
 }
 
 export interface CompletedAgent {

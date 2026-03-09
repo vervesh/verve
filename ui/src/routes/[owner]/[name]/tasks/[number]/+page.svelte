@@ -761,7 +761,7 @@
 				{#if epic}
 					<button
 						class="inline-flex items-center gap-1.5 text-xs bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-md hover:bg-indigo-500/25 transition-colors cursor-pointer border border-indigo-500/20"
-						onclick={() => repo ? goto(epicUrl(repo.owner, repo.name, epic!.number)) : goto(`/epics/${epic!.id}`)}
+						onclick={() => repo && goto(epicUrl(repo.owner, repo.name, epic!.number))}
 						title="Part of epic: {epic!.title}"
 					>
 						<Layers class="w-3 h-3" />

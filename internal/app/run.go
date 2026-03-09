@@ -495,6 +495,7 @@ func planningEpicListerAdapter(epicStore *epic.Store) *metric.PlanningEpicLister
 		for i, ep := range epics {
 			result[i] = metric.PlanningEpic{
 				ID:        ep.ID,
+				Number:    ep.Number,
 				Title:     ep.Title,
 				RepoID:    ep.RepoID,
 				Model:     ep.Model,

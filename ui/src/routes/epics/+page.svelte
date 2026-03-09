@@ -144,16 +144,10 @@
 
 {#if hasRepo && repoReady}
 	<CreateEpicDialog bind:open={openCreateEpic} onCreated={async (id) => {
-		try {
-			const created = await client.getEpic(id);
-			const repo = repoStore.selectedRepo;
-			if (repo && created.number) {
-				goto(epicUrl(repo.owner, repo.name, created.number));
-			} else {
-				goto(`/epics/${id}`);
-			}
-		} catch {
-			goto(`/epics/${id}`);
+		const created = await client.getEpic(id);
+		const repo = repoStore.selectedRepo;
+		if (repo) {
+			goto(epicUrl(repo.owner, repo.name, created.number));
 		}
 	}} />
 {/if}

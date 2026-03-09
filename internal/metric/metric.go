@@ -11,6 +11,7 @@ import (
 // PlanningEpic represents an epic that is actively being planned by an agent.
 type PlanningEpic struct {
 	ID        string
+	Number    int
 	Title     string
 	RepoID    string
 	Model     string
@@ -84,6 +85,7 @@ type ActiveAgent struct {
 	EpicID     string  `json:"epic_id,omitempty"`
 	IsPlanning bool    `json:"is_planning,omitempty"`
 	EpicTitle  string  `json:"epic_title,omitempty"`
+	EpicNumber int     `json:"epic_number,omitempty"`
 }
 
 // CompletedAgent describes a recently completed agent session.
@@ -161,6 +163,7 @@ func Compute(ctx context.Context, lister TaskLister, epicLister PlanningEpicList
 					EpicID:     ep.ID,
 					IsPlanning: true,
 					EpicTitle:  ep.Title,
+					EpicNumber: ep.Number,
 				}
 				if ep.ClaimedAt != nil {
 					agent.StartedAt = ep.ClaimedAt.Format(time.RFC3339)

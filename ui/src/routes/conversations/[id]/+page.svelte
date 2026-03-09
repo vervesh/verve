@@ -3,7 +3,9 @@
 	import { goto } from '$app/navigation';
 	import { onMount, onDestroy } from 'svelte';
 	import { client } from '$lib/api-client';
+	import { repoStore } from '$lib/stores/repos.svelte';
 	import { conversationStore } from '$lib/stores/conversations.svelte';
+	import { epicUrl } from '$lib/utils';
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
 	import type { Conversation } from '$lib/models/conversation';
@@ -52,6 +54,19 @@
 	const conversationId = $derived($page.params.id);
 	const isPending = $derived(!!conversation?.pending_message);
 	const hasEpic = $derived(!!conversation?.epic_id);
+
+	async function navigateToEpic() {
+		if (!conversation?.epic_id) return;
+		try {
+			const epic = await client.getEpic(conversation.epic_id);
+			const repo = repoStore.repos.find((r) => r.id === conversation!.repo_id);
+			if (repo) {
+				goto(epicUrl(repo.owner, repo.name, epic.number));
+			}
+		} catch {
+			// Ignore navigation errors
+		}
+	}
 
 	onMount(async () => {
 		await loadConversation();
@@ -163,7 +178,7 @@
 		generating = true;
 		error = null;
 		try {
-			const result = await client.generateTasksFromConversation(
+			const createdEpic = await client.generateTasksFromConversation(
 				conversation.id,
 				generateTitle,
 				generatePrompt || undefined
@@ -174,7 +189,10 @@
 			// Reload to get the updated epic_id
 			conversation = await client.getConversation(conversation.id);
 			conversationStore.updateConversation(conversation);
-			goto(`/epics/${result.epic_id}`);
+			const repo = repoStore.repos.find((r) => r.id === conversation!.repo_id);
+			if (repo) {
+				goto(epicUrl(repo.owner, repo.name, createdEpic.number));
+			}
 		} catch (err) {
 			error = (err as Error).message;
 		} finally {
@@ -248,7 +266,7 @@
 			</div>
 			<div class="flex items-center gap-2 shrink-0">
 				{#if hasEpic}
-					<Button variant="outline" size="sm" onclick={() => goto(`/epics/${conversation?.epic_id}`)} class="gap-1.5 text-xs">
+					<Button variant="outline" size="sm" onclick={navigateToEpic} class="gap-1.5 text-xs">
 						<ExternalLink class="w-3.5 h-3.5" />
 						View Generated Tasks
 					</Button>
