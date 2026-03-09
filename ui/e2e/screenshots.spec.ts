@@ -633,7 +633,7 @@ const MOCK_EPIC_MAP: Record<string, typeof MOCK_EPIC_DRAFT> = {
 	epc_active01: MOCK_EPIC_ACTIVE
 };
 
-// Map of epic number to full epic object for by-number lookups.
+// Map of epic number to full epic object for number lookups.
 const MOCK_EPIC_BY_NUMBER: Record<number, typeof MOCK_EPIC_DRAFT> = {
 	1: MOCK_EPIC_DRAFT,
 	2: MOCK_EPIC_PLANNING,
@@ -1071,9 +1071,9 @@ async function setupMockAPI(
 	});
 
 	// Task by number lookup (must be before generic /repos/* catch-all).
-	await page.route('**/api/v1/repos/*/tasks/by-number/*', (route) => {
+	await page.route('**/api/v1/repos/*/tasks/[0-9]*', (route) => {
 		const url = route.request().url();
-		const numberStr = url.split('/by-number/')[1]?.split('?')[0];
+		const numberStr = url.split('/tasks/')[1]?.split('?')[0];
 		const number = Number(numberStr);
 		const task = MOCK_TASKS.find((t) => t.number === number);
 		if (task) {
@@ -1189,10 +1189,10 @@ async function setupMockAPI(
 
 	// --- Epic API mocks ---
 
-	// Epic by-number lookup (must be before generic /repos/*/epics catch-all).
-	await page.route('**/api/v1/repos/*/epics/by-number/*', (route) => {
+	// Epic number lookup (must be before generic /repos/*/epics catch-all).
+	await page.route('**/api/v1/repos/*/epics/[0-9]*', (route) => {
 		const url = route.request().url();
-		const num = parseInt(url.split('/by-number/')[1]?.split('?')[0] ?? '0');
+		const num = parseInt(url.split('/epics/')[1]?.split('?')[0] ?? '0');
 		const epic = MOCK_EPIC_BY_NUMBER[num];
 		if (epic) {
 			return route.fulfill({ json: { data: epic } });

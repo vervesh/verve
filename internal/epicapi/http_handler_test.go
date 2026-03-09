@@ -95,7 +95,7 @@ func TestGetEpicByNumber_InvalidNumber(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			url := fmt.Sprintf("%s/api/v1/repos/%s/epics/by-number/%s", f.Server.Address(), f.Repo.ID, tt.number)
+			url := fmt.Sprintf("%s/api/v1/repos/%s/epics/%s", f.Server.Address(), f.Repo.ID, tt.number)
 			httpRes := doJSON(t, http.MethodGet, url, nil)
 			defer httpRes.Body.Close()
 			assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode)

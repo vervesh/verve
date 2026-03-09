@@ -189,7 +189,7 @@ export class VerveClient {
 	}
 
 	async getTaskByNumber(repoId: string, number: number): Promise<Task> {
-		const res = await fetch(`${this.baseUrl}/repos/${repoId}/tasks/by-number/${number}`);
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/tasks/${number}`);
 		return this.request<Task>(res, 'Task not found');
 	}
 
@@ -392,7 +392,7 @@ export class VerveClient {
 	}
 
 	async getEpicByNumber(repoId: string, number: number): Promise<Epic> {
-		const res = await fetch(`${this.baseUrl}/repos/${repoId}/epics/by-number/${number}`);
+		const res = await fetch(`${this.baseUrl}/repos/${repoId}/epics/${number}`);
 		return this.request<Epic>(res, 'Epic not found');
 	}
 

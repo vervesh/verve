@@ -32,7 +32,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	// Epic CRUD (repo-scoped)
 	g.POST("/repos/:repo_id/epics", h.CreateEpic)
 	g.GET("/repos/:repo_id/epics", h.ListEpicsByRepo)
-	g.GET("/repos/:repo_id/epics/by-number/:number", h.GetEpicByNumber)
+	g.GET("/repos/:repo_id/epics/:number", h.GetEpicByNumber)
 
 	// Epic operations (globally unique IDs)
 	g.GET("/epics/:id", h.GetEpic)
@@ -103,7 +103,7 @@ func (h *HTTPHandler) ListEpicsByRepo(c echo.Context) error {
 	return server.SetResponseList(c, http.StatusOK, epics, "")
 }
 
-// GetEpicByNumber handles GET /repos/:repo_id/epics/by-number/:number
+// GetEpicByNumber handles GET /repos/:repo_id/epics/:number
 func (h *HTTPHandler) GetEpicByNumber(c echo.Context) error {
 	req, err := server.BindRequest[EpicByNumberRequest](c)
 	if err != nil {

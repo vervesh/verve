@@ -110,7 +110,7 @@ func (f *fixture) epicActionURL(id epic.EpicID, action string) string {
 }
 
 func (f *fixture) epicByNumberURL(number int) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/epics/by-number/%d", f.Server.Address(), f.Repo.ID, number)
+	return fmt.Sprintf("%s/api/v1/repos/%s/epics/%d", f.Server.Address(), f.Repo.ID, number)
 }
 
 // --- Seed helpers ---

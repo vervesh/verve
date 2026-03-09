@@ -36,7 +36,7 @@ func NewHTTPHandler(store *task.Store, repoStore *repo.Store, epicStore *epic.St
 func (h *HTTPHandler) Register(g *echo.Group) {
 	// Repo-scoped task operations
 	g.GET("/repos/:repo_id/tasks", h.ListTasksByRepo)
-	g.GET("/repos/:repo_id/tasks/by-number/:number", h.GetTaskByNumber)
+	g.GET("/repos/:repo_id/tasks/:number", h.GetTaskByNumber)
 	g.POST("/repos/:repo_id/tasks", h.CreateTask)
 	g.POST("/repos/:repo_id/tasks/sync", h.SyncRepoTasks)
 
@@ -126,7 +126,7 @@ func (h *HTTPHandler) GetTask(c echo.Context) error {
 	return server.SetResponse(c, http.StatusOK, t)
 }
 
-// GetTaskByNumber handles GET /repos/:repo_id/tasks/by-number/:number
+// GetTaskByNumber handles GET /repos/:repo_id/tasks/:number
 func (h *HTTPHandler) GetTaskByNumber(c echo.Context) error {
 	req, err := server.BindRequest[TaskByNumberRequest](c)
 	if err != nil {

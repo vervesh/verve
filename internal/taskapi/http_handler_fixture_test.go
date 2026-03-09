@@ -81,11 +81,11 @@ func (f *fixture) taskActionURL(id task.TaskID, action string) string {
 }
 
 func (f *fixture) taskByNumberURL(number int) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/tasks/by-number/%d", f.Server.Address(), f.Repo.ID, number)
+	return fmt.Sprintf("%s/api/v1/repos/%s/tasks/%d", f.Server.Address(), f.Repo.ID, number)
 }
 
 func (f *fixture) taskByNumberRawURL(repoID, number string) string {
-	return fmt.Sprintf("%s/api/v1/repos/%s/tasks/by-number/%s", f.Server.Address(), repoID, number)
+	return fmt.Sprintf("%s/api/v1/repos/%s/tasks/%s", f.Server.Address(), repoID, number)
 }
 
 // --- Seed helpers ---
