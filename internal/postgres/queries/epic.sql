@@ -96,6 +96,12 @@ SELECT * FROM epic
 WHERE status = 'active'
 ORDER BY created_at ASC;
 
+-- name: AssignEpicNumber :one
+UPDATE epic SET number = (SELECT COALESCE(MAX(e2.number), 0) + 1 FROM epic e2 WHERE e2.repo_id = @repo_id) WHERE epic.id = @id RETURNING number;
+
+-- name: ReadEpicByNumber :one
+SELECT * FROM epic WHERE repo_id = $1 AND number = $2;
+
 -- name: RemoveEpicTaskID :exec
 UPDATE epic SET
   task_ids = array_remove(task_ids, $2),

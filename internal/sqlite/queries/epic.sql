@@ -91,6 +91,12 @@ WHERE claimed_at IS NOT NULL
   AND status IN ('planning', 'draft')
 ORDER BY last_heartbeat_at ASC;
 
+-- name: AssignEpicNumber :one
+UPDATE epic SET number = (SELECT COALESCE(MAX(e2.number), 0) + 1 FROM epic e2 WHERE e2.repo_id = sqlc.arg(repo_id)) WHERE epic.id = sqlc.arg(id) RETURNING number;
+
+-- name: ReadEpicByNumber :one
+SELECT * FROM epic WHERE repo_id = ? AND number = ?;
+
 -- name: ListActiveEpics :many
 SELECT * FROM epic
 WHERE status = 'active'

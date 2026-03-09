@@ -9,6 +9,7 @@ import (
 type Repository interface {
 	CreateEpic(ctx context.Context, epic *Epic) error
 	ReadEpic(ctx context.Context, id EpicID) (*Epic, error)
+	ReadEpicByNumber(ctx context.Context, repoID string, number int) (*Epic, error)
 	ListEpics(ctx context.Context) ([]*Epic, error)
 	ListEpicsByRepo(ctx context.Context, repoID string) ([]*Epic, error)
 	UpdateEpic(ctx context.Context, epic *Epic) error

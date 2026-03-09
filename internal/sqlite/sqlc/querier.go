@@ -12,6 +12,7 @@ type Querier interface {
 	AddTaskCost(ctx context.Context, arg AddTaskCostParams) error
 	AppendSessionLog(ctx context.Context, arg AppendSessionLogParams) error
 	AppendTaskLogs(ctx context.Context, arg AppendTaskLogsParams) error
+	AssignEpicNumber(ctx context.Context, arg AssignEpicNumberParams) (*int64, error)
 	AssignTaskNumber(ctx context.Context, arg AssignTaskNumberParams) (*int64, error)
 	BulkCloseTasksByEpic(ctx context.Context, arg BulkCloseTasksByEpicParams) error
 	BulkDeleteTaskLogsByEpic(ctx context.Context, epicID *string) error
@@ -62,6 +63,7 @@ type Querier interface {
 	ManualRetryTask(ctx context.Context, arg ManualRetryTaskParams) (int64, error)
 	ReadConversation(ctx context.Context, id string) (*Conversation, error)
 	ReadEpic(ctx context.Context, id string) (*Epic, error)
+	ReadEpicByNumber(ctx context.Context, arg ReadEpicByNumberParams) (*Epic, error)
 	ReadGitHubToken(ctx context.Context) (string, error)
 	ReadRepo(ctx context.Context, id string) (*Repo, error)
 	ReadRepoByFullName(ctx context.Context, fullName string) (*Repo, error)
