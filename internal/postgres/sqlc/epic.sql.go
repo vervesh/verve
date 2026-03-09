@@ -24,6 +24,22 @@ func (q *Queries) AppendSessionLog(ctx context.Context, arg AppendSessionLogPara
 	return err
 }
 
+const assignEpicNumber = `-- name: AssignEpicNumber :one
+UPDATE epic SET number = (SELECT COALESCE(MAX(e2.number), 0) + 1 FROM epic e2 WHERE e2.repo_id = $1) WHERE epic.id = $2 RETURNING number
+`
+
+type AssignEpicNumberParams struct {
+	RepoID string `json:"repo_id"`
+	ID     string `json:"id"`
+}
+
+func (q *Queries) AssignEpicNumber(ctx context.Context, arg AssignEpicNumberParams) (*int32, error) {
+	row := q.db.QueryRow(ctx, assignEpicNumber, arg.RepoID, arg.ID)
+	var number *int32
+	err := row.Scan(&number)
+	return number, err
+}
+
 const claimEpic = `-- name: ClaimEpic :execrows
 UPDATE epic SET
   claimed_at = EXTRACT(EPOCH FROM NOW())::BIGINT,
@@ -115,7 +131,7 @@ func (q *Queries) EpicHeartbeat(ctx context.Context, id string) error {
 }
 
 const listActiveEpics = `-- name: ListActiveEpics :many
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic
 WHERE status = 'active'
 ORDER BY created_at ASC
 `
@@ -147,6 +163,7 @@ func (q *Queries) ListActiveEpics(ctx context.Context) ([]*Epic, error) {
 			&i.Model,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -159,7 +176,7 @@ func (q *Queries) ListActiveEpics(ctx context.Context) ([]*Epic, error) {
 }
 
 const listEpics = `-- name: ListEpics :many
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic ORDER BY created_at DESC
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic ORDER BY created_at DESC
 `
 
 func (q *Queries) ListEpics(ctx context.Context) ([]*Epic, error) {
@@ -189,6 +206,7 @@ func (q *Queries) ListEpics(ctx context.Context) ([]*Epic, error) {
 			&i.Model,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -201,7 +219,7 @@ func (q *Queries) ListEpics(ctx context.Context) ([]*Epic, error) {
 }
 
 const listEpicsByRepo = `-- name: ListEpicsByRepo :many
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic WHERE repo_id = $1 ORDER BY created_at DESC
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic WHERE repo_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListEpicsByRepo(ctx context.Context, repoID string) ([]*Epic, error) {
@@ -231,6 +249,7 @@ func (q *Queries) ListEpicsByRepo(ctx context.Context, repoID string) ([]*Epic, 
 			&i.Model,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -243,7 +262,7 @@ func (q *Queries) ListEpicsByRepo(ctx context.Context, repoID string) ([]*Epic, 
 }
 
 const listPlanningEpics = `-- name: ListPlanningEpics :many
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic
 WHERE status = 'planning' AND claimed_at IS NULL
 ORDER BY created_at ASC
 `
@@ -275,6 +294,7 @@ func (q *Queries) ListPlanningEpics(ctx context.Context) ([]*Epic, error) {
 			&i.Model,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -287,7 +307,7 @@ func (q *Queries) ListPlanningEpics(ctx context.Context) ([]*Epic, error) {
 }
 
 const listStaleEpics = `-- name: ListStaleEpics :many
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic
 WHERE claimed_at IS NOT NULL
   AND last_heartbeat_at < $1
   AND status IN ('planning', 'draft')
@@ -321,6 +341,7 @@ func (q *Queries) ListStaleEpics(ctx context.Context, lastHeartbeatAt *int64) ([
 			&i.Model,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Number,
 		); err != nil {
 			return nil, err
 		}
@@ -333,7 +354,7 @@ func (q *Queries) ListStaleEpics(ctx context.Context, lastHeartbeatAt *int64) ([
 }
 
 const readEpic = `-- name: ReadEpic :one
-SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at FROM epic WHERE id = $1
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic WHERE id = $1
 `
 
 func (q *Queries) ReadEpic(ctx context.Context, id string) (*Epic, error) {
@@ -357,6 +378,42 @@ func (q *Queries) ReadEpic(ctx context.Context, id string) (*Epic, error) {
 		&i.Model,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Number,
+	)
+	return &i, err
+}
+
+const readEpicByNumber = `-- name: ReadEpicByNumber :one
+SELECT id, repo_id, title, description, status, proposed_tasks, task_ids, planning_prompt, session_log, not_ready, claimed_at, last_heartbeat_at, feedback, feedback_type, model, created_at, updated_at, number FROM epic WHERE repo_id = $1 AND number = $2
+`
+
+type ReadEpicByNumberParams struct {
+	RepoID string `json:"repo_id"`
+	Number *int32 `json:"number"`
+}
+
+func (q *Queries) ReadEpicByNumber(ctx context.Context, arg ReadEpicByNumberParams) (*Epic, error) {
+	row := q.db.QueryRow(ctx, readEpicByNumber, arg.RepoID, arg.Number)
+	var i Epic
+	err := row.Scan(
+		&i.ID,
+		&i.RepoID,
+		&i.Title,
+		&i.Description,
+		&i.Status,
+		&i.ProposedTasks,
+		&i.TaskIds,
+		&i.PlanningPrompt,
+		&i.SessionLog,
+		&i.NotReady,
+		&i.ClaimedAt,
+		&i.LastHeartbeatAt,
+		&i.Feedback,
+		&i.FeedbackType,
+		&i.Model,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Number,
 	)
 	return &i, err
 }

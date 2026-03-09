@@ -58,11 +58,38 @@ func (r *EpicRepository) CreateEpic(ctx context.Context, e *epic.Epic) error {
 		CreatedAt:      e.CreatedAt.Unix(),
 		UpdatedAt:      e.UpdatedAt.Unix(),
 	})
-	return tagEpicErr(err)
+	if err != nil {
+		return tagEpicErr(err)
+	}
+
+	num, err := r.db.AssignEpicNumber(ctx, sqlc.AssignEpicNumberParams{
+		RepoID: e.RepoID,
+		ID:     e.ID.String(),
+	})
+	if err != nil {
+		return tagEpicErr(err)
+	}
+	if num != nil {
+		e.Number = int(*num)
+	}
+
+	return nil
 }
 
 func (r *EpicRepository) ReadEpic(ctx context.Context, id epic.EpicID) (*epic.Epic, error) {
 	row, err := r.db.ReadEpic(ctx, id.String())
+	if err != nil {
+		return nil, tagEpicErr(err)
+	}
+	return unmarshalEpic(row), nil
+}
+
+func (r *EpicRepository) ReadEpicByNumber(ctx context.Context, repoID string, number int) (*epic.Epic, error) {
+	num := int64(number)
+	row, err := r.db.ReadEpicByNumber(ctx, sqlc.ReadEpicByNumberParams{
+		RepoID: repoID,
+		Number: &num,
+	})
 	if err != nil {
 		return nil, tagEpicErr(err)
 	}
@@ -243,6 +270,9 @@ func unmarshalEpic(in *sqlc.Epic) *epic.Epic {
 		FeedbackType:    in.FeedbackType,
 		CreatedAt:       unixToTime(in.CreatedAt),
 		UpdatedAt:       unixToTime(in.UpdatedAt),
+	}
+	if in.Number != nil {
+		e.Number = int(*in.Number)
 	}
 	if in.PlanningPrompt != nil {
 		e.PlanningPrompt = *in.PlanningPrompt

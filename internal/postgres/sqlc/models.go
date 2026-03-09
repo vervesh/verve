@@ -112,6 +112,7 @@ type Epic struct {
 	Model           *string  `json:"model"`
 	CreatedAt       int64    `json:"created_at"`
 	UpdatedAt       int64    `json:"updated_at"`
+	Number          *int32   `json:"number"`
 }
 
 type GithubToken struct {

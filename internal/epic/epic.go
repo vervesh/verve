@@ -36,6 +36,7 @@ type ProposedTask struct {
 // Epic represents a large deliverable that contains multiple related tasks.
 type Epic struct {
 	ID              EpicID         `json:"id"`
+	Number          int            `json:"number"`
 	RepoID          string         `json:"repo_id"`
 	Title           string         `json:"title"`
 	Description     string         `json:"description"`

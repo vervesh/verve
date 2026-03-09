@@ -37,6 +37,7 @@ type Epic struct {
 	Model           *string
 	CreatedAt       int64
 	UpdatedAt       int64
+	Number          *int64
 }
 
 type GithubToken struct {
