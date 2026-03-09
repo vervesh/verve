@@ -2,6 +2,7 @@ package epicapi
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/joshjon/kit/server"
 	"github.com/labstack/echo/v4"
@@ -31,6 +32,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	// Epic CRUD (repo-scoped)
 	g.POST("/repos/:repo_id/epics", h.CreateEpic)
 	g.GET("/repos/:repo_id/epics", h.ListEpicsByRepo)
+	g.GET("/repos/:repo_id/epics/by-number/:number", h.GetEpicByNumber)
 
 	// Epic operations (globally unique IDs)
 	g.GET("/epics/:id", h.GetEpic)
@@ -99,6 +101,25 @@ func (h *HTTPHandler) ListEpicsByRepo(c echo.Context) error {
 		return err
 	}
 	return server.SetResponseList(c, http.StatusOK, epics, "")
+}
+
+// GetEpicByNumber handles GET /repos/:repo_id/epics/by-number/:number
+func (h *HTTPHandler) GetEpicByNumber(c echo.Context) error {
+	req, err := server.BindRequest[EpicByNumberRequest](c)
+	if err != nil {
+		return err
+	}
+	repoID := repo.MustParseRepoID(req.RepoID)
+	c.Set(logkey.RepoID, repoID.String())
+
+	number, _ := strconv.Atoi(req.Number) // safe after validation
+
+	e, err := h.store.ReadEpicByNumber(c.Request().Context(), repoID.String(), number)
+	if err != nil {
+		return err
+	}
+	c.Set(logkey.EpicID, e.ID.String())
+	return server.SetResponse(c, http.StatusOK, e)
 }
 
 // GetEpic handles GET /epics/:id

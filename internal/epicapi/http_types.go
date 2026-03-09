@@ -1,6 +1,8 @@
 package epicapi
 
 import (
+	"strconv"
+
 	"github.com/cohesivestack/valgo"
 
 	"github.com/joshjon/verve/internal/epic"
@@ -32,6 +34,21 @@ type RepoIDRequest struct {
 
 func (r RepoIDRequest) Validate() error {
 	return valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id"))).ToError()
+}
+
+// EpicByNumberRequest captures the :repo_id and :number path parameters for looking up an epic by number.
+type EpicByNumberRequest struct {
+	RepoID string `param:"repo_id" json:"-"`
+	Number string `param:"number" json:"-"`
+}
+
+func (r EpicByNumberRequest) Validate() error {
+	v := valgo.In("params", valgo.Is(repo.RepoIDValidator(r.RepoID, "repo_id")))
+	n, err := strconv.Atoi(r.Number)
+	if err != nil || n <= 0 {
+		v = v.AddErrorMessage("number", "must be a positive integer")
+	}
+	return v.ToError()
 }
 
 // EpicIDRequest captures the :id path parameter.

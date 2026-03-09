@@ -77,6 +77,11 @@ func (s *Store) ReadEpic(ctx context.Context, id EpicID) (*Epic, error) {
 	return s.repo.ReadEpic(ctx, id)
 }
 
+// ReadEpicByNumber reads an epic by its repo-scoped number.
+func (s *Store) ReadEpicByNumber(ctx context.Context, repoID string, number int) (*Epic, error) {
+	return s.repo.ReadEpicByNumber(ctx, repoID, number)
+}
+
 // ListEpics returns all epics.
 func (s *Store) ListEpics(ctx context.Context) ([]*Epic, error) {
 	return s.repo.ListEpics(ctx)

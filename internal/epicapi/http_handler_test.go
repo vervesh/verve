@@ -1,6 +1,7 @@
 package epicapi_test
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -69,6 +70,45 @@ func TestGetEpic_Success(t *testing.T) {
 	res := testutil.Get[server.Response[epic.Epic]](t, f.epicURL(e.ID))
 	assert.Equal(t, "My Epic", res.Data.Title)
 	assert.Equal(t, e.ID.String(), res.Data.ID.String())
+}
+
+func TestGetEpicByNumber_Success(t *testing.T) {
+	f := newFixture(t)
+	e := f.seedEpic("My Epic", "desc")
+
+	res := testutil.Get[server.Response[epic.Epic]](t, f.epicByNumberURL(e.Number))
+	assert.Equal(t, "My Epic", res.Data.Title)
+	assert.Equal(t, e.ID.String(), res.Data.ID.String())
+	assert.Equal(t, e.Number, res.Data.Number)
+}
+
+func TestGetEpicByNumber_InvalidNumber(t *testing.T) {
+	f := newFixture(t)
+
+	tests := []struct {
+		name   string
+		number string
+	}{
+		{"zero", "0"},
+		{"negative", "-1"},
+		{"non-numeric", "abc"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := fmt.Sprintf("%s/api/v1/repos/%s/epics/by-number/%s", f.Server.Address(), f.Repo.ID, tt.number)
+			httpRes := doJSON(t, http.MethodGet, url, nil)
+			defer httpRes.Body.Close()
+			assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode)
+		})
+	}
+}
+
+func TestGetEpicByNumber_NotFound(t *testing.T) {
+	f := newFixture(t)
+
+	httpRes := doJSON(t, http.MethodGet, f.epicByNumberURL(9999), nil)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusNotFound, httpRes.StatusCode)
 }
 
 func TestGetEpic_NotFound(t *testing.T) {
