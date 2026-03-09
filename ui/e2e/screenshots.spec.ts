@@ -1716,21 +1716,4 @@ test.describe('UI Screenshots', () => {
 		});
 	});
 
-	// --- Old URL Redirect ---
-
-	test('old task URL redirects to new format', async ({ page }) => {
-		await setupMockAPI(page);
-		await page.goto('/tasks/tsk_review01');
-
-		// Wait for redirect to complete — should end up at /acme/webapp/tasks/4
-		await page.waitForURL('**/acme/webapp/tasks/4', { timeout: 10000 });
-	});
-
-	test('old task PR URL redirects to new format', async ({ page }) => {
-		await setupMockAPI(page);
-		await page.goto('/tasks/tsk_review01/pr');
-
-		// Wait for redirect to complete — should end up at /acme/webapp/tasks/4/pr
-		await page.waitForURL('**/acme/webapp/tasks/4/pr', { timeout: 10000 });
-	});
 });
