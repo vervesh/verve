@@ -28,7 +28,7 @@
 	async function loadConversations(repoId: string) {
 		conversationStore.loading = true;
 		try {
-			const conversations = await client.listConversationsByRepo(repoId);
+			const conversations = await client.listConversationsByRepo(repoId, 'all');
 			conversationStore.setConversations(conversations);
 		} catch {
 			conversationStore.error = 'Failed to load conversations';
