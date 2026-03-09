@@ -1072,16 +1072,21 @@ async function setupMockAPI(
 	});
 
 	// Task by number lookup (must be before generic /repos/* catch-all).
-	await page.route('**/api/v1/repos/*/tasks/[0-9]*', (route) => {
-		const url = route.request().url();
-		const numberStr = url.split('/tasks/')[1]?.split('?')[0];
-		const number = Number(numberStr);
-		const task = MOCK_TASKS.find((t) => t.number === number);
-		if (task) {
-			return route.fulfill({ json: { data: task } });
+	// Note: Playwright glob does NOT support [0-9] character classes — use a
+	// URL predicate instead so that numeric task-number segments match correctly.
+	await page.route(
+		(url) => /\/api\/v1\/repos\/[^/]+\/tasks\/\d+(\/|\?|$)/.test(url.pathname),
+		(route) => {
+			const url = route.request().url();
+			const numberStr = url.split('/tasks/')[1]?.split(/[/?]/)[0];
+			const number = Number(numberStr);
+			const task = MOCK_TASKS.find((t) => t.number === number);
+			if (task) {
+				return route.fulfill({ json: { data: task } });
+			}
+			return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 		}
-		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
-	});
+	);
 
 	// Task diff (must be before generic /tasks/* route).
 	await page.route('**/api/v1/tasks/*/diff', (route) =>
@@ -1191,15 +1196,20 @@ async function setupMockAPI(
 	// --- Epic API mocks ---
 
 	// Epic number lookup (must be before generic /repos/*/epics catch-all).
-	await page.route('**/api/v1/repos/*/epics/[0-9]*', (route) => {
-		const url = route.request().url();
-		const num = parseInt(url.split('/epics/')[1]?.split('?')[0] ?? '0');
-		const epic = MOCK_EPIC_BY_NUMBER[num];
-		if (epic) {
-			return route.fulfill({ json: { data: epic } });
+	// Note: Playwright glob does NOT support [0-9] character classes — use a
+	// URL predicate instead so that numeric epic-number segments match correctly.
+	await page.route(
+		(url) => /\/api\/v1\/repos\/[^/]+\/epics\/\d+(\/|\?|$)/.test(url.pathname),
+		(route) => {
+			const url = route.request().url();
+			const num = parseInt(url.split('/epics/')[1]?.split(/[/?]/)[0] ?? '0');
+			const epic = MOCK_EPIC_BY_NUMBER[num];
+			if (epic) {
+				return route.fulfill({ json: { data: epic } });
+			}
+			return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 		}
-		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
-	});
+	);
 
 	// List epics for a repo (must be before generic /repos/* catch-all).
 	await page.route('**/api/v1/repos/*/epics', (route) => {
