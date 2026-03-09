@@ -12,7 +12,7 @@
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import { taskStore } from '$lib/stores/tasks.svelte';
 	import { taskUrl } from '$lib/utils';
-	import { marked } from 'marked';
+	import { renderMarkdown } from '$lib/markdown';
 	import EditTaskDialog from '$lib/components/EditTaskDialog.svelte';
 	import {
 		ArrowLeft,
@@ -161,12 +161,6 @@
 
 		return colorizedLines.join('\n');
 	}
-
-	// Configure marked for safe rendering
-	marked.setOptions({
-		breaks: true,
-		gfm: true
-	});
 
 	let task = $state<Task | null>(null);
 	let logsByAttempt = $state<Record<number, string[]>>({});
@@ -318,7 +312,7 @@
 	const StatusIcon = $derived(currentStatusConfig?.icon ?? Clock);
 
 	// Render description as markdown
-	const renderedDescription = $derived(task && task.description.trim() ? marked(task.description) : '');
+	const renderedDescription = $derived(task && task.description.trim() ? renderMarkdown(task.description) : '');
 
 	// Per-attempt log tracking
 	const logs = $derived(logsByAttempt[activeAttemptTab] ?? []);

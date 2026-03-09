@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import { goto } from '$app/navigation';
 	import { MessageSquare } from 'lucide-svelte';
+	import { stripMarkdown } from '$lib/markdown';
 
 	let { conversation }: { conversation: Conversation } = $props();
 
@@ -27,9 +28,11 @@
 			: null
 	);
 
-	const lastMessagePreview = $derived(
-		lastMessage ? lastMessage.content.slice(0, 100) + (lastMessage.content.length > 100 ? '...' : '') : 'No messages yet'
-	);
+	const lastMessagePreview = $derived.by(() => {
+		if (!lastMessage) return 'No messages yet';
+		const stripped = stripMarkdown(lastMessage.content);
+		return stripped.slice(0, 100) + (stripped.length > 100 ? '...' : '');
+	});
 
 	const timeAgo = $derived.by(() => {
 		const date = new Date(conversation.updated_at);
