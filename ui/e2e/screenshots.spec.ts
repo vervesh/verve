@@ -1421,10 +1421,11 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page);
 		await page.goto(`/acme/webapp/tasks/4/pr`);
 
-		await page.waitForTimeout(2000);
+		// Wait for PR header to render (indicates task loaded and PR info is displayed).
+		await page.waitForSelector('text=PR #', { timeout: 10000 });
 
 		// Wait for the diff to auto-expand and render (file headers appear once loaded).
-		await page.waitForSelector('table', { timeout: 5000 });
+		await page.waitForSelector('table', { timeout: 10000 });
 		await page.waitForTimeout(500);
 
 		await page.screenshot({
@@ -1487,8 +1488,9 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page);
 		await page.goto('/acme/webapp/tasks/1');
 
-		// Wait for task detail to load.
-		await page.waitForTimeout(2000);
+		// Wait for task detail to fully load (task number badge appears).
+		await page.waitForSelector('text=#1', { timeout: 10000 });
+		await page.waitForTimeout(500);
 
 		// Click the "Edit" button to open the dialog.
 		const editButton = page.getByRole('button', { name: /edit/i });
