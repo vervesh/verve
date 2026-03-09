@@ -11,6 +11,7 @@ export interface ProposedTask {
 export interface Epic {
 	id: string;
 	repo_id: string;
+	number: number;
 	title: string;
 	description: string;
 	status: EpicStatus;

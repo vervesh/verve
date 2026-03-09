@@ -1,13 +1,15 @@
 <script lang="ts">
 	import type { Epic } from '$lib/models/epic';
+	import type { Repo } from '$lib/models/repo';
 	import * as Card from '$lib/components/ui/card';
 	import { goto } from '$app/navigation';
+	import { epicUrl } from '$lib/utils';
 	import { Layers, ChevronRight, CheckCircle2, ListTodo } from 'lucide-svelte';
 
-	let { epic }: { epic: Epic } = $props();
+	let { epic, repo }: { epic: Epic; repo: Repo } = $props();
 
 	function handleClick() {
-		goto(`/epics/${epic.id}`);
+		goto(epicUrl(repo.owner, repo.name, epic.number));
 	}
 
 	function getStatusColor(status: string) {
@@ -47,7 +49,7 @@
 	</div>
 	<div class="flex items-center gap-3 mt-2">
 		<span class="text-[10px] text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded">
-			{epic.id}
+			#{epic.number}
 		</span>
 		{#if epic.proposed_tasks.length > 0}
 			<span class="text-[10px] text-muted-foreground flex items-center gap-0.5">

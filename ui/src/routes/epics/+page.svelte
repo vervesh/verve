@@ -3,6 +3,7 @@
 	import { client } from '$lib/api-client';
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import { epicStore } from '$lib/stores/epics.svelte';
+	import { epicUrl } from '$lib/utils';
 	import EpicCard from '$lib/components/EpicCard.svelte';
 	import CreateEpicDialog from '$lib/components/CreateEpicDialog.svelte';
 	import RepoSetupBanner from '$lib/components/RepoSetupBanner.svelte';
@@ -110,7 +111,7 @@
 						<h2 class="text-sm font-semibold text-muted-foreground mb-3">Active</h2>
 						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 							{#each activeEpics as epic (epic.id)}
-								<EpicCard {epic} />
+								<EpicCard {epic} repo={repoStore.selectedRepo!} />
 							{/each}
 						</div>
 					</div>
@@ -121,7 +122,7 @@
 						<h2 class="text-sm font-semibold text-muted-foreground mb-3">Completed</h2>
 						<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
 							{#each completedEpics as epic (epic.id)}
-								<EpicCard {epic} />
+								<EpicCard {epic} repo={repoStore.selectedRepo!} />
 							{/each}
 						</div>
 					</div>
@@ -142,5 +143,17 @@
 </div>
 
 {#if hasRepo && repoReady}
-	<CreateEpicDialog bind:open={openCreateEpic} onCreated={(id) => goto(`/epics/${id}`)} />
+	<CreateEpicDialog bind:open={openCreateEpic} onCreated={async (id) => {
+		try {
+			const created = await client.getEpic(id);
+			const repo = repoStore.selectedRepo;
+			if (repo && created.number) {
+				goto(epicUrl(repo.owner, repo.name, created.number));
+			} else {
+				goto(`/epics/${id}`);
+			}
+		} catch {
+			goto(`/epics/${id}`);
+		}
+	}} />
 {/if}

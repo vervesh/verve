@@ -16,3 +16,7 @@ export type WithoutChildrenOrChild<T> = Omit<T, 'children' | 'child'>;
 export function taskUrl(owner: string, name: string, number: number): string {
 	return `/${owner}/${name}/tasks/${number}`;
 }
+
+export function epicUrl(owner: string, name: string, number: number): string {
+	return `/${owner}/${name}/epics/${number}`;
+}

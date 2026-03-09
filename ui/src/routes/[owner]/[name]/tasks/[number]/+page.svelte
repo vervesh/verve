@@ -11,7 +11,7 @@
 	import { goto } from '$app/navigation';
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import { taskStore } from '$lib/stores/tasks.svelte';
-	import { taskUrl } from '$lib/utils';
+	import { taskUrl, epicUrl } from '$lib/utils';
 	import { renderMarkdown } from '$lib/markdown';
 	import EditTaskDialog from '$lib/components/EditTaskDialog.svelte';
 	import {
@@ -761,7 +761,7 @@
 				{#if epic}
 					<button
 						class="inline-flex items-center gap-1.5 text-xs bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 px-2.5 py-1 rounded-md hover:bg-indigo-500/25 transition-colors cursor-pointer border border-indigo-500/20"
-						onclick={() => goto(`/epics/${epic!.id}`)}
+						onclick={() => repo ? goto(epicUrl(repo.owner, repo.name, epic!.number)) : goto(`/epics/${epic!.id}`)}
 						title="Part of epic: {epic!.title}"
 					>
 						<Layers class="w-3 h-3" />
