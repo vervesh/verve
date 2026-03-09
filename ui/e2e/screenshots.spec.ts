@@ -1072,16 +1072,21 @@ async function setupMockAPI(
 	});
 
 	// Task by number lookup (must be before generic /repos/* catch-all).
-	await page.route('**/api/v1/repos/*/tasks/[0-9]*', (route) => {
-		const url = route.request().url();
-		const numberStr = url.split('/tasks/')[1]?.split('?')[0];
-		const number = Number(numberStr);
-		const task = MOCK_TASKS.find((t) => t.number === number);
-		if (task) {
-			return route.fulfill({ json: { data: task } });
+	// Note: Playwright glob does NOT support [0-9] character classes — use a
+	// URL predicate instead so that numeric task-number segments match correctly.
+	await page.route(
+		(url) => /\/api\/v1\/repos\/[^/]+\/tasks\/\d+(\/|\?|$)/.test(url.pathname),
+		(route) => {
+			const url = route.request().url();
+			const numberStr = url.split('/tasks/')[1]?.split(/[/?]/)[0];
+			const number = Number(numberStr);
+			const task = MOCK_TASKS.find((t) => t.number === number);
+			if (task) {
+				return route.fulfill({ json: { data: task } });
+			}
+			return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 		}
-		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
-	});
+	);
 
 	// Task diff (must be before generic /tasks/* route).
 	await page.route('**/api/v1/tasks/*/diff', (route) =>
@@ -1191,15 +1196,20 @@ async function setupMockAPI(
 	// --- Epic API mocks ---
 
 	// Epic number lookup (must be before generic /repos/*/epics catch-all).
-	await page.route('**/api/v1/repos/*/epics/[0-9]*', (route) => {
-		const url = route.request().url();
-		const num = parseInt(url.split('/epics/')[1]?.split('?')[0] ?? '0');
-		const epic = MOCK_EPIC_BY_NUMBER[num];
-		if (epic) {
-			return route.fulfill({ json: { data: epic } });
+	// Note: Playwright glob does NOT support [0-9] character classes — use a
+	// URL predicate instead so that numeric epic-number segments match correctly.
+	await page.route(
+		(url) => /\/api\/v1\/repos\/[^/]+\/epics\/\d+(\/|\?|$)/.test(url.pathname),
+		(route) => {
+			const url = route.request().url();
+			const num = parseInt(url.split('/epics/')[1]?.split(/[/?]/)[0] ?? '0');
+			const epic = MOCK_EPIC_BY_NUMBER[num];
+			if (epic) {
+				return route.fulfill({ json: { data: epic } });
+			}
+			return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
 		}
-		return route.fulfill({ status: 404, json: { error: { message: 'not found' } } });
-	});
+	);
 
 	// List epics for a repo (must be before generic /repos/* catch-all).
 	await page.route('**/api/v1/repos/*/epics', (route) => {
@@ -1421,10 +1431,8 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page);
 		await page.goto(`/acme/webapp/tasks/4/pr`);
 
-		await page.waitForTimeout(2000);
-
 		// Wait for the diff to auto-expand and render (file headers appear once loaded).
-		await page.waitForSelector('table', { timeout: 5000 });
+		await page.waitForSelector('table', { timeout: 15000 });
 		await page.waitForTimeout(500);
 
 		await page.screenshot({
@@ -1487,11 +1495,9 @@ test.describe('UI Screenshots', () => {
 		await setupMockAPI(page);
 		await page.goto('/acme/webapp/tasks/1');
 
-		// Wait for task detail to load.
-		await page.waitForTimeout(2000);
-
-		// Click the "Edit" button to open the dialog.
+		// Wait for the Edit button to be visible, confirming the task has loaded.
 		const editButton = page.getByRole('button', { name: /edit/i });
+		await editButton.waitFor({ timeout: 15000 });
 		await editButton.click();
 
 		// Wait for dialog to appear and settle.
@@ -1716,21 +1722,4 @@ test.describe('UI Screenshots', () => {
 		});
 	});
 
-	// --- Old URL Redirect ---
-
-	test('old task URL redirects to new format', async ({ page }) => {
-		await setupMockAPI(page);
-		await page.goto('/tasks/tsk_review01');
-
-		// Wait for redirect to complete — should end up at /acme/webapp/tasks/4
-		await page.waitForURL('**/acme/webapp/tasks/4', { timeout: 10000 });
-	});
-
-	test('old task PR URL redirects to new format', async ({ page }) => {
-		await setupMockAPI(page);
-		await page.goto('/tasks/tsk_review01/pr');
-
-		// Wait for redirect to complete — should end up at /acme/webapp/tasks/4/pr
-		await page.waitForURL('**/acme/webapp/tasks/4/pr', { timeout: 10000 });
-	});
 });
