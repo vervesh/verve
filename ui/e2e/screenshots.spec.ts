@@ -283,6 +283,7 @@ const MOCK_TASKS = [
 		attempt: 1,
 		max_attempts: 3,
 		acceptance_criteria: ['Payment tests pass', 'No regressions'],
+		depends_on: ['tsk_pending01'],
 		consecutive_failures: 0,
 		cost_usd: 0,
 		skip_pr: false,

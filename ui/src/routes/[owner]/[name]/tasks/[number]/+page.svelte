@@ -1083,7 +1083,7 @@
 											}}
 										>
 											<Link2 class="w-3 h-3" />
-											{depTaskNumbers[depId] ? `#${depTaskNumbers[depId]}` : depId.slice(0, 12) + '...'}
+											{depTaskNumbers[depId] ? `#${depTaskNumbers[depId]}` : '(unavailable)'}
 										</button>
 										<button
 											class="inline-flex items-center px-1.5 py-1.5 hover:bg-destructive/20 hover:text-destructive rounded-r-md transition-colors border-l border-border"

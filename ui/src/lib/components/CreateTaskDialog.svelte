@@ -273,7 +273,7 @@
 						<div class="flex flex-wrap gap-1.5 mb-3 max-h-20 overflow-y-auto">
 							{#each selectedDeps as depId}
 								<Badge variant="secondary" class="gap-1 pl-2 pr-1 py-1 max-w-48">
-									<span class="font-mono text-xs truncate">{taskNumberMap[depId] ? `#${taskNumberMap[depId]}` : depId.slice(0, 12) + '...'}</span>
+									<span class="font-mono text-xs truncate">{taskNumberMap[depId] ? `#${taskNumberMap[depId]}` : '(loading...)'}</span>
 									<button
 										type="button"
 										class="ml-1 hover:bg-destructive/20 hover:text-destructive rounded p-0.5 transition-colors shrink-0"
