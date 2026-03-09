@@ -645,7 +645,7 @@ const MOCK_CONVERSATION_ACTIVE = {
 		},
 		{
 			role: 'assistant',
-			content: 'For JWT-based authentication in your Express API, I\'d recommend the following approach:\n\n1. **Token Strategy**: Use short-lived access tokens (15 min) with longer-lived refresh tokens (7 days) stored in httpOnly cookies.\n\n2. **Middleware**: Create an auth middleware that validates JWTs on protected routes and extracts user context.\n\n3. **Password Hashing**: Use bcrypt with a cost factor of 12 for password storage.\n\n4. **Endpoints**:\n   - POST /auth/login - Issue tokens\n   - POST /auth/register - Create account\n   - POST /auth/refresh - Rotate refresh token\n   - POST /auth/logout - Invalidate refresh token\n\nWould you like me to break this down into specific implementation tasks?',
+			content: 'For JWT-based authentication in your Express API, I\'d recommend the following approach:\n\n## Token Strategy\n\nUse short-lived access tokens (15 min) with longer-lived refresh tokens (7 days) stored in `httpOnly` cookies.\n\n1. **Middleware**: Create an auth middleware that validates JWTs on protected routes and extracts user context.\n2. **Password Hashing**: Use bcrypt with a cost factor of 12 for password storage.\n3. **Endpoints**:\n   - `POST /auth/login` - Issue tokens\n   - `POST /auth/register` - Create account\n   - `POST /auth/refresh` - Rotate refresh token\n   - `POST /auth/logout` - Invalidate refresh token\n\nHere\'s a sample middleware:\n\n```typescript\nimport { verify } from \'jsonwebtoken\';\n\nexport function authMiddleware(req, res, next) {\n  const token = req.cookies.access_token;\n  if (!token) return res.status(401).json({ error: \'Unauthorized\' });\n  try {\n    req.user = verify(token, process.env.JWT_SECRET);\n    next();\n  } catch {\n    res.status(401).json({ error: \'Invalid token\' });\n  }\n}\n```\n\nSee the [Express JWT docs](https://github.com/auth0/express-jwt) for more details. Would you like me to break this down into specific *implementation tasks*?',
 			timestamp: 1717225260
 		},
 		{
@@ -655,7 +655,7 @@ const MOCK_CONVERSATION_ACTIVE = {
 		},
 		{
 			role: 'assistant',
-			content: 'Absolutely — rate limiting on auth endpoints is critical for security. I\'d recommend:\n\n- **Login endpoint**: 5 attempts per IP per 15 minutes\n- **Register endpoint**: 3 attempts per IP per hour\n- **Refresh endpoint**: 30 attempts per IP per hour\n\nYou can use `express-rate-limit` with a Redis store for distributed rate limiting, or a simple in-memory store for single-server deployments.\n\nI\'ll include rate limiting as a task when we generate the implementation plan.',
+			content: 'Absolutely — rate limiting on auth endpoints is *critical* for security. I\'d recommend:\n\n- **Login endpoint**: 5 attempts per IP per 15 minutes\n- **Register endpoint**: 3 attempts per IP per hour\n- **Refresh endpoint**: 30 attempts per IP per hour\n\nYou can use `express-rate-limit` with a Redis store for distributed rate limiting, or a simple in-memory store for single-server deployments.\n\nI\'ll include rate limiting as a task when we generate the implementation plan.',
 			timestamp: 1717225380
 		}
 	],
@@ -736,18 +736,42 @@ const MOCK_CONVERSATION_ARCHIVED = {
 	updated_at: '2025-05-31T09:15:00Z'
 };
 
+// Conversation with rich markdown content for visual regression testing.
+const MOCK_CONVERSATION_RICH_MARKDOWN = {
+	id: 'cnv_richmd01',
+	repo_id: 'repo_mock01',
+	title: 'Rich markdown rendering test',
+	status: 'active',
+	messages: [
+		{
+			role: 'user',
+			content: 'Show me a comprehensive example of how to set up a Go HTTP server with middleware.',
+			timestamp: 1717225200
+		},
+		{
+			role: 'assistant',
+			content: '## Setting Up a Go HTTP Server\n\nHere\'s a comprehensive guide to setting up a **production-ready** Go HTTP server with *middleware support*.\n\n### Key Components\n\n1. **Router**: Use `chi` or the standard `net/http` mux\n2. **Middleware**: Logging, recovery, and CORS\n3. **Graceful shutdown**: Handle `SIGINT` and `SIGTERM`\n\n### Example Code\n\nFirst, install the dependency:\n\n```bash\ngo get github.com/go-chi/chi/v5\n```\n\nThen create your server:\n\n```go\npackage main\n\nimport (\n\t"log"\n\t"net/http"\n\t"github.com/go-chi/chi/v5"\n\t"github.com/go-chi/chi/v5/middleware"\n)\n\nfunc main() {\n\tr := chi.NewRouter()\n\tr.Use(middleware.Logger)\n\tr.Use(middleware.Recoverer)\n\n\tr.Get("/health", func(w http.ResponseWriter, r *http.Request) {\n\t\tw.Write([]byte("ok"))\n\t})\n\n\tlog.Fatal(http.ListenAndServe(":8080", r))\n}\n```\n\n### Configuration Notes\n\n- Set `ReadTimeout` and `WriteTimeout` to prevent slow client attacks\n- Use `context.Context` for request-scoped values\n- The `middleware.Logger` logs each request with method, path, and duration\n\n> **Tip**: Always use `http.Server` directly instead of `http.ListenAndServe` in production for proper timeout configuration.\n\nFor more details, see the [chi documentation](https://github.com/go-chi/chi) and the [Go net/http package](https://pkg.go.dev/net/http).\n\n### Summary\n\n| Feature | Package | Notes |\n|---------|---------|-------|\n| Routing | `chi` | Lightweight, `net/http` compatible |\n| Logging | `middleware.Logger` | Built-in request logging |\n| Recovery | `middleware.Recoverer` | Panic recovery |\n\nLet me know if you want me to add `CORS` configuration or create tasks for implementing this!',
+			timestamp: 1717225260
+		}
+	],
+	created_at: '2025-06-01T11:00:00Z',
+	updated_at: '2025-06-01T11:10:00Z'
+};
+
 const MOCK_CONVERSATIONS = [
 	MOCK_CONVERSATION_ACTIVE,
 	MOCK_CONVERSATION_PENDING,
 	MOCK_CONVERSATION_WITH_EPIC,
-	MOCK_CONVERSATION_ARCHIVED
+	MOCK_CONVERSATION_ARCHIVED,
+	MOCK_CONVERSATION_RICH_MARKDOWN
 ];
 
 const MOCK_CONVERSATION_MAP: Record<string, typeof MOCK_CONVERSATION_ACTIVE> = {
 	cnv_active01: MOCK_CONVERSATION_ACTIVE,
 	cnv_pending01: MOCK_CONVERSATION_PENDING,
 	cnv_withepic01: MOCK_CONVERSATION_WITH_EPIC,
-	cnv_archived01: MOCK_CONVERSATION_ARCHIVED
+	cnv_archived01: MOCK_CONVERSATION_ARCHIVED,
+	cnv_richmd01: MOCK_CONVERSATION_RICH_MARKDOWN
 };
 
 // Mock agent metrics data for the agents observability page.
@@ -1639,6 +1663,18 @@ test.describe('UI Screenshots', () => {
 
 		await page.screenshot({
 			path: `screenshots/conversation-with-epic-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('conversation detail - rich markdown message', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/conversations/cnv_richmd01');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/conversation-rich-markdown-${testInfo.project.name}.png`,
 			fullPage: true
 		});
 	});
