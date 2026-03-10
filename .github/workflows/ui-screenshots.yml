@@ -38,13 +38,13 @@ jobs:
           cache-dependency-path: ui/pnpm-lock.yaml
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --silent
 
       - name: Install Playwright browsers
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium > /dev/null 2>&1
 
       - name: Build UI
-        run: pnpm build
+        run: pnpm build > build-output.txt 2>&1 || { cat build-output.txt; exit 1; }
 
       - name: Take screenshots
         id: playwright
@@ -52,6 +52,19 @@ jobs:
           mkdir -p screenshots
           pnpm exec playwright test --project=desktop 2>&1 | tee playwright-output.txt
           exit ${PIPESTATUS[0]}
+
+      - name: Print test failure summary
+        if: failure() && steps.playwright.outcome == 'failure'
+        run: |
+          echo ""
+          echo "=========================================="
+          echo "  PLAYWRIGHT TEST FAILURES"
+          echo "=========================================="
+          echo ""
+          if [ -f playwright-output.txt ]; then
+            # Show only the failure summary, not the full verbose output
+            grep -A 1000 'failed' playwright-output.txt | tail -100 || cat playwright-output.txt | tail -100
+          fi
 
       - name: Push screenshots to orphan branch
         if: always()
