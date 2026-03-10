@@ -6,6 +6,7 @@
 	import { epicStore } from '$lib/stores/epics.svelte';
 	import { repoStore } from '$lib/stores/repos.svelte';
 	import { taskUrl, epicUrl } from '$lib/utils';
+	import { renderMarkdown } from '$lib/markdown';
 	import { Button } from '$lib/components/ui/button';
 	import * as Card from '$lib/components/ui/card';
 	import type { Epic, ProposedTask } from '$lib/models/epic';
@@ -523,7 +524,9 @@
 		{#if epic.description}
 			<Card.Root class="mb-6 bg-[oklch(0.18_0.005_285.823)]">
 				<Card.Content class="p-4 max-h-48 overflow-y-auto overscroll-contain">
-					<p class="text-sm text-muted-foreground whitespace-pre-wrap">{epic.description}</p>
+					<div class="prose prose-sm dark:prose-invert max-w-none">
+						{@html renderMarkdown(epic.description)}
+					</div>
 				</Card.Content>
 			</Card.Root>
 		{/if}
