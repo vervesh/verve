@@ -242,15 +242,13 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={handleClose}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={!editTitle.trim()} class="gap-2">
-						<Check class="w-4 h-4" />
-						Save Changes
-					</Button>
-				</div>
+				<Button type="button" variant="outline" onclick={handleClose}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={!editTitle.trim()} class="gap-2">
+					<Check class="w-4 h-4" />
+					Save Changes
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

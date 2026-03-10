@@ -170,20 +170,18 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={loading || !title.trim()} class="gap-2 bg-blue-600 hover:bg-blue-700">
-						{#if loading}
-							<Loader2 class="w-4 h-4 animate-spin" />
-							Creating...
-						{:else}
-							<MessageSquare class="w-4 h-4" />
-							Start Conversation
-						{/if}
-					</Button>
-				</div>
+				<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={loading || !title.trim()} class="gap-2 bg-blue-600 hover:bg-blue-700">
+					{#if loading}
+						<Loader2 class="w-4 h-4 animate-spin" />
+						Creating...
+					{:else}
+						<MessageSquare class="w-4 h-4" />
+						Start Conversation
+					{/if}
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

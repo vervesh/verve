@@ -195,20 +195,18 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={loading || !title.trim()} class="gap-2 bg-violet-600 hover:bg-violet-700">
-						{#if loading}
-							<Loader2 class="w-4 h-4 animate-spin" />
-							Creating...
-						{:else}
-							<Layers class="w-4 h-4" />
-							Create Epic
-						{/if}
-					</Button>
-				</div>
+				<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={loading || !title.trim()} class="gap-2 bg-violet-600 hover:bg-violet-700">
+					{#if loading}
+						<Loader2 class="w-4 h-4 animate-spin" />
+						Creating...
+					{:else}
+						<Layers class="w-4 h-4" />
+						Create Epic
+					{/if}
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

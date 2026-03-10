@@ -451,20 +451,18 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={loading || !editTitle.trim()} class="gap-2">
-						{#if loading}
-							<Loader2 class="w-4 h-4 animate-spin" />
-							Saving...
-						{:else}
-							<Check class="w-4 h-4" />
-							Save Changes
-						{/if}
-					</Button>
-				</div>
+				<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={loading || !editTitle.trim()} class="gap-2">
+					{#if loading}
+						<Loader2 class="w-4 h-4 animate-spin" />
+						Saving...
+					{:else}
+						<Check class="w-4 h-4" />
+						Save Changes
+					{/if}
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

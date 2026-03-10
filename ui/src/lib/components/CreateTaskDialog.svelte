@@ -436,20 +436,18 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
-						Cancel
-					</Button>
-					<Button type="submit" disabled={loading || !title.trim()} class="gap-2">
-						{#if loading}
-							<Loader2 class="w-4 h-4 animate-spin" />
-							Creating...
-						{:else}
-							<Sparkles class="w-4 h-4" />
-							Create Task
-						{/if}
-					</Button>
-				</div>
+				<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
+					Cancel
+				</Button>
+				<Button type="submit" disabled={loading || !title.trim()} class="gap-2">
+					{#if loading}
+						<Loader2 class="w-4 h-4 animate-spin" />
+						Creating...
+					{:else}
+						<Sparkles class="w-4 h-4" />
+						Create Task
+					{/if}
+				</Button>
 			</Dialog.Footer>
 		</form>
 	</Dialog.Content>

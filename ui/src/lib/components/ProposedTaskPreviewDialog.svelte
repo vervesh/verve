@@ -114,24 +114,22 @@
 			</div>
 
 			<Dialog.Footer>
-				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
-					<Button type="button" variant="outline" onclick={() => (open = false)}>
-						Close
+				<Button type="button" variant="outline" onclick={() => (open = false)}>
+					Close
+				</Button>
+				{#if onEdit}
+					<Button
+						type="button"
+						onclick={() => {
+							open = false;
+							onEdit?.();
+						}}
+						class="gap-2"
+					>
+						<Edit3 class="w-4 h-4" />
+						Edit Task
 					</Button>
-					{#if onEdit}
-						<Button
-							type="button"
-							onclick={() => {
-								open = false;
-								onEdit?.();
-							}}
-							class="gap-2"
-						>
-							<Edit3 class="w-4 h-4" />
-							Edit Task
-						</Button>
-					{/if}
-				</div>
+				{/if}
 			</Dialog.Footer>
 		{/if}
 	</Dialog.Content>

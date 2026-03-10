@@ -161,9 +161,8 @@
 	height: auto;
 }
 
-/* Dialog content: prevent children from causing horizontal overflow */
+/* Dialog content: ensure text wraps within dialog boundaries */
 [data-slot="dialog-content"] {
-	overflow-x: hidden;
 	overflow-wrap: break-word;
 	word-break: break-word;
 }
