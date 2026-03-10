@@ -50,23 +50,23 @@
 		</Dialog.Header>
 
 		{#if task}
-			<div class="py-4 space-y-6">
+			<div class="py-4 space-y-6 min-w-0">
 				<!-- Title -->
-				<div>
+				<div class="min-w-0">
 					<h3 class="text-sm font-medium mb-1.5 flex items-center gap-2 text-muted-foreground">
 						Title
 					</h3>
-					<p class="text-sm font-medium">{task.title}</p>
+					<p class="text-sm font-medium break-words">{task.title}</p>
 				</div>
 
 				<!-- Description -->
 				{#if task.description}
-					<div>
+					<div class="min-w-0">
 						<h3 class="text-sm font-medium mb-1.5 flex items-center gap-2 text-muted-foreground">
-							<FileText class="w-4 h-4" />
+							<FileText class="w-4 h-4 shrink-0" />
 							Description
 						</h3>
-						<div class="border rounded-lg p-4 bg-muted/20 max-h-[40vh] overflow-y-auto overscroll-contain">
+						<div class="border rounded-lg p-3 sm:p-4 bg-muted/20 max-h-[40vh] overflow-y-auto overflow-x-hidden overscroll-contain">
 							<div class="prose prose-sm dark:prose-invert max-w-none">
 								{@html renderMarkdown(task.description)}
 							</div>
@@ -76,9 +76,9 @@
 
 				<!-- Acceptance Criteria -->
 				{#if task.acceptance_criteria && task.acceptance_criteria.length > 0}
-					<div>
+					<div class="min-w-0">
 						<h3 class="text-sm font-medium mb-2 flex items-center gap-2 text-muted-foreground">
-							<Target class="w-4 h-4" />
+							<Target class="w-4 h-4 shrink-0" />
 							Acceptance Criteria
 							<span class="px-1.5 py-0.5 rounded-full text-[10px] bg-muted">{task.acceptance_criteria.length}</span>
 						</h3>
@@ -86,7 +86,7 @@
 							{#each task.acceptance_criteria as criterion, i}
 								<div class="flex items-start gap-2.5 py-1.5 px-3 rounded-lg bg-muted/20">
 									<CheckCircle2 class="w-3.5 h-3.5 text-muted-foreground mt-0.5 shrink-0" />
-									<span class="text-sm">{criterion}</span>
+									<span class="text-sm break-words min-w-0">{criterion}</span>
 								</div>
 							{/each}
 						</div>
@@ -95,9 +95,9 @@
 
 				<!-- Dependencies -->
 				{#if task.depends_on_temp_ids && task.depends_on_temp_ids.length > 0}
-					<div>
+					<div class="min-w-0">
 						<h3 class="text-sm font-medium mb-2 flex items-center gap-2 text-muted-foreground">
-							<Link2 class="w-4 h-4" />
+							<Link2 class="w-4 h-4 shrink-0" />
 							Dependencies
 							<span class="px-1.5 py-0.5 rounded-full text-[10px] bg-muted">{task.depends_on_temp_ids.length}</span>
 						</h3>
@@ -105,7 +105,7 @@
 							{#each task.depends_on_temp_ids as depId}
 								<div class="flex items-center gap-2 py-1.5 px-3 rounded-lg bg-muted/20">
 									<Link2 class="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-									<span class="text-sm">{getDependencyLabel(depId)}</span>
+									<span class="text-sm break-words min-w-0">{getDependencyLabel(depId)}</span>
 								</div>
 							{/each}
 						</div>
@@ -114,7 +114,7 @@
 			</div>
 
 			<Dialog.Footer>
-				<div class="flex justify-end gap-2 w-full">
+				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
 					<Button type="button" variant="outline" onclick={() => (open = false)}>
 						Close
 					</Button>

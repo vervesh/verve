@@ -1033,7 +1033,7 @@
 					<!-- Description -->
 					<div class="px-5 py-4 {(task.acceptance_criteria && task.acceptance_criteria.length > 0) || (task.depends_on && task.depends_on.length > 0) ? 'border-b' : ''}">
 						{#if renderedDescription}
-							<div class="max-h-96 overflow-y-auto">
+							<div class="max-h-96 overflow-y-auto overflow-x-hidden">
 								<div class="prose prose-sm dark:prose-invert max-w-none">
 									{@html renderedDescription}
 								</div>

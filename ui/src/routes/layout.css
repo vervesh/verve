@@ -139,6 +139,35 @@
 	font-size: 0.875em;
 }
 
+/* Prose/markdown content: prevent overflow from code blocks, tables, long URLs */
+.prose {
+	overflow-wrap: break-word;
+	word-break: break-word;
+}
+
+.prose :where(pre):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+	overflow-x: auto;
+	max-width: 100%;
+}
+
+.prose :where(table):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+	display: block;
+	overflow-x: auto;
+	max-width: 100%;
+}
+
+.prose :where(img):not(:where([class~="not-prose"], [class~="not-prose"] *)) {
+	max-width: 100%;
+	height: auto;
+}
+
+/* Dialog content: prevent children from causing horizontal overflow */
+[data-slot="dialog-content"] {
+	overflow-x: hidden;
+	overflow-wrap: break-word;
+	word-break: break-word;
+}
+
 /* Mobile-specific improvements */
 @media (max-width: 639px) {
 	/* Prevent horizontal overflow on mobile */

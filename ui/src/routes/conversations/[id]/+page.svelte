@@ -377,7 +377,7 @@
 									<span class="text-muted-foreground/50">{formatTimestamp(message.timestamp)}</span>
 								{/if}
 							</div>
-							<div class="bg-[oklch(0.18_0.005_285.823)] border rounded-2xl rounded-tl-sm px-4 py-2.5">
+							<div class="bg-[oklch(0.18_0.005_285.823)] border rounded-2xl rounded-tl-sm px-4 py-2.5 overflow-x-hidden">
 								<div class="prose prose-sm prose-invert max-w-none prose-headings:text-zinc-100 prose-p:text-zinc-300 prose-strong:text-zinc-200 prose-a:text-blue-400 prose-code:text-zinc-300 prose-code:bg-zinc-900 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-700 prose-blockquote:border-zinc-600 prose-li:text-zinc-300 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre]:overflow-x-auto">
 									{@html renderMarkdown(message.content)}
 								</div>

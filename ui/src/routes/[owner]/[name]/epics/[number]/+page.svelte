@@ -523,7 +523,7 @@
 
 		{#if epic.description}
 			<Card.Root class="mb-6 bg-[oklch(0.18_0.005_285.823)]">
-				<Card.Content class="p-4 max-h-48 overflow-y-auto overscroll-contain">
+				<Card.Content class="p-4 max-h-48 overflow-y-auto overflow-x-hidden overscroll-contain">
 					<div class="prose prose-sm dark:prose-invert max-w-none">
 						{@html renderMarkdown(epic.description)}
 					</div>

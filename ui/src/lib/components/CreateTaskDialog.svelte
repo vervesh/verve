@@ -436,7 +436,7 @@
 				{/if}
 			</div>
 			<Dialog.Footer>
-				<div class="flex justify-end gap-2 w-full">
+				<div class="flex flex-col-reverse sm:flex-row justify-end gap-2 w-full">
 					<Button type="button" variant="outline" onclick={handleClose} disabled={loading}>
 						Cancel
 					</Button>
