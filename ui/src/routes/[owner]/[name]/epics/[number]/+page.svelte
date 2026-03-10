@@ -740,7 +740,9 @@
 												<div class="flex-1 min-w-0 {isEditable && !isPlanning ? 'pr-16' : ''}">
 													<p class="text-sm font-medium">{task.title}</p>
 													{#if task.description}
-														<p class="text-xs text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+														<div class="text-xs text-muted-foreground mt-1 line-clamp-2 prose prose-sm dark:prose-invert max-w-none [&>*]:m-0 [&>*]:text-xs [&>*]:text-muted-foreground">
+															{@html renderMarkdown(task.description)}
+														</div>
 													{/if}
 													<div class="flex items-center gap-3 mt-2 flex-wrap">
 														{#if task.depends_on_temp_ids && task.depends_on_temp_ids.length > 0}
