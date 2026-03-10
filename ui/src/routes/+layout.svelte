@@ -102,7 +102,7 @@
 	<div class="flex-1 min-h-0 flex">
 		{#if allConfigured}
 			<Sidebar />
-			<main class="flex-1 min-h-0 flex flex-col overflow-auto">
+			<main class="flex-1 min-h-0 flex flex-col overflow-auto pb-14 sm:pb-0">
 				{@render children()}
 			</main>
 		{:else if settingsRequired}

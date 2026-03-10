@@ -14,7 +14,8 @@
 	const hasRepo = $derived(!!repoStore.selectedRepoId);
 </script>
 
-<nav class="w-12 sm:w-44 border-r bg-card/50 flex flex-col shrink-0">
+<!-- Desktop sidebar (hidden on mobile) -->
+<nav class="hidden sm:flex w-44 border-r bg-card/50 flex-col shrink-0">
 	<div class="flex flex-col gap-1 p-2">
 		<a
 			href="/"
@@ -24,7 +25,7 @@
 				: 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
 		>
 			<ListTodo class="w-4 h-4 shrink-0" />
-			<span class="hidden sm:inline">Tasks</span>
+			<span>Tasks</span>
 		</a>
 		<a
 			href="/epics"
@@ -34,7 +35,7 @@
 				: 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
 		>
 			<Layers class="w-4 h-4 shrink-0" />
-			<span class="hidden sm:inline">Epics</span>
+			<span>Epics</span>
 		</a>
 		<a
 			href="/conversations"
@@ -44,7 +45,7 @@
 				: 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
 		>
 			<MessageSquare class="w-4 h-4 shrink-0" />
-			<span class="hidden sm:inline">Conversations</span>
+			<span>Conversations</span>
 		</a>
 		<a
 			href="/agents"
@@ -54,7 +55,7 @@
 				: 'text-muted-foreground hover:text-foreground hover:bg-accent'}"
 		>
 			<Activity class="w-4 h-4 shrink-0" />
-			<span class="hidden sm:inline">Metrics</span>
+			<span>Metrics</span>
 		</a>
 		{#if hasRepo}
 			<button
@@ -63,7 +64,63 @@
 				class="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-sm font-medium transition-colors text-muted-foreground hover:text-foreground hover:bg-accent text-left"
 			>
 				<BookOpen class="w-4 h-4 shrink-0" />
-				<span class="hidden sm:inline">Repo Settings</span>
+				<span>Repo Settings</span>
+			</button>
+		{/if}
+	</div>
+</nav>
+
+<!-- Mobile bottom bar (hidden on desktop) -->
+<nav class="sm:hidden fixed bottom-0 left-0 right-0 z-50 border-t bg-card/95 backdrop-blur-sm">
+	<div class="flex items-center justify-around px-1 py-1.5">
+		<a
+			href="/"
+			class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors min-w-0 flex-1
+				{isTasksActive
+				? 'text-primary'
+				: 'text-muted-foreground'}"
+		>
+			<ListTodo class="w-5 h-5" />
+			<span>Tasks</span>
+		</a>
+		<a
+			href="/epics"
+			class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors min-w-0 flex-1
+				{isEpicsActive
+				? 'text-primary'
+				: 'text-muted-foreground'}"
+		>
+			<Layers class="w-5 h-5" />
+			<span>Epics</span>
+		</a>
+		<a
+			href="/conversations"
+			class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors min-w-0 flex-1
+				{isConversationsActive
+				? 'text-primary'
+				: 'text-muted-foreground'}"
+		>
+			<MessageSquare class="w-5 h-5" />
+			<span>Chats</span>
+		</a>
+		<a
+			href="/agents"
+			class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors min-w-0 flex-1
+				{isMetricsActive
+				? 'text-primary'
+				: 'text-muted-foreground'}"
+		>
+			<Activity class="w-5 h-5" />
+			<span>Metrics</span>
+		</a>
+		{#if hasRepo}
+			<button
+				type="button"
+				onclick={() => (repoSettingsOpen = true)}
+				class="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-[10px] font-medium transition-colors text-muted-foreground min-w-0 flex-1"
+			>
+				<BookOpen class="w-5 h-5" />
+				<span>Repo</span>
 			</button>
 		{/if}
 	</div>

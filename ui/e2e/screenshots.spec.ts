@@ -1722,4 +1722,32 @@ test.describe('UI Screenshots', () => {
 		});
 	});
 
+	// --- Mobile Bottom Bar Screenshots ---
+
+	test('mobile bottom bar - tasks page', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await setupMockAPI(page);
+		await page.goto('/');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/mobile-bottom-bar-tasks-${testInfo.project.name}.png`,
+			fullPage: false
+		});
+	});
+
+	test('mobile bottom bar - epics page', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 375, height: 812 });
+		await setupMockAPI(page);
+		await page.goto('/epics');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/mobile-bottom-bar-epics-${testInfo.project.name}.png`,
+			fullPage: false
+		});
+	});
+
 });
