@@ -617,7 +617,7 @@ func (h *HTTPHandler) BulkDeleteTasks(c echo.Context) error {
 		prNum  int
 		status task.Status
 	}
-	var refs []taskRef
+	refs := make([]taskRef, 0, len(req.TaskIDs))
 	for _, idStr := range req.TaskIDs {
 		id, parseErr := task.ParseTaskID(idStr)
 		if parseErr != nil {
