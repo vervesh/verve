@@ -569,6 +569,22 @@ func (h *HTTPHandler) DeleteTask(c echo.Context) error {
 		return err
 	}
 
+	// Close the corresponding GitHub PR and delete its branch if unmerged.
+	if t.PRNumber > 0 && t.Status != task.StatusMerged {
+		if gh := h.githubClient(); gh != nil {
+			repoID, parseErr := repo.ParseRepoID(t.RepoID)
+			if parseErr == nil {
+				r, readErr := h.repoStore.ReadRepo(ctx, repoID)
+				if readErr == nil {
+					branch, closeErr := gh.ClosePR(ctx, r.Owner, r.Name, t.PRNumber)
+					if closeErr == nil && branch != "" {
+						_ = gh.DeleteBranch(ctx, r.Owner, r.Name, branch)
+					}
+				}
+			}
+		}
+	}
+
 	if err := h.store.DeleteTask(ctx, id); err != nil {
 		return err
 	}
@@ -594,11 +610,14 @@ func (h *HTTPHandler) BulkDeleteTasks(c echo.Context) error {
 
 	ctx := c.Request().Context()
 
-	type epicRef struct {
+	type taskRef struct {
 		epicID string
 		taskID string
+		repoID string
+		prNum  int
+		status task.Status
 	}
-	var epicRefs []epicRef
+	refs := make([]taskRef, 0, len(req.TaskIDs))
 	for _, idStr := range req.TaskIDs {
 		id, parseErr := task.ParseTaskID(idStr)
 		if parseErr != nil {
@@ -608,8 +627,30 @@ func (h *HTTPHandler) BulkDeleteTasks(c echo.Context) error {
 		if readErr != nil {
 			continue
 		}
-		if t.EpicID != "" {
-			epicRefs = append(epicRefs, epicRef{epicID: t.EpicID, taskID: idStr})
+		refs = append(refs, taskRef{
+			epicID: t.EpicID,
+			taskID: idStr,
+			repoID: t.RepoID,
+			prNum:  t.PRNumber,
+			status: t.Status,
+		})
+	}
+
+	// Close corresponding GitHub PRs and delete branches for unmerged tasks.
+	if gh := h.githubClient(); gh != nil {
+		for _, ref := range refs {
+			if ref.prNum > 0 && ref.status != task.StatusMerged {
+				repoID, parseErr := repo.ParseRepoID(ref.repoID)
+				if parseErr == nil {
+					r, readErr := h.repoStore.ReadRepo(ctx, repoID)
+					if readErr == nil {
+						branch, closeErr := gh.ClosePR(ctx, r.Owner, r.Name, ref.prNum)
+						if closeErr == nil && branch != "" {
+							_ = gh.DeleteBranch(ctx, r.Owner, r.Name, branch)
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -618,7 +659,10 @@ func (h *HTTPHandler) BulkDeleteTasks(c echo.Context) error {
 	}
 
 	if h.epicStore != nil {
-		for _, ref := range epicRefs {
+		for _, ref := range refs {
+			if ref.epicID == "" {
+				continue
+			}
 			epicID, parseErr := epic.ParseEpicID(ref.epicID)
 			if parseErr == nil {
 				if err := h.epicStore.RemoveTaskAndCheck(ctx, epicID, ref.taskID); err != nil {

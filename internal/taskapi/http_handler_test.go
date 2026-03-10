@@ -363,6 +363,47 @@ func TestDeleteTask_InvalidID(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, httpRes.StatusCode, "expected validation error for invalid task ID")
 }
 
+func TestDeleteTask_WithPullRequest(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	tsk := f.seedTask("title", "desc")
+	require.NoError(t, f.TaskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
+	require.NoError(t, f.TaskRepo.SetTaskPullRequest(ctx, tsk.ID, "https://github.com/owner/test-repo/pull/42", 42))
+
+	// Verify PR info was set.
+	tsk = f.readTask(tsk.ID)
+	assert.Equal(t, 42, tsk.PRNumber)
+
+	testutil.Delete(t, f.taskURL(tsk.ID))
+
+	// Verify task was deleted even though no GitHub client is configured (graceful no-op).
+	_, readErr := f.TaskRepo.ReadTask(ctx, tsk.ID)
+	assert.Error(t, readErr, "expected task to be deleted")
+}
+
+func TestBulkDeleteTasks_WithPullRequests(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+
+	tsk1 := f.seedTask("task1", "desc1")
+	require.NoError(t, f.TaskRepo.UpdateTaskStatus(ctx, tsk1.ID, task.StatusRunning))
+	require.NoError(t, f.TaskRepo.SetTaskPullRequest(ctx, tsk1.ID, "https://github.com/owner/test-repo/pull/10", 10))
+
+	tsk2 := f.seedTask("task2", "desc2")
+
+	req := taskapi.BulkDeleteTasksRequest{
+		TaskIDs: []string{tsk1.ID.String(), tsk2.ID.String()},
+	}
+	postNoContent(t, f.Server.Address()+"/api/v1/tasks/bulk-delete", req)
+
+	// Verify both tasks were deleted.
+	_, err := f.TaskRepo.ReadTask(ctx, tsk1.ID)
+	assert.Error(t, err, "expected task1 to be deleted")
+	_, err = f.TaskRepo.ReadTask(ctx, tsk2.ID)
+	assert.Error(t, err, "expected task2 to be deleted")
+}
+
 // --- GetTaskByNumber ---
 
 func TestGetTaskByNumber_Success(t *testing.T) {
