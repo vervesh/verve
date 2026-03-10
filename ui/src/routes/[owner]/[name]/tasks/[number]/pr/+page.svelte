@@ -216,7 +216,7 @@
 	{:else if task && task.pull_request_url}
 		<!-- PR Header with padding -->
 		<div class="px-4 sm:px-6 space-y-4 pb-4">
-			<div class="flex items-start gap-4 flex-wrap">
+			<div class="space-y-3">
 				<div class="flex items-center gap-3">
 					{#if task.status === 'merged'}
 						<div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0">
@@ -227,9 +227,9 @@
 							<GitPullRequest class="w-5 h-5 text-purple-500" />
 						</div>
 					{/if}
-					<div>
-						<h1 class="text-xl sm:text-2xl font-semibold">{task.title}</h1>
-						<div class="flex items-center gap-2 mt-1 text-sm">
+					<div class="min-w-0 flex-1">
+						<h1 class="text-xl sm:text-2xl font-semibold truncate">{task.title}</h1>
+						<div class="flex items-center gap-2 mt-1 text-sm flex-wrap">
 							<span class="{prStatusColor} font-medium">{prStatusLabel}</span>
 							<span class="text-muted-foreground">·</span>
 							<a
@@ -242,8 +242,8 @@
 								<ExternalLink class="w-3 h-3" />
 							</a>
 							{#if task.branch_name}
-								<span class="text-muted-foreground">·</span>
-								<span class="text-xs font-mono text-muted-foreground flex items-center gap-1">
+								<span class="text-muted-foreground hidden sm:inline">·</span>
+								<span class="hidden sm:flex text-xs font-mono text-muted-foreground items-center gap-1">
 									<GitBranch class="w-3 h-3" />
 									{task.branch_name}
 								</span>
@@ -251,7 +251,7 @@
 						</div>
 					</div>
 				</div>
-				<div class="ml-auto flex items-center gap-2">
+				<div class="flex items-center gap-2">
 					{#if task.status === 'review'}
 						<Button
 							size="sm"
@@ -271,7 +271,7 @@
 						class="gap-1.5"
 					>
 						<ExternalLink class="w-3.5 h-3.5" />
-						View on GitHub
+						<span class="hidden sm:inline">View on </span>GitHub
 					</Button>
 				</div>
 			</div>
@@ -300,7 +300,7 @@
 								<span class="text-sm text-muted-foreground">Checking CI status...</span>
 							{:else if checkStatus?.check_runs_skipped}
 								<AlertTriangle class="w-3.5 h-3.5 text-amber-500" />
-								<span class="text-sm text-muted-foreground">CI checks skipped — fine-grained tokens do not support this. Use a classic token for CI visibility.</span>
+								<span class="text-sm text-muted-foreground">CI checks skipped — use a classic token for CI visibility.</span>
 							{:else if checkStatus?.status === 'success'}
 								<CheckCircle class="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
 								<span class="text-sm text-green-600 dark:text-green-400">All checks passed</span>
@@ -385,12 +385,12 @@
 									</div>
 								</div>
 							{:else}
-								<div class="flex items-center gap-3">
+								<div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
 									<Button size="sm" variant="outline" onclick={() => (showFeedbackForm = true)} class="gap-2 border-purple-500/40 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10">
 										<MessageSquare class="w-4 h-4" />
-										Request Agent Changes
+										Request Changes
 									</Button>
-									<span class="text-xs text-muted-foreground">The agent will update this branch and PR based on your instructions.</span>
+									<span class="text-xs text-muted-foreground hidden sm:inline">The agent will update this branch and PR based on your instructions.</span>
 								</div>
 							{/if}
 						</div>

@@ -322,9 +322,9 @@
 
 {#snippet diffContent()}
 	<div class="flex">
-		<!-- File Navigator Sidebar -->
+		<!-- File Navigator Sidebar (hidden on mobile) -->
 		{#if showFileNav && parsedDiff && parsedDiff.files.length > 0}
-			<div class="w-64 shrink-0 border-r border-border bg-muted/20 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-0">
+			<div class="hidden sm:block w-64 shrink-0 border-r border-border bg-muted/20 overflow-y-auto max-h-[calc(100vh-200px)] sticky top-0">
 				<div class="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/30">
 					<span class="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Files</span>
 					<span class="text-xs text-muted-foreground">{parsedDiff.files.length}</span>

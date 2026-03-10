@@ -79,7 +79,7 @@
 				{/if}
 				{#if allConfigured && taskStore.totalCost > 0}
 					<span
-						class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border"
+						class="hidden sm:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground border border-border"
 						title="Total cost for this repository"
 					>
 						<DollarSign class="w-3 h-3" />

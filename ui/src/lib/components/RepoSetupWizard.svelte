@@ -254,7 +254,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[800px] max-h-[90vh] overflow-y-auto">
+	<Dialog.Content class="sm:max-w-[800px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
 				<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -399,8 +399,8 @@
 		</div>
 
 		<Dialog.Footer>
-			<div class="flex items-center justify-between w-full gap-2">
-				<div class="flex items-center gap-2">
+			<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full gap-2">
+				<div class="flex items-center gap-2 order-2 sm:order-1">
 					<Button
 						type="button"
 						variant="outline"
@@ -412,7 +412,7 @@
 						Rescan
 					</Button>
 				</div>
-				<div class="flex items-center gap-2">
+				<div class="flex flex-wrap items-center gap-2 order-1 sm:order-2 justify-end">
 					<Button type="button" variant="ghost" onclick={handleClose} disabled={isDisabled}>
 						Cancel
 					</Button>
@@ -443,7 +443,8 @@
 							Submitting...
 						{:else}
 							<Sparkles class="w-4 h-4" />
-							Submit for AI Review
+							<span class="hidden sm:inline">Submit for AI Review</span>
+							<span class="sm:hidden">AI Review</span>
 						{/if}
 					</Button>
 					<Button
@@ -457,7 +458,8 @@
 							Saving...
 						{:else}
 							<Check class="w-4 h-4" />
-							Save & Complete
+							<span class="hidden sm:inline">Save & Complete</span>
+							<span class="sm:hidden">Save</span>
 						{/if}
 					</Button>
 				</div>

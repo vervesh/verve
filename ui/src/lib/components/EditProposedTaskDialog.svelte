@@ -101,7 +101,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+	<Dialog.Content class="sm:max-w-[900px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
 				<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -140,7 +140,7 @@
 						<textarea
 							id="edit-proposed-description"
 							bind:value={editDescription}
-							class="w-full border rounded-lg p-3 min-h-[240px] bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+							class="w-full border rounded-lg p-3 min-h-[120px] sm:min-h-[240px] bg-background text-foreground resize-y focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
 							placeholder="Detailed description of what the agent should do..."
 						></textarea>
 					</div>

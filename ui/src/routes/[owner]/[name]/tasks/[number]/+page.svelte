@@ -750,7 +750,8 @@
 				<h1 class="text-xl sm:text-2xl font-semibold">{task.title}</h1>
 			{/if}
 
-			<div class="flex items-center gap-2 sm:gap-3 flex-wrap pb-4 sm:pb-5 border-b">
+			<!-- Metadata row -->
+			<div class="flex items-center gap-2 sm:gap-3 flex-wrap pb-3 sm:pb-4">
 				<span class="font-mono text-xs sm:text-sm text-muted-foreground bg-muted px-2 py-0.5 rounded">
 					#{task.number}
 				</span>
@@ -765,7 +766,7 @@
 						title="Part of epic: {epic!.title}"
 					>
 						<Layers class="w-3 h-3" />
-						<span class="max-w-[200px] truncate">{epic!.title}</span>
+						<span class="max-w-[150px] sm:max-w-[200px] truncate">{epic!.title}</span>
 					</button>
 				{/if}
 				{#if task.duration_ms}
@@ -783,69 +784,72 @@
 						{/if}
 					</span>
 				{/if}
-
-				<div class="ml-auto flex items-center gap-2 flex-wrap">
+				<div class="hidden sm:flex items-center gap-2 ml-auto">
 					<span class="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
 						<span class="text-muted-foreground/60">Created</span> {formatDate(task.created_at)}
 					</span>
 					<span class="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
 						<span class="text-muted-foreground/60">Updated</span> {formatDate(task.updated_at)}
 					</span>
-					{#if canEdit}
-						<Button size="sm" variant="outline" onclick={openEditDialog} class="gap-1">
-							<Pencil class="w-4 h-4" />
-							<span class="hidden sm:inline">Edit</span>
-						</Button>
-					{/if}
-					{#if task.ready && task.status === 'pending'}
-						<Button
-							size="sm"
-							variant="outline"
-							onclick={handleToggleReady}
-							disabled={togglingReady}
-							class="gap-1"
-							title="Mark this task as not ready so agents won't pick it up"
-						>
-							{#if togglingReady}
-								<Loader2 class="w-4 h-4 animate-spin" />
-							{:else}
-								<PauseCircle class="w-4 h-4" />
-							{/if}
-							<span class="hidden sm:inline">Mark Not Ready</span>
-						</Button>
-					{/if}
-					{#if canStartOver}
-						{#if showStartOverForm}
-							<Button size="sm" variant="ghost" onclick={() => (showStartOverForm = false)} class="gap-1">
-								<X class="w-4 h-4" />
-								Cancel
-							</Button>
-						{:else}
-							<Button size="sm" variant="outline" onclick={openStartOverForm} class="gap-1">
-								<RotateCcw class="w-4 h-4" />
-								Start Over
-							</Button>
-						{/if}
-					{/if}
-					{#if canClose}
-						{#if showCloseForm}
-							<Button size="sm" variant="ghost" onclick={() => (showCloseForm = false)} class="gap-1">
-								<X class="w-4 h-4" />
-								Cancel
-							</Button>
-						{:else}
-							<Button size="sm" variant="outline" onclick={() => (showCloseForm = true)} class="gap-1">
-								<XCircle class="w-4 h-4" />
-								<span class="hidden sm:inline">Close Task</span>
-								<span class="sm:hidden">Close</span>
-							</Button>
-						{/if}
-					{/if}
-					<Button size="sm" variant="destructive" onclick={() => (showDeleteDialog = true)} class="gap-1">
-						<Trash2 class="w-4 h-4" />
-						<span class="hidden sm:inline">Delete</span>
-					</Button>
 				</div>
+			</div>
+
+			<!-- Action buttons -->
+			<div class="flex items-center gap-2 flex-wrap pb-4 sm:pb-5 border-b">
+				{#if canEdit}
+					<Button size="sm" variant="outline" onclick={openEditDialog} class="gap-1">
+						<Pencil class="w-4 h-4" />
+						<span class="hidden sm:inline">Edit</span>
+					</Button>
+				{/if}
+				{#if task.ready && task.status === 'pending'}
+					<Button
+						size="sm"
+						variant="outline"
+						onclick={handleToggleReady}
+						disabled={togglingReady}
+						class="gap-1"
+						title="Mark this task as not ready so agents won't pick it up"
+					>
+						{#if togglingReady}
+							<Loader2 class="w-4 h-4 animate-spin" />
+						{:else}
+							<PauseCircle class="w-4 h-4" />
+						{/if}
+						<span class="hidden sm:inline">Mark Not Ready</span>
+					</Button>
+				{/if}
+				{#if canStartOver}
+					{#if showStartOverForm}
+						<Button size="sm" variant="ghost" onclick={() => (showStartOverForm = false)} class="gap-1">
+							<X class="w-4 h-4" />
+							Cancel
+						</Button>
+					{:else}
+						<Button size="sm" variant="outline" onclick={openStartOverForm} class="gap-1">
+							<RotateCcw class="w-4 h-4" />
+							<span class="hidden sm:inline">Start Over</span>
+						</Button>
+					{/if}
+				{/if}
+				{#if canClose}
+					{#if showCloseForm}
+						<Button size="sm" variant="ghost" onclick={() => (showCloseForm = false)} class="gap-1">
+							<X class="w-4 h-4" />
+							Cancel
+						</Button>
+					{:else}
+						<Button size="sm" variant="outline" onclick={() => (showCloseForm = true)} class="gap-1">
+							<XCircle class="w-4 h-4" />
+							<span class="hidden sm:inline">Close Task</span>
+							<span class="sm:hidden">Close</span>
+						</Button>
+					{/if}
+				{/if}
+				<Button size="sm" variant="destructive" onclick={() => (showDeleteDialog = true)} class="gap-1">
+					<Trash2 class="w-4 h-4" />
+					<span class="hidden sm:inline">Delete</span>
+				</Button>
 			</div>
 
 			<!-- Close Form (full width, above columns) -->

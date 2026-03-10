@@ -152,7 +152,7 @@
 </script>
 
 <Dialog.Root bind:open>
-	<Dialog.Content class="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+	<Dialog.Content class="sm:max-w-[700px] max-h-[85vh] sm:max-h-[90vh] overflow-y-auto">
 		<Dialog.Header>
 			<Dialog.Title class="flex items-center gap-2">
 				<div class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -347,7 +347,7 @@
 			</div>
 
 			<Dialog.Footer>
-				<div class="flex items-center justify-between w-full gap-2">
+				<div class="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between w-full gap-2">
 					<Button
 						type="button"
 						variant="outline"
@@ -356,7 +356,8 @@
 						class="gap-1.5"
 					>
 						<RefreshCw class="w-4 h-4 {rescanning ? 'animate-spin' : ''}" />
-						{repo.setup_status === 'scanning' ? 'Scanning...' : 'Rescan Repository'}
+						<span class="hidden sm:inline">{repo.setup_status === 'scanning' ? 'Scanning...' : 'Rescan Repository'}</span>
+						<span class="sm:hidden">{repo.setup_status === 'scanning' ? 'Scanning...' : 'Rescan'}</span>
 					</Button>
 					<Button type="button" variant="ghost" onclick={() => (open = false)}>
 						Close

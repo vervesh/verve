@@ -248,36 +248,66 @@
 		</div>
 	{:else if conversation}
 		<!-- Header -->
-		<header class="border-b px-4 sm:px-6 py-3 flex items-center gap-3 shrink-0">
-			<button
-				onclick={() => goto('/conversations')}
-				class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-			>
-				<ArrowLeft class="w-4 h-4" />
-			</button>
-			<div class="flex items-center gap-2 flex-1 min-w-0">
-				<MessageSquare class="w-5 h-5 text-blue-400 shrink-0" />
-				<h1 class="text-lg font-semibold truncate">{conversation.title}</h1>
-				{#if conversation.status === 'archived'}
-					<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-gray-500/15 text-gray-400 border-gray-500/20 shrink-0">
-						archived
-					</span>
-				{/if}
+		<header class="border-b px-4 sm:px-6 py-3 shrink-0">
+			<div class="flex items-center gap-3">
+				<button
+					onclick={() => goto('/conversations')}
+					class="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0"
+				>
+					<ArrowLeft class="w-4 h-4" />
+				</button>
+				<div class="flex items-center gap-2 flex-1 min-w-0">
+					<MessageSquare class="w-5 h-5 text-blue-400 shrink-0" />
+					<h1 class="text-lg font-semibold truncate">{conversation.title}</h1>
+					{#if conversation.status === 'archived'}
+						<span class="inline-flex items-center text-[11px] font-semibold px-2 py-0.5 rounded-full border bg-gray-500/15 text-gray-400 border-gray-500/20 shrink-0">
+							archived
+						</span>
+					{/if}
+				</div>
+				<div class="hidden sm:flex items-center gap-2 shrink-0">
+					{#if hasEpic}
+						<Button variant="outline" size="sm" onclick={navigateToEpic} class="gap-1.5 text-xs">
+							<ExternalLink class="w-3.5 h-3.5" />
+							View Generated Tasks
+						</Button>
+					{:else}
+						<Button variant="outline" size="sm" onclick={() => (showGenerateDialog = true)} class="gap-1.5 text-xs">
+							<Layers class="w-3.5 h-3.5" />
+							Generate Tasks
+						</Button>
+					{/if}
+					{#if conversation.status === 'active'}
+						<Button variant="outline" size="sm" onclick={handleArchive} disabled={archiving} class="gap-1.5 text-xs text-muted-foreground">
+							{#if archiving}
+								<Loader2 class="w-3.5 h-3.5 animate-spin" />
+							{:else}
+								<Archive class="w-3.5 h-3.5" />
+							{/if}
+							Archive
+						</Button>
+					{/if}
+					<Button variant="outline" size="sm" onclick={() => (showDeleteConfirm = true)} class="gap-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10">
+						<Trash2 class="w-3.5 h-3.5" />
+						Delete
+					</Button>
+				</div>
 			</div>
-			<div class="flex items-center gap-2 shrink-0">
+			<!-- Mobile action buttons -->
+			<div class="flex sm:hidden items-center gap-2 mt-2">
 				{#if hasEpic}
-					<Button variant="outline" size="sm" onclick={navigateToEpic} class="gap-1.5 text-xs">
+					<Button variant="outline" size="sm" onclick={navigateToEpic} class="gap-1.5 text-xs shrink-0">
 						<ExternalLink class="w-3.5 h-3.5" />
-						View Generated Tasks
+						View Tasks
 					</Button>
 				{:else}
-					<Button variant="outline" size="sm" onclick={() => (showGenerateDialog = true)} class="gap-1.5 text-xs">
+					<Button variant="outline" size="sm" onclick={() => (showGenerateDialog = true)} class="gap-1.5 text-xs shrink-0">
 						<Layers class="w-3.5 h-3.5" />
-						Generate Tasks
+						Generate
 					</Button>
 				{/if}
 				{#if conversation.status === 'active'}
-					<Button variant="outline" size="sm" onclick={handleArchive} disabled={archiving} class="gap-1.5 text-xs text-muted-foreground">
+					<Button variant="outline" size="sm" onclick={handleArchive} disabled={archiving} class="gap-1.5 text-xs text-muted-foreground shrink-0">
 						{#if archiving}
 							<Loader2 class="w-3.5 h-3.5 animate-spin" />
 						{:else}
@@ -286,7 +316,7 @@
 						Archive
 					</Button>
 				{/if}
-				<Button variant="outline" size="sm" onclick={() => (showDeleteConfirm = true)} class="gap-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10">
+				<Button variant="outline" size="sm" onclick={() => (showDeleteConfirm = true)} class="gap-1.5 text-xs text-red-400 border-red-500/30 hover:bg-red-500/10 shrink-0">
 					<Trash2 class="w-3.5 h-3.5" />
 					Delete
 				</Button>
