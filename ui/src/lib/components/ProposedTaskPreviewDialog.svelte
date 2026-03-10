@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Button } from '$lib/components/ui/button';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import { renderMarkdown } from '$lib/markdown';
 	import type { ProposedTask } from '$lib/models/epic';
 	import {
 		Eye,
@@ -66,7 +67,9 @@
 							Description
 						</h3>
 						<div class="border rounded-lg p-4 bg-muted/20 max-h-[40vh] overflow-y-auto overscroll-contain">
-							<p class="text-sm whitespace-pre-wrap leading-relaxed">{task.description}</p>
+							<div class="prose prose-sm dark:prose-invert max-w-none">
+								{@html renderMarkdown(task.description)}
+							</div>
 						</div>
 					</div>
 				{/if}

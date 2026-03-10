@@ -437,7 +437,7 @@ const MOCK_EPIC_DRAFT = {
 	number: 1,
 	title: 'Implement user authentication system',
 	description:
-		'Build a complete authentication system with JWT tokens, login/signup pages, password reset flow, and role-based access control. Should integrate with the existing Express API and use PostgreSQL for user storage.',
+		'Build a complete authentication system with **JWT tokens**, login/signup pages, password reset flow, and role-based access control.\n\n## Requirements\n- Integrate with the existing Express API\n- Use PostgreSQL for user storage\n- Support `bcrypt` password hashing\n\nSee the [design doc](https://example.com) for details.',
 	status: 'draft',
 	proposed_tasks: [],
 	task_ids: [],
@@ -461,7 +461,7 @@ const MOCK_EPIC_PLANNING = {
 			temp_id: 'tmp_01',
 			title: 'Set up WebSocket server infrastructure',
 			description:
-				'Create a WebSocket server using ws library integrated with the Express app. Handle connection lifecycle, authentication via JWT, and heartbeat pings.',
+				'Create a WebSocket server using `ws` library integrated with the Express app.\n\n**Key tasks:**\n1. Handle connection lifecycle\n2. Authentication via JWT\n3. Heartbeat pings every 30s',
 			depends_on_temp_ids: [],
 			acceptance_criteria: [
 				'WebSocket server accepts connections on /ws',
