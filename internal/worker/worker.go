@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joshjon/kit/log"
+	"github.com/joshjon/verve/internal/redact"
 )
 
 const (
@@ -379,8 +380,10 @@ func newConversationLogStreamer(ctx context.Context, w *Worker, conversationID s
 	return ls
 }
 
-// AddLine adds a log line to the buffer (thread-safe)
+// AddLine adds a log line to the buffer (thread-safe).
+// Sensitive data (API keys, tokens, passwords, etc.) is automatically redacted.
 func (ls *logStreamer) AddLine(line string) {
+	line = redact.Line(line)
 	ls.mu.Lock()
 	ls.buffer = append(ls.buffer, line)
 	shouldFlush := len(ls.buffer) >= ls.batchSize
