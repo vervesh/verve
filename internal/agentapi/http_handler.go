@@ -13,6 +13,7 @@ import (
 	"github.com/joshjon/verve/internal/epic"
 	"github.com/joshjon/verve/internal/githubtoken"
 	"github.com/joshjon/verve/internal/logkey"
+	"github.com/joshjon/verve/internal/redact"
 	"github.com/joshjon/verve/internal/repo"
 	"github.com/joshjon/verve/internal/task"
 	"github.com/joshjon/verve/internal/workertracker"
@@ -250,7 +251,7 @@ func (h *HTTPHandler) TaskAppendLogs(c echo.Context) error {
 	if attempt == 0 {
 		attempt = 1
 	}
-	if err := h.taskStore.AppendTaskLogs(c.Request().Context(), id, attempt, req.Logs); err != nil {
+	if err := h.taskStore.AppendTaskLogs(c.Request().Context(), id, attempt, redact.Lines(req.Logs)); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
@@ -400,7 +401,7 @@ func (h *HTTPHandler) EpicAppendLogs(c echo.Context) error {
 	id := epic.MustParseEpicID(req.ID)
 	c.Set(logkey.EpicID, id.String())
 
-	if err := h.epicStore.AppendSessionLog(c.Request().Context(), id, req.Lines); err != nil {
+	if err := h.epicStore.AppendSessionLog(c.Request().Context(), id, redact.Lines(req.Lines)); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusNoContent)
