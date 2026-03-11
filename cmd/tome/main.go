@@ -20,6 +20,7 @@ func main() {
 			searchCmd(),
 			recordCmd(),
 			logCmd(),
+			indexCmd(),
 			initCmd(),
 		},
 	}
@@ -60,6 +61,7 @@ func searchCmd() *cli.Command {
 			&cli.StringFlag{Name: "status", Usage: "Filter by status (succeeded/failed)"},
 			&cli.IntFlag{Name: "limit", Aliases: []string{"n"}, Value: 5, Usage: "Max results"},
 			&cli.BoolFlag{Name: "json", Usage: "Output as JSON"},
+			&cli.BoolFlag{Name: "bm25-only", Usage: "Force BM25-only search (skip LSA)"},
 		},
 		Action: func(c *cli.Context) error {
 			query := c.Args().First()
@@ -77,6 +79,7 @@ func searchCmd() *cli.Command {
 				FilePattern: c.String("file"),
 				Status:      c.String("status"),
 				Limit:       c.Int("limit"),
+				BM25Only:    c.Bool("bm25-only"),
 			})
 			if err != nil {
 				return err
@@ -160,6 +163,28 @@ func logCmd() *cli.Command {
 				return tome.FormatJSON(os.Stdout, sessions)
 			}
 			tome.FormatLog(os.Stdout, sessions)
+			return nil
+		},
+	}
+}
+
+func indexCmd() *cli.Command {
+	return &cli.Command{
+		Name:  "index",
+		Usage: "Rebuild the LSA semantic search index",
+		Action: func(c *cli.Context) error {
+			t, err := openTome()
+			if err != nil {
+				return err
+			}
+			defer t.Close()
+
+			numDocs, numTerms, dim, err := t.BuildIndex(c.Context)
+			if err != nil {
+				return fmt.Errorf("build index (%d sessions): %v", numDocs, err)
+			}
+
+			fmt.Printf("Built LSA index: %d sessions, %d terms, %d dimensions\n", numDocs, numTerms, dim)
 			return nil
 		},
 	}

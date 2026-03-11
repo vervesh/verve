@@ -165,6 +165,10 @@
 - **Docker integration**: Tome binary included in agent image; session data persists across containers via the cache volume (`/cache/tome/`)
 - **Agent prompt integration**: Agents receive instructions for searching and recording sessions
 - **Multiple output formats**: Human-readable text (default) and JSON (`--json`) for machine consumption
+- **Hybrid search (BM25 + LSA)**: Combines FTS5 keyword matching with Latent Semantic Analysis for semantic similarity; finds sessions that use different vocabulary but relate to the same concepts
+- **Automatic LSA index**: Index builds lazily on first search and rebuilds when new sessions are recorded; gracefully falls back to BM25-only with fewer than 2 sessions
+- **Force BM25-only mode**: `--bm25-only` flag for debugging or when only exact keyword matches are desired
+- **Manual index rebuild**: `tome index` command for diagnostics (shows session count, term count, and dimensionality)
 
 ## Security & Isolation
 

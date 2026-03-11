@@ -19,6 +19,7 @@ type SearchOpts struct {
 	FilePattern string // filter sessions by files touched
 	Status      string // filter by outcome
 	Limit       int    // max results (default 5)
+	BM25Only    bool   // force BM25-only mode (skip LSA)
 }
 
 // SearchResult is a session matched by a search query.

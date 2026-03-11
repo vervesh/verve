@@ -14,6 +14,7 @@ require (
 	github.com/tursodatabase/libsql-client-go v0.0.0-20251219100830-236aa1ff8acc
 	github.com/urfave/cli/v2 v2.27.7
 	go.jetify.com/typeid v1.3.0
+	gonum.org/v1/gonum v0.17.0
 )
 
 require (
