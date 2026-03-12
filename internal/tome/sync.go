@@ -87,8 +87,8 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 
 	// List all local tome branches.
 	out, listErr := gitOutput(ctx, repoDir, "for-each-ref", "--format=%(refname:short)", "refs/heads/tome/context")
-	if listErr != nil || strings.TrimSpace(out) == "" {
-		return 0, nil // no tome branches
+	if listErr != nil || strings.TrimSpace(out) == "" { //nolint:nilerr // no tome branches is not an error
+		return 0, nil
 	}
 
 	// Collect existing session IDs to dedup.

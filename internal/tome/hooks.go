@@ -187,8 +187,8 @@ func RemoveClaudeMD(repoDir string) error {
 	claudeMDPath := filepath.Join(repoDir, "CLAUDE.md")
 
 	existing, readErr := os.ReadFile(claudeMDPath)
-	if readErr != nil {
-		return nil // no CLAUDE.md
+	if readErr != nil { //nolint:nilerr // missing CLAUDE.md is not an error
+		return nil
 	}
 
 	content := string(existing)
@@ -291,8 +291,8 @@ func RemoveGitignore(repoDir string) error {
 	gitignorePath := filepath.Join(repoDir, ".gitignore")
 
 	existing, readErr := os.ReadFile(gitignorePath)
-	if readErr != nil {
-		return nil // no .gitignore, nothing to do
+	if readErr != nil { //nolint:nilerr // missing .gitignore is not an error
+		return nil
 	}
 
 	lines := strings.Split(string(existing), "\n")
@@ -318,8 +318,8 @@ func uninstallHook(hooksDir, name string) error {
 	hookPath := filepath.Join(hooksDir, name)
 
 	existing, readErr := os.ReadFile(hookPath)
-	if readErr != nil {
-		return nil // hook doesn't exist
+	if readErr != nil { //nolint:nilerr // missing hook file is not an error
+		return nil
 	}
 
 	content := string(existing)
