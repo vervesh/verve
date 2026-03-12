@@ -30,7 +30,7 @@ type SyncResult struct {
 
 // Sync synchronizes sessions with a git remote via orphan branches.
 // Sessions are stored as JSONL on branches like tome/context/<user>.
-func (t *Tome) Sync(ctx context.Context, repoDir string, user string, opts SyncOpts) (SyncResult, error) {
+func (t *Tome) Sync(ctx context.Context, repoDir, user string, opts SyncOpts) (SyncResult, error) {
 	var result SyncResult
 
 	err := t.withSyncLock(func() error {
@@ -70,12 +70,12 @@ func (t *Tome) withSyncLock(fn func() error) error {
 	if err != nil {
 		return fmt.Errorf("open lock: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		return fmt.Errorf("acquire lock: %w", err)
 	}
-	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN) //nolint:errcheck
+	defer func() { _ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN) }()
 
 	return fn()
 }
@@ -86,8 +86,8 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 	_ = gitExec(ctx, repoDir, "fetch", "origin", "refs/heads/tome/context*:refs/heads/tome/context*")
 
 	// List all local tome branches.
-	out, err := gitOutput(ctx, repoDir, "for-each-ref", "--format=%(refname:short)", "refs/heads/tome/context")
-	if err != nil || strings.TrimSpace(out) == "" {
+	out, listErr := gitOutput(ctx, repoDir, "for-each-ref", "--format=%(refname:short)", "refs/heads/tome/context")
+	if listErr != nil || strings.TrimSpace(out) == "" {
 		return 0, nil // no tome branches
 	}
 
@@ -142,7 +142,9 @@ func (t *Tome) push(ctx context.Context, repoDir, branch string) (int, error) {
 	existing, _ := readBranchSessions(ctx, repoDir, "origin/"+branch)
 
 	// Combine existing + new sessions into JSONL, then gzip.
-	allSessions := append(existing, sessions...)
+	allSessions := make([]Session, 0, len(existing)+len(sessions))
+	allSessions = append(allSessions, existing...)
+	allSessions = append(allSessions, sessions...)
 	var jsonlBuf bytes.Buffer
 	if err := encodeJSONL(&jsonlBuf, allSessions); err != nil {
 		return 0, fmt.Errorf("encode sessions: %w", err)
@@ -214,7 +216,7 @@ func (t *Tome) allSessionIDs(ctx context.Context) (map[string]bool, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	ids := make(map[string]bool)
 	for rows.Next() {
@@ -257,7 +259,7 @@ func (t *Tome) unexportedSessions(ctx context.Context) ([]Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []Session
 	for rows.Next() {
@@ -303,7 +305,7 @@ func readBranchSessions(ctx context.Context, repoDir, branch string) ([]Session,
 		if err != nil {
 			return nil, fmt.Errorf("decompress: %w", err)
 		}
-		defer r.Close()
+		defer func() { _ = r.Close() }()
 
 		decompressed, err := io.ReadAll(r)
 		if err != nil {

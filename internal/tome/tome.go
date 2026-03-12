@@ -27,7 +27,7 @@ type Tome struct {
 
 // Open opens (or creates) a Tome database in the given directory.
 func Open(dir string) (*Tome, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return nil, fmt.Errorf("create directory: %w", err)
 	}
 
@@ -40,7 +40,7 @@ func Open(dir string) (*Tome, error) {
 	}
 
 	if err := sqlitedb.Migrate(db, migrations.FS); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 
@@ -72,7 +72,7 @@ func (t *Tome) Log(ctx context.Context, limit int) ([]Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []Session
 	for rows.Next() {
@@ -155,7 +155,7 @@ func (t *Tome) allSessions(ctx context.Context) ([]Session, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sessions []Session
 	for rows.Next() {

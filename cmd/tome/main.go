@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -40,7 +41,7 @@ func resolveDir() (string, error) {
 		return dir, nil
 	}
 
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", fmt.Errorf("not in a git repository and TOME_DIR not set")
 	}
@@ -77,7 +78,7 @@ func searchCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			results, err := t.Search(c.Context, query, tome.SearchOpts{
 				FilePattern: c.String("file"),
@@ -116,7 +117,7 @@ func showCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			session, err := t.Get(c.Context, id)
 			if err != nil {
@@ -150,11 +151,11 @@ func recordCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			branch := c.String("branch")
 			if branch == "" {
-				if out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+				if out, err := exec.CommandContext(c.Context, "git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
 					branch = strings.TrimSpace(string(out))
 				}
 			}
@@ -197,7 +198,7 @@ func logCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			sessions, err := t.Log(c.Context, c.Int("limit"))
 			if err != nil {
@@ -222,11 +223,11 @@ func indexCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			numDocs, numTerms, dim, err := t.BuildIndex(c.Context)
 			if err != nil {
-				return fmt.Errorf("build index (%d sessions): %v", numDocs, err)
+				return fmt.Errorf("build index (%d sessions): %w", numDocs, err)
 			}
 
 			fmt.Printf("Built LSA index: %d sessions, %d terms, %d dimensions\n", numDocs, numTerms, dim)
@@ -252,7 +253,7 @@ func initCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			fmt.Printf("Initialized tome at %s\n", dir)
 
@@ -298,8 +299,8 @@ func cleanCmd() *cli.Command {
 			}
 			fmt.Printf("Removed %s\n", dir)
 
-			repoDir, err := resolveRepoDir()
-			if err != nil {
+			repoDir, repoErr := resolveRepoDir()
+			if repoErr != nil {
 				return nil // not in a git repo, nothing else to clean
 			}
 
@@ -339,7 +340,7 @@ func syncCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			repoDir, err := resolveRepoDir()
 			if err != nil {
@@ -386,7 +387,7 @@ func checkpointCmd() *cli.Command {
 			if err != nil {
 				return err
 			}
-			defer t.Close()
+			defer func() { _ = t.Close() }()
 
 			repoDir, err := resolveRepoDir()
 			if err != nil {
@@ -413,7 +414,7 @@ func checkpointCmd() *cli.Command {
 }
 
 func resolveRepoDir() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	out, err := exec.CommandContext(context.Background(), "git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return "", fmt.Errorf("not in a git repository")
 	}
@@ -421,7 +422,7 @@ func resolveRepoDir() (string, error) {
 }
 
 func detectUser() string {
-	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
+	if out, err := exec.CommandContext(context.Background(), "git", "config", "user.name").Output(); err == nil {
 		return strings.TrimSpace(string(out))
 	}
 	return ""

@@ -56,7 +56,7 @@ func (t *Tome) searchBM25(ctx context.Context, query string, opts SearchOpts) ([
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []SearchResult
 	for rows.Next() {

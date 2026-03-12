@@ -12,17 +12,17 @@ import (
 // The query is used to extract a context snippet from session content.
 func FormatSearchResults(w io.Writer, results []SearchResult, query string) {
 	if len(results) == 0 {
-		fmt.Fprintln(w, "No sessions found.")
+		_, _ = fmt.Fprintln(w, "No sessions found.")
 		return
 	}
 
 	for i, r := range results {
 		if i > 0 {
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 		}
 		formatSession(w, r.Session)
 		if snippet := matchSnippet(r.Session.Content, query, 500); snippet != "" {
-			fmt.Fprintf(w, "Match: ...%s...\n", snippet)
+			_, _ = fmt.Fprintf(w, "Match: ...%s...\n", snippet)
 		}
 	}
 }
@@ -30,13 +30,13 @@ func FormatSearchResults(w io.Writer, results []SearchResult, query string) {
 // FormatLog writes sessions in human-readable text format.
 func FormatLog(w io.Writer, sessions []Session) {
 	if len(sessions) == 0 {
-		fmt.Fprintln(w, "No sessions recorded.")
+		_, _ = fmt.Fprintln(w, "No sessions recorded.")
 		return
 	}
 
 	for i, s := range sessions {
 		if i > 0 {
-			fmt.Fprintln(w)
+			_, _ = fmt.Fprintln(w)
 		}
 		formatSession(w, s)
 	}
@@ -53,8 +53,8 @@ func FormatJSON(w io.Writer, v any) error {
 func FormatSessionDetail(w io.Writer, s Session) {
 	formatSession(w, s)
 	if s.Content != "" {
-		fmt.Fprintln(w, "Content:")
-		fmt.Fprintln(w, s.Content)
+		_, _ = fmt.Fprintln(w, "Content:")
+		_, _ = fmt.Fprintln(w, s.Content)
 	}
 }
 
@@ -63,30 +63,30 @@ func formatSession(w io.Writer, s Session) {
 	if s.TranscriptHash != "" {
 		source = "transcript"
 	}
-	fmt.Fprintf(w, "━━ %s (%s, %s) ━━\n", s.Summary, s.Status, relativeTime(s.CreatedAt))
-	fmt.Fprintf(w, "ID: %s\n", s.ID)
+	_, _ = fmt.Fprintf(w, "━━ %s (%s, %s) ━━\n", s.Summary, s.Status, relativeTime(s.CreatedAt))
+	_, _ = fmt.Fprintf(w, "ID: %s\n", s.ID)
 
 	if len(s.Files) > 0 {
 		if len(s.Files) > 10 {
-			fmt.Fprintf(w, "Files: %s (+%d more)\n", strings.Join(s.Files[:10], ", "), len(s.Files)-10)
+			_, _ = fmt.Fprintf(w, "Files: %s (+%d more)\n", strings.Join(s.Files[:10], ", "), len(s.Files)-10)
 		} else {
-			fmt.Fprintf(w, "Files: %s\n", strings.Join(s.Files, ", "))
+			_, _ = fmt.Fprintf(w, "Files: %s\n", strings.Join(s.Files, ", "))
 		}
 	}
 	if len(s.Tags) > 0 {
-		fmt.Fprintf(w, "Tags:  %s\n", strings.Join(s.Tags, ", "))
+		_, _ = fmt.Fprintf(w, "Tags:  %s\n", strings.Join(s.Tags, ", "))
 	}
 	if s.Branch != "" {
-		fmt.Fprintf(w, "Branch: %s\n", s.Branch)
+		_, _ = fmt.Fprintf(w, "Branch: %s\n", s.Branch)
 	}
 	if s.User != "" {
-		fmt.Fprintf(w, "User: %s\n", s.User)
+		_, _ = fmt.Fprintf(w, "User: %s\n", s.User)
 	}
-	fmt.Fprintf(w, "Source: %s\n", source)
+	_, _ = fmt.Fprintf(w, "Source: %s\n", source)
 	if s.Learnings != "" {
-		fmt.Fprintln(w, "Learnings:")
+		_, _ = fmt.Fprintln(w, "Learnings:")
 		for _, line := range strings.Split(s.Learnings, "\n") {
-			fmt.Fprintf(w, "  %s\n", line)
+			_, _ = fmt.Fprintf(w, "  %s\n", line)
 		}
 	}
 }

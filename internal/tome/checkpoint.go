@@ -54,13 +54,13 @@ func (t *Tome) Checkpoint(ctx context.Context, repoRoot string) (CheckpointResul
 		}
 
 		// Parse the transcript.
-		f, err := os.Open(filePath)
+		f, err := os.Open(filePath) //nolint:gosec // filePath is from os.ReadDir, not user input
 		if err != nil {
 			continue
 		}
 
 		session, err := ParseTranscript(f, repoRoot)
-		f.Close()
+		_ = f.Close()
 		if err != nil {
 			continue // skip unparseable transcripts
 		}
@@ -107,11 +107,11 @@ func sanitizeProjectPath(path string) string {
 
 // fileHash computes the SHA256 hash of a file.
 func fileHash(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // path is from os.ReadDir, not user input
 	if err != nil {
 		return "", err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	h := sha256.New()
 	if _, err := io.Copy(h, f); err != nil {

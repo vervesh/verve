@@ -236,7 +236,7 @@ func firstSubstantiveLine(content string) string {
 // explanations, results). This dramatically reduces stored content size.
 func filterNarration(text string) string {
 	lines := strings.Split(text, "\n")
-	var kept []string
+	kept := make([]string, 0, len(lines))
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if trimmed == "" {
@@ -443,7 +443,9 @@ func buildFilesList(writeFiles, readFiles map[string]bool) []string {
 	}
 	sort.Strings(readOnly)
 
-	files := append(written, readOnly...)
+	files := make([]string, 0, len(written)+len(readOnly))
+	files = append(files, written...)
+	files = append(files, readOnly...)
 	if len(files) > maxFiles {
 		files = files[:maxFiles]
 	}
