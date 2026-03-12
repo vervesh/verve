@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -36,13 +37,15 @@ type toolInput struct {
 	FilePath string `json:"file_path"`
 }
 
-// fileToolNames is the set of tool names that operate on files.
-var fileToolNames = map[string]bool{
-	"Read":         true,
+// writeToolNames tracks tools that modify files (stronger signal than reads).
+var writeToolNames = map[string]bool{
 	"Write":        true,
 	"Edit":         true,
 	"NotebookEdit": true,
 }
+
+// maxFiles caps the number of files stored per session.
+const maxFiles = 15
 
 // ParseTranscript reads a Claude Code .jsonl transcript and extracts a Session.
 // The repoRoot is used to strip absolute paths to relative paths.
@@ -51,12 +54,14 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 10*1024*1024) // 10MB buffer for large tool results
 
 	var (
-		sessionID string
-		branch    string
-		summary   string
-		createdAt time.Time
-		content   strings.Builder
-		filesSet  = make(map[string]bool)
+		sessionID    string
+		branch       string
+		summary      string
+		createdAt    time.Time
+		content      strings.Builder
+		writeFiles   = make(map[string]bool) // files modified (Write/Edit)
+		readFiles    = make(map[string]bool) // files only read
+		userMessages []string                // collect user text messages for summary fallback
 	)
 
 	for scanner.Scan() {
@@ -103,9 +108,11 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 			continue
 		}
 
-		// Extract summary from first user message.
-		if summary == "" && entry.Message.Role == "user" {
-			summary = extractSummary(entry.Message.Content)
+		// Collect user text messages for summary extraction.
+		if entry.Message.Role == "user" {
+			if text := extractUserText(entry.Message.Content); text != "" {
+				userMessages = append(userMessages, text)
+			}
 		}
 
 		// Extract content and files from assistant messages.
@@ -121,11 +128,15 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 						content.WriteString(block.Text)
 					}
 				case "tool_use":
-					if fileToolNames[block.Name] && len(block.Input) > 0 {
+					if len(block.Input) > 0 {
 						var ti toolInput
 						if err := json.Unmarshal(block.Input, &ti); err == nil && ti.FilePath != "" {
 							relPath := toRelativePath(ti.FilePath, repoRoot)
-							filesSet[relPath] = true
+							if writeToolNames[block.Name] {
+								writeFiles[relPath] = true
+							} else if block.Name == "Read" {
+								readFiles[relPath] = true
+							}
 						}
 					}
 				}
@@ -142,14 +153,10 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 		return Session{}, fmt.Errorf("no session ID found in transcript")
 	}
 
-	if summary == "" {
-		summary = "(no summary)"
-	}
+	summary = extractBestSummary(userMessages, content.String())
 
-	files := make([]string, 0, len(filesSet))
-	for f := range filesSet {
-		files = append(files, f)
-	}
+	// Build files list: written files first, then read-only files, capped.
+	files := buildFilesList(writeFiles, readFiles)
 
 	return Session{
 		ID:        sessionID,
@@ -162,35 +169,194 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 	}, nil
 }
 
-// extractSummary gets the first line of the first user message, truncated to 200 chars.
-func extractSummary(raw json.RawMessage) string {
+// extractBestSummary picks the best summary from user messages.
+// Skips non-substantive messages (tool continuations, interruptions, short acks).
+// Falls back to first substantive line from assistant content if no good user message.
+func extractBestSummary(userMessages []string, assistantContent string) string {
+	for _, msg := range userMessages {
+		if isSubstantiveMessage(msg) {
+			return truncateSummary(msg)
+		}
+	}
+
+	// No substantive user message — extract from assistant content.
+	if assistantContent != "" {
+		if line := firstSubstantiveLine(assistantContent); line != "" {
+			return truncateSummary(line)
+		}
+	}
+
+	if len(userMessages) > 0 {
+		return truncateSummary(userMessages[0])
+	}
+
+	return "(no summary)"
+}
+
+// isSubstantiveMessage returns true if a user message is a real task description,
+// not a tool continuation or short acknowledgement.
+func isSubstantiveMessage(text string) bool {
+	// Skip common non-substantive patterns.
+	lower := strings.ToLower(strings.TrimSpace(text))
+
+	// Tool use continuations from Claude Code.
+	if strings.HasPrefix(lower, "[request interrupted") {
+		return false
+	}
+	if strings.HasPrefix(lower, "[tool use") {
+		return false
+	}
+
+	// Very short messages are usually acks ("ok", "yes", "continue", "y").
+	if len(lower) < 10 {
+		return false
+	}
+
+	return true
+}
+
+// firstSubstantiveLine returns the first non-preamble line from assistant content.
+func firstSubstantiveLine(content string) string {
+	lines := strings.SplitN(content, "\n", 20) // check first 20 lines
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if isPreamble(line) {
+			continue
+		}
+		return line
+	}
+	return ""
+}
+
+// isPreamble detects filler opening lines that don't convey task substance.
+var preamblePrefixes = []string{
+	"i'll ",
+	"i will ",
+	"let me ",
+	"let's ",
+	"sure,",
+	"sure!",
+	"okay,",
+	"ok,",
+	"alright,",
+	"now let me ",
+	"now let's ",
+	"now i'll ",
+	"now i have ",
+	"now i need ",
+	"first,",
+	"first let me ",
+	"i need to ",
+	"i'm going to ",
+	"good, i have ",
+	"good. i have ",
+	"good, now ",
+	"good. now ",
+	"great, ",
+	"great. ",
+	"excellent, ",
+	"excellent. ",
+	"perfect, ",
+	"perfect. ",
+}
+
+func isPreamble(line string) bool {
+	lower := strings.ToLower(line)
+	for _, prefix := range preamblePrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+	return false
+}
+
+// buildFilesList combines written and read files, prioritizing writes, capped at maxFiles.
+func buildFilesList(writeFiles, readFiles map[string]bool) []string {
+	// Written files first (sorted for deterministic output).
+	written := make([]string, 0, len(writeFiles))
+	for f := range writeFiles {
+		written = append(written, f)
+	}
+	sort.Strings(written)
+
+	// Read-only files (not in writeFiles).
+	readOnly := make([]string, 0, len(readFiles))
+	for f := range readFiles {
+		if !writeFiles[f] {
+			readOnly = append(readOnly, f)
+		}
+	}
+	sort.Strings(readOnly)
+
+	files := append(written, readOnly...)
+	if len(files) > maxFiles {
+		files = files[:maxFiles]
+	}
+	return files
+}
+
+// extractUserText gets the text content from a user message, returning empty
+// string if the message contains only tool results / no text.
+func extractUserText(raw json.RawMessage) string {
 	// Try as plain string first.
 	var text string
 	if err := json.Unmarshal(raw, &text); err == nil {
-		return truncateSummary(text)
+		return strings.TrimSpace(text)
 	}
 
-	// Try as array of content blocks.
+	// Try as array of content blocks — collect text blocks only.
 	blocks := parseContentBlocks(raw)
 	for _, b := range blocks {
-		if b.Type == "text" && b.Text != "" {
-			return truncateSummary(b.Text)
+		if b.Type == "text" && strings.TrimSpace(b.Text) != "" {
+			return strings.TrimSpace(b.Text)
 		}
 	}
 
 	return ""
 }
 
+// syntheticPrefixes are messages generated by Claude Code (e.g. when the user
+// approves a plan), not typed by the user. The real task description follows
+// on subsequent lines.
+var syntheticPrefixes = []string{
+	"implement the following plan:",
+	"implement this plan:",
+}
+
 func truncateSummary(text string) string {
-	// Take first line.
-	if idx := strings.IndexByte(text, '\n'); idx >= 0 {
-		text = text[:idx]
+	lines := strings.SplitN(text, "\n", 10)
+	first := strings.TrimSpace(lines[0])
+
+	// If the first line is a known synthetic prefix from Claude Code, skip to
+	// the next non-empty line which contains the actual task description.
+	if len(lines) > 1 && isSyntheticPrefix(first) {
+		for _, line := range lines[1:] {
+			candidate := strings.TrimSpace(line)
+			candidate = strings.TrimLeft(candidate, "# ") // strip markdown headings
+			if candidate != "" {
+				first = candidate
+				break
+			}
+		}
 	}
-	text = strings.TrimSpace(text)
-	if len(text) > 200 {
-		text = text[:200]
+
+	if len(first) > 200 {
+		first = first[:200]
 	}
-	return text
+	return first
+}
+
+func isSyntheticPrefix(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	for _, prefix := range syntheticPrefixes {
+		if lower == prefix {
+			return true
+		}
+	}
+	return false
 }
 
 // parseContentBlocks parses content that may be a string or an array of blocks.

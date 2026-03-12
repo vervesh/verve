@@ -53,7 +53,11 @@ func formatSession(w io.Writer, s Session) {
 	fmt.Fprintf(w, "━━ %s (%s, %s) ━━\n", s.Summary, s.Status, relativeTime(s.CreatedAt))
 
 	if len(s.Files) > 0 {
-		fmt.Fprintf(w, "Files: %s\n", strings.Join(s.Files, ", "))
+		if len(s.Files) > 10 {
+			fmt.Fprintf(w, "Files: %s (+%d more)\n", strings.Join(s.Files[:10], ", "), len(s.Files)-10)
+		} else {
+			fmt.Fprintf(w, "Files: %s\n", strings.Join(s.Files, ", "))
+		}
 	}
 	if len(s.Tags) > 0 {
 		fmt.Fprintf(w, "Tags:  %s\n", strings.Join(s.Tags, ", "))
@@ -72,16 +76,37 @@ func formatSession(w io.Writer, s Session) {
 		}
 	}
 	if s.Content != "" {
-		preview := s.Content
-		if len(preview) > 200 {
-			preview = preview[:200] + "..."
+		if preview := contentPreview(s.Content); preview != "" {
+			fmt.Fprintf(w, "Content: %s\n", preview)
 		}
-		// Show first line only for compact display.
-		if idx := strings.IndexByte(preview, '\n'); idx >= 0 {
-			preview = preview[:idx] + "..."
-		}
-		fmt.Fprintf(w, "Content: %s\n", preview)
 	}
+}
+
+// contentPreview returns the last substantive line from content.
+// The end of a conversation has conclusions and results; the beginning has
+// filler ("Let me read the files..."). We scan backwards to find it.
+func contentPreview(content string) string {
+	lines := strings.Split(content, "\n")
+
+	// Walk backwards to find the last substantive line.
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := strings.TrimSpace(lines[i])
+		if line == "" {
+			continue
+		}
+		if isPreamble(line) {
+			continue
+		}
+		// Skip very short lines (often "Done.", "All passing.", etc.)
+		if len(line) < 20 {
+			continue
+		}
+		if len(line) > 200 {
+			line = line[:200] + "..."
+		}
+		return line
+	}
+	return ""
 }
 
 func relativeTime(t time.Time) string {
