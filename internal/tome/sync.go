@@ -2,9 +2,11 @@ package tome
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -103,12 +105,7 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 			continue
 		}
 
-		content, err := gitOutput(ctx, repoDir, "show", branch+":sessions.jsonl")
-		if err != nil {
-			continue // branch exists but no sessions.jsonl
-		}
-
-		sessions, err := decodeJSONL(strings.NewReader(content))
+		sessions, err := readBranchSessions(ctx, repoDir, branch)
 		if err != nil {
 			continue // skip malformed branch data
 		}
@@ -141,33 +138,30 @@ func (t *Tome) push(ctx context.Context, repoDir, branch string) (int, error) {
 	// Fetch the latest remote state for this branch.
 	_ = gitExec(ctx, repoDir, "fetch", "origin", "refs/heads/"+branch+":refs/remotes/origin/"+branch)
 
-	// Read existing content from remote ref (not local).
-	var existingContent string
-	if existing, err := gitOutput(ctx, repoDir, "show", "origin/"+branch+":sessions.jsonl"); err == nil {
-		existingContent = existing
-	}
+	// Read existing sessions from remote ref (not local).
+	existing, _ := readBranchSessions(ctx, repoDir, "origin/"+branch)
 
-	// Append new sessions.
-	var buf bytes.Buffer
-	if existingContent != "" {
-		buf.WriteString(existingContent)
-		if !strings.HasSuffix(existingContent, "\n") {
-			buf.WriteByte('\n')
-		}
-	}
-	if err := encodeJSONL(&buf, sessions); err != nil {
+	// Combine existing + new sessions into JSONL, then gzip.
+	allSessions := append(existing, sessions...)
+	var jsonlBuf bytes.Buffer
+	if err := encodeJSONL(&jsonlBuf, allSessions); err != nil {
 		return 0, fmt.Errorf("encode sessions: %w", err)
 	}
 
+	var gzBuf bytes.Buffer
+	if err := gzipBytes(&gzBuf, jsonlBuf.Bytes()); err != nil {
+		return 0, fmt.Errorf("compress: %w", err)
+	}
+
 	// Create blob.
-	blobHash, err := gitInputOutput(ctx, repoDir, buf.Bytes(), "hash-object", "-w", "--stdin")
+	blobHash, err := gitInputOutput(ctx, repoDir, gzBuf.Bytes(), "hash-object", "-w", "--stdin")
 	if err != nil {
 		return 0, fmt.Errorf("hash-object: %w", err)
 	}
 	blobHash = strings.TrimSpace(blobHash)
 
-	// Create tree with single file: sessions.jsonl.
-	treeInput := fmt.Sprintf("100644 blob %s\tsessions.jsonl\n", blobHash)
+	// Create tree with single file: sessions.jsonl.gz.
+	treeInput := fmt.Sprintf("100644 blob %s\tsessions.jsonl.gz\n", blobHash)
 	treeHash, err := gitInputOutput(ctx, repoDir, []byte(treeInput), "mktree")
 	if err != nil {
 		return 0, fmt.Errorf("mktree: %w", err)
@@ -298,6 +292,52 @@ func sanitizeBranch(name string) string {
 		return "default"
 	}
 	return s
+}
+
+// readBranchSessions reads and decodes sessions from a branch.
+// Tries gzipped format first, falls back to plain JSONL for backwards compatibility.
+func readBranchSessions(ctx context.Context, repoDir, branch string) ([]Session, error) {
+	// Try gzipped format first.
+	if data, err := gitBinaryOutput(ctx, repoDir, "show", branch+":sessions.jsonl.gz"); err == nil {
+		r, err := gzip.NewReader(bytes.NewReader(data))
+		if err != nil {
+			return nil, fmt.Errorf("decompress: %w", err)
+		}
+		defer r.Close()
+
+		decompressed, err := io.ReadAll(r)
+		if err != nil {
+			return nil, fmt.Errorf("read decompressed: %w", err)
+		}
+		return decodeJSONL(bytes.NewReader(decompressed))
+	}
+
+	// Fall back to uncompressed JSONL.
+	content, err := gitOutput(ctx, repoDir, "show", branch+":sessions.jsonl")
+	if err != nil {
+		return nil, err
+	}
+	return decodeJSONL(strings.NewReader(content))
+}
+
+// gzipBytes compresses data with gzip.
+func gzipBytes(w io.Writer, data []byte) error {
+	gz := gzip.NewWriter(w)
+	if _, err := gz.Write(data); err != nil {
+		return err
+	}
+	return gz.Close()
+}
+
+// gitBinaryOutput runs a git command and returns raw stdout bytes (for binary data).
+func gitBinaryOutput(ctx context.Context, repoDir string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Dir = repoDir
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git %s: %w", args[0], err)
+	}
+	return out, nil
 }
 
 // gitExec runs a git command and returns an error if it fails.
