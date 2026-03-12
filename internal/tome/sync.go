@@ -66,7 +66,7 @@ func (t *Tome) Sync(ctx context.Context, repoDir, user string, opts SyncOpts) (S
 // sync across concurrent agents on the same host.
 func (t *Tome) withSyncLock(fn func() error) error {
 	lockPath := filepath.Join(t.dir, "sync.lock")
-	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o644)
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600) //nolint:gosec // lockPath is constructed from t.dir, not user input
 	if err != nil {
 		return fmt.Errorf("open lock: %w", err)
 	}
@@ -87,8 +87,8 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 
 	// List all local tome branches.
 	out, listErr := gitOutput(ctx, repoDir, "for-each-ref", "--format=%(refname:short)", "refs/heads/tome/context")
-	if listErr != nil || strings.TrimSpace(out) == "" { //nolint:nilerr // no tome branches is not an error
-		return 0, nil
+	if listErr != nil || strings.TrimSpace(out) == "" {
+		return 0, nil //nolint:nilerr // no tome branches is not an error
 	}
 
 	// Collect existing session IDs to dedup.

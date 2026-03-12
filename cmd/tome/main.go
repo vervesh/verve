@@ -300,8 +300,8 @@ func cleanCmd() *cli.Command {
 			fmt.Printf("Removed %s\n", dir)
 
 			repoDir, repoErr := resolveRepoDir()
-			if repoErr != nil { //nolint:nilerr // not in a git repo is fine, nothing else to clean
-				return nil
+			if repoErr != nil {
+				return nil //nolint:nilerr // not in a git repo is fine, nothing else to clean
 			}
 
 			if err := tome.UninstallHooks(repoDir); err == nil {
