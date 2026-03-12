@@ -49,12 +49,22 @@ func FormatJSON(w io.Writer, v any) error {
 	return enc.Encode(v)
 }
 
+// FormatSessionDetail writes a single session with its full content.
+func FormatSessionDetail(w io.Writer, s Session) {
+	formatSession(w, s)
+	if s.Content != "" {
+		fmt.Fprintln(w, "Content:")
+		fmt.Fprintln(w, s.Content)
+	}
+}
+
 func formatSession(w io.Writer, s Session) {
 	source := "manual"
 	if s.TranscriptHash != "" {
 		source = "transcript"
 	}
 	fmt.Fprintf(w, "━━ %s (%s, %s) ━━\n", s.Summary, s.Status, relativeTime(s.CreatedAt))
+	fmt.Fprintf(w, "ID: %s\n", s.ID)
 
 	if len(s.Files) > 0 {
 		if len(s.Files) > 10 {

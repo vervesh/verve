@@ -121,11 +121,11 @@ func ParseTranscript(r io.Reader, repoRoot string) (Session, error) {
 			for _, block := range blocks {
 				switch block.Type {
 				case "text":
-					if block.Text != "" {
+					if filtered := filterNarration(block.Text); filtered != "" {
 						if content.Len() > 0 {
 							content.WriteByte('\n')
 						}
-						content.WriteString(block.Text)
+						content.WriteString(filtered)
 					}
 				case "tool_use":
 					if len(block.Input) > 0 {
@@ -229,6 +229,158 @@ func firstSubstantiveLine(content string) string {
 		return line
 	}
 	return ""
+}
+
+// filterNarration removes procedural narration lines from a text block,
+// keeping only lines that contain substantive information (decisions, reasoning,
+// explanations, results). This dramatically reduces stored content size.
+func filterNarration(text string) string {
+	lines := strings.Split(text, "\n")
+	var kept []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if isNarration(trimmed) {
+			continue
+		}
+		kept = append(kept, trimmed)
+	}
+	return strings.Join(kept, "\n")
+}
+
+// isNarration returns true if a line is procedural narration (Claude describing
+// its own actions) rather than substantive content (reasoning, decisions, results).
+func isNarration(line string) bool {
+	if isPreamble(line) {
+		return true
+	}
+
+	lower := strings.ToLower(line)
+
+	// Short filler lines.
+	if len(lower) < 15 {
+		for _, filler := range shortFillerLines {
+			if lower == filler {
+				return true
+			}
+		}
+	}
+
+	for _, prefix := range narrationPrefixes {
+		if strings.HasPrefix(lower, prefix) {
+			return true
+		}
+	}
+
+	for _, suffix := range narrationSuffixes {
+		if strings.HasSuffix(lower, suffix) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// narrationPrefixes are procedural phrases Claude uses to narrate its own actions.
+var narrationPrefixes = []string{
+	"now let me ",
+	"now i'll ",
+	"now i need ",
+	"now i have ",
+	"now update ",
+	"now add ",
+	"now create ",
+	"now the ",
+	"let me also ",
+	"let me check ",
+	"let me verify ",
+	"let me read ",
+	"let me look ",
+	"let me explore ",
+	"let me trace ",
+	"let me investigate ",
+	"let me fix ",
+	"let me also check ",
+	"let me do ",
+	"let me start ",
+	"let me set up ",
+	"i also need ",
+	"i see -",
+	"i see —",
+	"i see,",
+	"i'll also ",
+	"starting with ",
+	"continuing with ",
+	"moving on to ",
+	"moving to ",
+	"next, ",
+	"next up ",
+	"good, ",
+	"good. ",
+	"great, ",
+	"great. ",
+	"done. ",
+	"done! ",
+	"build passes",
+	"builds clean",
+	"everything compiles",
+	"everything builds",
+	"everything passes",
+	"all tests pass",
+	"all done.",
+	"everything looks good",
+	"the build ",
+	"go builds",
+	"go build ",
+	"compiles cleanly",
+	"compile cleanly",
+	"ui builds",
+	"frontend builds",
+	"backend compiles",
+	"clean build",
+	"build succeeded",
+	"vet passes",
+	"vet pass",
+	"good —",
+	"good -",
+	"**step ",
+	"**task #",
+	"step ",
+	"task #",
+}
+
+// narrationSuffixes identify trailing procedural phrases.
+var narrationSuffixes = []string{
+	" in parallel.",
+	" in parallel:",
+	" i need to modify.",
+	" i need to modify:",
+	" i need to update.",
+	" i need to update:",
+	" that need work.",
+	" that need work:",
+	" that needs updating.",
+	" files i need.",
+	" files i need:",
+}
+
+var shortFillerLines = []string{
+	"done.",
+	"done!",
+	"clean.",
+	"clean!",
+	"verified.",
+	"good.",
+	"great.",
+	"perfect.",
+	"compiles.",
+	"passes.",
+	"success.",
+	"all good.",
+	"looks good.",
+	"all clean.",
 }
 
 // isPreamble detects filler opening lines that don't convey task substance.

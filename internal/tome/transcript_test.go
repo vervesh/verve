@@ -47,14 +47,14 @@ func TestParseTranscriptSkipsSidechain(t *testing.T) {
 func TestParseTranscriptSkipsThinking(t *testing.T) {
 	transcript := strings.Join([]string{
 		`{"type":"user","sessionId":"sess-789","timestamp":"2026-03-10T14:00:00Z","message":{"role":"user","content":"Refactor auth"}}`,
-		`{"type":"assistant","sessionId":"sess-789","message":{"role":"assistant","content":[{"type":"thinking","text":"Let me think about this..."},{"type":"text","text":"I'll refactor the auth module."}]}}`,
+		`{"type":"assistant","sessionId":"sess-789","message":{"role":"assistant","content":[{"type":"thinking","text":"Let me think about this..."},{"type":"text","text":"The auth module needs to be refactored to use OAuth2 flows."}]}}`,
 	}, "\n")
 
 	session, err := tome.ParseTranscript(strings.NewReader(transcript), "/repo")
 	require.NoError(t, err)
 
 	assert.NotContains(t, session.Content, "Let me think")
-	assert.Contains(t, session.Content, "refactor the auth module")
+	assert.Contains(t, session.Content, "auth module needs to be refactored")
 }
 
 func TestParseTranscriptSkipsFileHistorySnapshot(t *testing.T) {

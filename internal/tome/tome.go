@@ -85,6 +85,16 @@ func (t *Tome) Log(ctx context.Context, limit int) ([]Session, error) {
 	return sessions, rows.Err()
 }
 
+// Get returns a single session by ID.
+func (t *Tome) Get(ctx context.Context, id string) (Session, error) {
+	row := t.db.QueryRowContext(ctx, `
+		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at
+		FROM session
+		WHERE id = ?
+	`, id)
+	return scanSession(row)
+}
+
 // BuildIndex forces a rebuild of the LSA index and returns stats.
 func (t *Tome) BuildIndex(ctx context.Context) (numDocs, numTerms, dim int, err error) {
 	sessions, err := t.allSessions(ctx)

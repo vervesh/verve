@@ -26,7 +26,7 @@ func TestCheckpointDiscoversTranscripts(t *testing.T) {
 	// Write a transcript file.
 	transcript := strings.Join([]string{
 		`{"type":"user","sessionId":"sess-cp1","timestamp":"2026-03-10T14:00:00Z","gitBranch":"main","message":{"role":"user","content":"Add feature X"}}`,
-		`{"type":"assistant","sessionId":"sess-cp1","message":{"role":"assistant","content":[{"type":"text","text":"I'll implement feature X."}]}}`,
+		`{"type":"assistant","sessionId":"sess-cp1","message":{"role":"assistant","content":[{"type":"text","text":"Feature X requires a new handler for the /api/v1/features endpoint with validation."}]}}`,
 	}, "\n")
 	require.NoError(t, os.WriteFile(filepath.Join(transcriptDir, "abc123.jsonl"), []byte(transcript), 0o644))
 
@@ -40,7 +40,7 @@ func TestCheckpointDiscoversTranscripts(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 	assert.Equal(t, "Add feature X", sessions[0].Summary)
-	assert.Contains(t, sessions[0].Content, "I'll implement feature X.")
+	assert.Contains(t, sessions[0].Content, "new handler for the /api/v1/features endpoint")
 	assert.NotEmpty(t, sessions[0].TranscriptHash)
 }
 

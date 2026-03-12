@@ -18,6 +18,7 @@ func main() {
 		Usage: "Agent session memory — record and search session history",
 		Commands: []*cli.Command{
 			searchCmd(),
+			showCmd(),
 			recordCmd(),
 			logCmd(),
 			indexCmd(),
@@ -92,6 +93,40 @@ func searchCmd() *cli.Command {
 				return tome.FormatJSON(os.Stdout, results)
 			}
 			tome.FormatSearchResults(os.Stdout, results, query)
+			return nil
+		},
+	}
+}
+
+func showCmd() *cli.Command {
+	return &cli.Command{
+		Name:      "show",
+		Usage:     "Show full session details including content",
+		ArgsUsage: "SESSION_ID",
+		Flags: []cli.Flag{
+			&cli.BoolFlag{Name: "json", Usage: "Output as JSON"},
+		},
+		Action: func(c *cli.Context) error {
+			id := c.Args().First()
+			if id == "" {
+				return fmt.Errorf("session ID required")
+			}
+
+			t, err := openTome()
+			if err != nil {
+				return err
+			}
+			defer t.Close()
+
+			session, err := t.Get(c.Context, id)
+			if err != nil {
+				return fmt.Errorf("session not found: %s", id)
+			}
+
+			if c.Bool("json") {
+				return tome.FormatJSON(os.Stdout, session)
+			}
+			tome.FormatSessionDetail(os.Stdout, session)
 			return nil
 		},
 	}
@@ -232,6 +267,10 @@ func initCmd() *cli.Command {
 						fmt.Println("Installed git hooks (post-commit, pre-push)")
 					}
 				}
+
+				if err := tome.InstallSkill(repoDir); err == nil {
+					fmt.Println("Installed Claude Code skill (.claude/skills/tome/)")
+				}
 			}
 
 			return nil
@@ -266,6 +305,10 @@ func cleanCmd() *cli.Command {
 
 			if err := tome.RemoveGitignore(repoDir); err == nil {
 				fmt.Println("Removed .tome/ from .gitignore")
+			}
+
+			if err := tome.RemoveSkill(repoDir); err == nil {
+				fmt.Println("Removed Claude Code skill")
 			}
 
 			return nil

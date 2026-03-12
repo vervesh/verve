@@ -23,6 +23,127 @@ if command -v tome >/dev/null 2>&1; then
 fi
 `
 
+const skillContent = `---
+name: tome
+description: |
+  Use this skill to search or record session memory with tome.
+  Invoke when: starting a new task (search for context), finishing a task (record what was done),
+  the user asks about past sessions, or you need context about prior work on a file or feature.
+allowed-tools: Bash(tome *)
+argument-hint: [search query or "record"]
+---
+
+# Tome — Session Memory
+
+Tome is a local session memory ledger. Use it to find context from prior sessions and to record
+what you learned and decided during the current session.
+
+## Commands
+
+### Search for context
+
+Before starting work, search for relevant prior sessions:
+
+` + "```bash" + `
+tome search "authentication middleware"    # semantic + keyword search
+tome search --file "src/auth" "token"      # filter by files touched
+tome search -n 10 "database migration"     # more results
+` + "```" + `
+
+Search returns sessions with a match snippet. To drill into a specific session:
+
+` + "```bash" + `
+tome show <session-id>                     # full session content
+tome show <session-id> --json              # structured output
+` + "```" + `
+
+### Record a session
+
+After completing work, record a structured summary of what was done:
+
+` + "```bash" + `
+tome record \
+  --summary "Added OAuth2 middleware with token refresh" \
+  --learnings "The auth module uses a middleware chain pattern. Token refresh needs to happen before route handlers, not after. The existing bearer validator in auth.go can be extended rather than replaced." \
+  --files "src/auth/middleware.go,src/auth/oauth2.go,src/routes/api.go" \
+  --tags "auth,oauth2,middleware" \
+  --status succeeded
+` + "```" + `
+
+### View recent sessions
+
+` + "```bash" + `
+tome log                  # last 10 sessions
+tome log -n 20            # last 20
+tome log --json           # structured output
+` + "```" + `
+
+## What to Record
+
+When recording, focus on information that would help a future developer (human or AI) working on
+the same code. Write the --learnings field as if briefing a colleague.
+
+**Include:**
+- Key decisions and *why* they were made (not just what)
+- Problems encountered and how they were solved
+- Non-obvious patterns or conventions discovered in the codebase
+- Gotchas, constraints, or things that almost went wrong
+- Architecture insights ("X depends on Y because...")
+
+**Exclude:**
+- Step-by-step narration of what you did ("First I read the file, then I...")
+- Tool outputs or file contents
+- Obvious facts that anyone reading the code would see
+
+**Example learnings:**
+
+The task store uses a broker pattern for real-time events. Mutations in store.go
+publish to an in-memory broker, which fans out to SSE subscribers. When adding new
+mutation methods, always call s.broker.Publish() after the DB write or SSE clients
+won't update. The PG notifier in postgres/notifier.go handles cross-instance fan-out
+for horizontal scaling, but the SQLite path uses local-only fan-out (nil notifier).
+
+## When to Use
+
+| Situation | Action |
+|-----------|--------|
+| Starting a new task | ` + "`tome search \"relevant topic\"`" + ` to find prior context |
+| Modifying unfamiliar code | ` + "`tome search --file \"path/to/file\"`" + ` to see who changed it and why |
+| Finished a task | ` + "`tome record --summary \"...\" --learnings \"...\"`" + ` |
+| User asks about past work | ` + "`tome search`" + ` or ` + "`tome log`" + ` |
+| Debugging a regression | ` + "`tome search --file \"affected/file\" \"feature name\"`" + ` |
+`
+
+// InstallSkill installs the tome Claude Code skill at .claude/skills/tome/SKILL.md.
+// Idempotent — overwrites existing skill file with latest content.
+func InstallSkill(repoDir string) error {
+	skillDir := filepath.Join(repoDir, ".claude", "skills", "tome")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		return fmt.Errorf("create skill directory: %w", err)
+	}
+	return os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(skillContent), 0o644)
+}
+
+// RemoveSkill removes the tome Claude Code skill directory.
+func RemoveSkill(repoDir string) error {
+	skillDir := filepath.Join(repoDir, ".claude", "skills", "tome")
+	if err := os.RemoveAll(skillDir); err != nil {
+		return fmt.Errorf("remove skill directory: %w", err)
+	}
+
+	// Clean up empty parent dirs (.claude/skills, .claude) if we left them empty.
+	for _, dir := range []string{
+		filepath.Join(repoDir, ".claude", "skills"),
+		filepath.Join(repoDir, ".claude"),
+	} {
+		entries, err := os.ReadDir(dir)
+		if err == nil && len(entries) == 0 {
+			os.Remove(dir)
+		}
+	}
+	return nil
+}
+
 // InstallHooks installs post-commit and pre-push git hooks for automatic
 // transcript capture and sync. Idempotent — skips if marker already present.
 // Preserves existing hook content by appending.
