@@ -109,6 +109,11 @@ else
     generate_and_create_pr "${BRANCH}" "${DEFAULT_BRANCH}"
 fi
 
+# ── Sync tome sessions to remote ──────────────────────────────────
+if command -v tome &>/dev/null; then
+    tome sync --push 2>/dev/null || true
+fi
+
 log_blank
 log_header "Task Completed Successfully"
 echo "Branch: ${BRANCH}"
