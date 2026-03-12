@@ -91,7 +91,7 @@ func searchCmd() *cli.Command {
 			if c.Bool("json") {
 				return tome.FormatJSON(os.Stdout, results)
 			}
-			tome.FormatSearchResults(os.Stdout, results)
+			tome.FormatSearchResults(os.Stdout, results, query)
 			return nil
 		},
 	}

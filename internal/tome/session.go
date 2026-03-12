@@ -29,4 +29,5 @@ type SearchOpts struct {
 type SearchResult struct {
 	Session Session `json:"session"`
 	Score   float64 `json:"score"`
+	Snippet string  `json:"snippet,omitempty"` // context window around query match
 }

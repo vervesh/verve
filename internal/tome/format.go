@@ -9,7 +9,8 @@ import (
 )
 
 // FormatSearchResults writes search results in human-readable text format.
-func FormatSearchResults(w io.Writer, results []SearchResult) {
+// The query is used to extract a context snippet from session content.
+func FormatSearchResults(w io.Writer, results []SearchResult, query string) {
 	if len(results) == 0 {
 		fmt.Fprintln(w, "No sessions found.")
 		return
@@ -20,6 +21,9 @@ func FormatSearchResults(w io.Writer, results []SearchResult) {
 			fmt.Fprintln(w)
 		}
 		formatSession(w, r.Session)
+		if snippet := matchSnippet(r.Session.Content, query, 500); snippet != "" {
+			fmt.Fprintf(w, "Match: ...%s...\n", snippet)
+		}
 	}
 }
 
@@ -75,38 +79,53 @@ func formatSession(w io.Writer, s Session) {
 			fmt.Fprintf(w, "  %s\n", line)
 		}
 	}
-	if s.Content != "" {
-		if preview := contentPreview(s.Content); preview != "" {
-			fmt.Fprintf(w, "Content: %s\n", preview)
-		}
-	}
 }
 
-// contentPreview returns the last substantive line from content.
-// The end of a conversation has conclusions and results; the beginning has
-// filler ("Let me read the files..."). We scan backwards to find it.
-func contentPreview(content string) string {
-	lines := strings.Split(content, "\n")
-
-	// Walk backwards to find the last substantive line.
-	for i := len(lines) - 1; i >= 0; i-- {
-		line := strings.TrimSpace(lines[i])
-		if line == "" {
-			continue
-		}
-		if isPreamble(line) {
-			continue
-		}
-		// Skip very short lines (often "Done.", "All passing.", etc.)
-		if len(line) < 20 {
-			continue
-		}
-		if len(line) > 200 {
-			line = line[:200] + "..."
-		}
-		return line
+// matchSnippet extracts a context window from content centered on the first
+// occurrence of any query term. Returns empty string if no match found.
+func matchSnippet(content, query string, windowSize int) string {
+	if content == "" || query == "" {
+		return ""
 	}
-	return ""
+
+	contentLower := strings.ToLower(content)
+	terms := strings.Fields(strings.ToLower(query))
+
+	// Find the earliest match position across all query terms.
+	bestPos := -1
+	for _, term := range terms {
+		if pos := strings.Index(contentLower, term); pos >= 0 {
+			if bestPos < 0 || pos < bestPos {
+				bestPos = pos
+			}
+		}
+	}
+
+	if bestPos < 0 {
+		return ""
+	}
+
+	// Center the window around the match.
+	half := windowSize / 2
+	start := bestPos - half
+	if start < 0 {
+		start = 0
+	}
+	end := start + windowSize
+	if end > len(content) {
+		end = len(content)
+		start = end - windowSize
+		if start < 0 {
+			start = 0
+		}
+	}
+
+	snippet := content[start:end]
+
+	// Clean up: collapse whitespace and trim to word boundaries.
+	snippet = strings.Join(strings.Fields(snippet), " ")
+
+	return snippet
 }
 
 func relativeTime(t time.Time) string {
