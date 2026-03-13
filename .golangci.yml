@@ -52,11 +52,9 @@ linters:
     presets:
       - comments
     paths:
-      - "internal/postgres/sqlc"
       - "internal/sqlite/sqlc"
 
 formatters:
   exclusions:
     paths:
-      - "internal/postgres/sqlc"
       - "internal/sqlite/sqlc"
