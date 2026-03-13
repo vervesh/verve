@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Repo } from '$lib/models/repo';
 	import { Badge } from '$lib/components/ui/badge';
+	import Markdown from './Markdown.svelte';
 	import {
 		FileText,
 		FileCode,
@@ -16,7 +17,7 @@
 	{#if repo.summary}
 		<div>
 			<h3 class="text-sm font-medium mb-2">Summary</h3>
-			<p class="text-sm text-muted-foreground whitespace-pre-wrap">{repo.summary}</p>
+			<Markdown content={repo.summary} class="text-muted-foreground" />
 		</div>
 	{/if}
 

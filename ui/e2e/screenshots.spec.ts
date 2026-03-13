@@ -77,6 +77,17 @@ const MOCK_REPO_CONFIGURING = {
 		'## Code Quality\n- Follow ESLint rules\n- Use Prettier for formatting\n\n## Testing\n- Write unit tests for new functions\n- Use Vitest'
 };
 
+// Repo variant: ready with markdown expectations and summary (for markdown rendering tests)
+const MOCK_REPO_WITH_EXPECTATIONS = {
+	...MOCK_REPO_NEEDS_SETUP,
+	setup_status: 'ready',
+	setup_completed_at: '2025-01-15T10:05:00Z',
+	summary:
+		'A **full-stack web application** built with [SvelteKit](https://kit.svelte.dev) and Express.\n\n- Frontend uses **Tailwind CSS** for styling\n- Backend serves RESTful endpoints backed by PostgreSQL\n- Includes comprehensive test coverage using `Vitest` and `Playwright`',
+	expectations:
+		'## Code Quality\n\n- Follow **ESLint** rules strictly\n- Use `Prettier` for formatting\n- Prefer `const` over `let` where possible\n\n## Testing\n\n- Write **unit tests** for all new functions\n- Use [Vitest](https://vitest.dev) as the test runner\n- Aim for **80% code coverage**\n\n## Architecture\n\nFollow a layered architecture:\n\n1. **Presentation layer** — Svelte components\n2. **Business logic** — TypeScript services\n3. **Data access** — Drizzle ORM repositories'
+};
+
 // Sample agent logs that showcase all the different log types and syntax highlighting.
 // These are used by the running/review task detail screenshots so we can preview how
 // the terminal rendering looks for each prefix and inline formatting rule.
@@ -1412,6 +1423,25 @@ test.describe('UI Screenshots', () => {
 		const dialog = page.locator('[role="dialog"]');
 		await dialog.screenshot({
 			path: `screenshots/repo-settings-dialog-${testInfo.project.name}.png`
+		});
+	});
+
+	test('repo settings dialog with markdown expectations', async ({ page }, testInfo) => {
+		await page.setViewportSize({ width: 1280, height: 900 });
+		await setupMockAPI(page, MOCK_REPO_WITH_EXPECTATIONS);
+		await page.goto('/');
+
+		await page.waitForTimeout(1500);
+
+		// Click the "Repo Settings" sidebar link
+		const repoSettingsBtn = page.getByRole('button', { name: /repo settings/i });
+		await repoSettingsBtn.click();
+
+		await page.waitForTimeout(1000);
+
+		const dialog = page.locator('[role="dialog"]');
+		await dialog.screenshot({
+			path: `screenshots/repo-settings-markdown-${testInfo.project.name}.png`
 		});
 	});
 

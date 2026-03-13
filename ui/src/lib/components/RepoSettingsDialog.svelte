@@ -7,6 +7,7 @@
 	import * as Dialog from '$lib/components/ui/dialog';
 	import RepoSummary from './RepoSummary.svelte';
 	import RepoSetupWizard from './RepoSetupWizard.svelte';
+	import Markdown from './Markdown.svelte';
 	import {
 		Settings,
 		Loader2,
@@ -206,7 +207,7 @@
 							<div class="flex-1">
 								{#if repo.summary}
 									<h3 class="text-sm font-medium mb-2">Summary</h3>
-									<p class="text-sm text-muted-foreground whitespace-pre-wrap">{repo.summary}</p>
+									<Markdown content={repo.summary} class="text-muted-foreground" />
 								{:else}
 									<p class="text-sm text-muted-foreground">No summary available.</p>
 								{/if}
@@ -318,7 +319,7 @@
 							</Button>
 						</div>
 						<div class="bg-muted/30 rounded-lg p-4 border">
-							<p class="text-sm text-muted-foreground whitespace-pre-wrap">{repo.expectations}</p>
+							<Markdown content={repo.expectations} class="text-muted-foreground" />
 						</div>
 					</div>
 				{:else if repo.setup_status === 'ready'}
