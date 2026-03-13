@@ -122,6 +122,19 @@ func (f *fixture) seedEpic(title, desc string) *epic.Epic {
 	return e
 }
 
+func (f *fixture) seedClaimedPlanningEpic(title, desc string) *epic.Epic {
+	f.t.Helper()
+	ctx := context.Background()
+	e := f.seedEpic(title, desc)
+	// Claim the epic so it's in planning+claimed state
+	claimed, err := f.epicRepo.ClaimEpic(ctx, e.ID)
+	require.NoError(f.t, err)
+	require.True(f.t, claimed)
+	updated, err := f.EpicStore.ReadEpic(ctx, e.ID)
+	require.NoError(f.t, err)
+	return updated
+}
+
 func (f *fixture) seedDraftEpic(title, desc string) *epic.Epic {
 	f.t.Helper()
 	ctx := context.Background()

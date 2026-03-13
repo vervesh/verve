@@ -47,6 +47,7 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 	// Confirmation
 	g.POST("/epics/:id/confirm", h.ConfirmEpic)
 	g.POST("/epics/:id/close", h.CloseEpic)
+	g.POST("/epics/:id/stop", h.StopEpic)
 }
 
 // CreateEpic handles POST /repos/:repo_id/epics
@@ -273,6 +274,27 @@ func (h *HTTPHandler) CloseEpic(c echo.Context) error {
 		if err := h.taskStore.BulkCloseTasksByEpic(ctx, id.String(), "Epic closed"); err != nil {
 			c.Logger().Errorf("failed to bulk close tasks for epic %s: %v", id, err)
 		}
+	}
+
+	e, err := h.store.ReadEpic(ctx, id)
+	if err != nil {
+		return err
+	}
+	return server.SetResponse(c, http.StatusOK, e)
+}
+
+// StopEpic handles POST /epics/:id/stop — stops a claimed planning epic.
+func (h *HTTPHandler) StopEpic(c echo.Context) error {
+	req, err := server.BindRequest[EpicIDRequest](c)
+	if err != nil {
+		return err
+	}
+	id := epic.MustParseEpicID(req.ID)
+	c.Set(logkey.EpicID, id.String())
+
+	ctx := c.Request().Context()
+	if err := h.store.StopEpic(ctx, id); err != nil {
+		return err
 	}
 
 	e, err := h.store.ReadEpic(ctx, id)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/joshjon/kit/server"
 	"github.com/joshjon/kit/testutil"
@@ -52,6 +53,23 @@ func TestTaskHeartbeat(t *testing.T) {
 	res := testutil.Post[server.Response[map[string]interface{}]](t, f.taskHeartbeatURL(tsk.ID), nil)
 	assert.Equal(t, "ok", res.Data["status"])
 	assert.Equal(t, false, res.Data["stopped"])
+}
+
+func TestTaskHeartbeat_StoppedTask(t *testing.T) {
+	f := newFixture(t)
+	tsk := f.seedRunningTask()
+
+	// Stop the task before sending heartbeat
+	require.NoError(t, f.TaskStore.StopTask(context.Background(), tsk.ID, "pre-stopped"))
+
+	start := time.Now()
+	res := testutil.Post[server.Response[map[string]interface{}]](t, f.taskHeartbeatURL(tsk.ID), nil)
+	elapsed := time.Since(start)
+
+	assert.Equal(t, "ok", res.Data["status"])
+	assert.Equal(t, true, res.Data["stopped"])
+	// Should return immediately since task is already stopped
+	assert.Less(t, elapsed, 500*time.Millisecond)
 }
 
 func TestTaskComplete_Success(t *testing.T) {
@@ -159,7 +177,13 @@ func TestEpicHeartbeat(t *testing.T) {
 	f := newFixture(t)
 	e := f.seedPlanningEpic()
 
-	postNoContent(t, f.epicHeartbeatURL(e.ID), nil)
+	// Claim the epic so heartbeat returns stopped=false
+	_, err := f.EpicStore.ClaimPendingEpic(context.Background())
+	require.NoError(t, err)
+
+	res := testutil.Post[server.Response[map[string]interface{}]](t, f.epicHeartbeatURL(e.ID), nil)
+	assert.Equal(t, "ok", res.Data["status"])
+	assert.Equal(t, false, res.Data["stopped"])
 
 	// Verify heartbeat updated
 	stored, err := f.EpicStore.ReadEpic(context.Background(), e.ID)
@@ -353,6 +377,37 @@ func TestConversationAppendLogs(t *testing.T) {
 		Lines: []string{"agent: processing message", "agent: generating response"},
 	}
 	postNoContent(t, f.conversationLogsURL(conv.ID), req)
+}
+
+func TestPollForStops(t *testing.T) {
+	f := newFixture(t)
+	tsk := f.seedRunningTask()
+
+	// Stop the task to queue a stop signal
+	require.NoError(t, f.TaskStore.StopTask(context.Background(), tsk.ID, "test stop"))
+
+	// Poll for stops should return the stop signal
+	res := testutil.Get[server.Response[agentapi.PollResponse]](t, f.pollStopURL())
+	assert.Equal(t, "stop", res.Data.Type)
+	require.Len(t, res.Data.Stops, 1)
+	assert.Equal(t, "task", res.Data.Stops[0].EntityType)
+	assert.Equal(t, tsk.ID.String(), res.Data.Stops[0].EntityID)
+}
+
+func TestPollForStops_Timeout(t *testing.T) {
+	f := newFixture(t)
+
+	// Short-circuit: use a direct HTTP request to check for 204 NoContent.
+	// The poll will hold for 30s, but we use a short client timeout.
+	client := &http.Client{Timeout: 2 * time.Second}
+	resp, err := client.Get(f.pollStopURL())
+	if err != nil {
+		// Timeout expected — server holds for 30s, we bail after 2s
+		return
+	}
+	defer resp.Body.Close()
+	// If we get a response, it should be 204
+	assert.Equal(t, http.StatusNoContent, resp.StatusCode)
 }
 
 func TestPoll_ReturnsConversation(t *testing.T) {

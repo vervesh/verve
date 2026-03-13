@@ -200,6 +200,25 @@ func TestCloseEpic(t *testing.T) {
 	assert.Equal(t, epic.StatusClosed, res.Data.Status)
 }
 
+func TestStopEpic_Success(t *testing.T) {
+	f := newFixture(t)
+	e := f.seedClaimedPlanningEpic("Planning Epic", "desc")
+
+	res := testutil.Post[server.Response[epic.Epic]](t, f.epicActionURL(e.ID, "stop"), nil)
+	assert.Equal(t, epic.StatusDraft, res.Data.Status)
+	assert.Nil(t, res.Data.ClaimedAt)
+	assert.Contains(t, res.Data.SessionLog, "system: Stopped by user.")
+}
+
+func TestStopEpic_NotPlanning(t *testing.T) {
+	f := newFixture(t)
+	e := f.seedDraftEpic("Draft Epic", "desc")
+
+	httpRes := doJSON(t, http.MethodPost, f.epicActionURL(e.ID, "stop"), nil)
+	defer httpRes.Body.Close()
+	assert.Equal(t, http.StatusInternalServerError, httpRes.StatusCode)
+}
+
 func TestGetEpicTasks(t *testing.T) {
 	f := newFixture(t)
 	e := f.seedDraftEpic("Epic", "desc")

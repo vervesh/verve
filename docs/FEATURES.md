@@ -59,6 +59,14 @@
 - **Background reaper**: Server detects running tasks with no heartbeat and marks them as failed
 - **Configurable timeout**: `TASK_TIMEOUT` env var (default: 5 minutes) controls stale detection threshold
 
+## Poll-Based Stop Signals
+
+- **Dedicated stop-poll channel**: Workers run a `stopPollLoop` goroutine that long-polls `GET /api/v1/agent/poll?accept=stop` for stop signals, delivering them immediately without holding per-task connections
+- **O(1) connection overhead**: One stop-poll connection per worker regardless of running task/epic count, replacing the previous O(N) heartbeat long-poll approach
+- **Unified stop delivery**: Both task and epic stop signals are delivered through the same poll channel as `StopSignal` structs with `entity_type` ("task" or "epic") and `entity_id`
+- **Worker context tracking**: Running tasks and epics are tracked with cancellable contexts; stop signals trigger immediate cancellation via `cancelRunning()`
+- **Heartbeat safety net**: Simplified heartbeats (no long-polling) still return a `stopped` flag as a fallback detection mechanism
+
 ## Epics
 
 - **AI-powered task planning**: Create an epic with a title and description; an AI agent analyzes the codebase and generates a task breakdown
@@ -71,6 +79,7 @@
 - **Separate epics dashboard**: Dedicated epics view accessible via sidebar navigation
 - **Planning status indicators**: UI shows "Waiting for worker..." (unclaimed) vs "Agent is planning..." (claimed and active)
 - **Session log**: Real-time planning session log showing system messages and user feedback
+- **Stop planning**: Users can stop a running planning agent via the UI; epic moves to draft status with claim released, preserving any existing proposals for review
 - **Idle timeout**: Agent containers released after 15 minutes of inactivity
 - **Priority scheduling**: Epics are claimed before tasks in the unified work queue
 

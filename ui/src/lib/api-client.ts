@@ -451,6 +451,14 @@ export class VerveClient {
 		return this.request<Epic>(res, 'Failed to close epic');
 	}
 
+	async stopEpic(id: string): Promise<Epic> {
+		const res = await fetch(`${this.baseUrl}/epics/${id}/stop`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' }
+		});
+		return this.request<Epic>(res, 'Failed to stop epic');
+	}
+
 	// --- Conversation APIs ---
 
 	async listConversationsByRepo(repoId: string, status?: string): Promise<Conversation[]> {

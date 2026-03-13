@@ -521,6 +521,87 @@ func TestStore_WaitForPending(t *testing.T) {
 	}
 }
 
+func TestStore_DrainStops_Empty(t *testing.T) {
+	f := newTestTaskFixture(t)
+
+	stops := f.store.DrainStops()
+	assert.Nil(t, stops, "expected nil stops on fresh store")
+}
+
+func TestStore_StopTask_QueuesStop(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	tsk := f.newTask("title", "desc", true)
+	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
+	require.NoError(t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
+
+	// Stop the task
+	require.NoError(t, f.store.StopTask(ctx, tsk.ID, "test stop"))
+
+	// DrainStops should return the stopped task ID
+	stops := f.store.DrainStops()
+	require.Len(t, stops, 1)
+	assert.Equal(t, tsk.ID, stops[0])
+
+	// Second drain should return nil
+	stops = f.store.DrainStops()
+	assert.Nil(t, stops)
+
+	// Verify task transitioned to pending/not-ready
+	read, err := f.taskRepo.ReadTask(ctx, tsk.ID)
+	require.NoError(t, err)
+	assert.Equal(t, task.StatusPending, read.Status)
+	assert.False(t, read.Ready)
+}
+
+func TestStore_WaitForStop_Signals(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	tsk := f.newTask("title", "desc", true)
+	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
+	require.NoError(t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
+
+	// Channel should not be signaled initially
+	ch := f.store.WaitForStop()
+	select {
+	case <-ch:
+		assert.Fail(t, "expected no stop signal initially")
+	default:
+	}
+
+	// Stop the task — channel should signal
+	require.NoError(t, f.store.StopTask(ctx, tsk.ID, "test stop"))
+
+	select {
+	case <-ch:
+		// Good — received stop signal
+	default:
+		assert.Fail(t, "expected stop signal after StopTask")
+	}
+}
+
+func TestStore_StopTask_NotRunning(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	tsk := f.newTask("title", "desc", true)
+	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
+
+	// StopTask on a pending task should be a no-op
+	err := f.store.StopTask(ctx, tsk.ID, "not running")
+	require.NoError(t, err)
+
+	// No stops should be queued
+	stops := f.store.DrainStops()
+	assert.Nil(t, stops)
+
+	read, err := f.taskRepo.ReadTask(ctx, tsk.ID)
+	require.NoError(t, err)
+	assert.Equal(t, task.StatusPending, read.Status)
+}
+
 func TestStore_CloseTask(t *testing.T) {
 	f := newTestTaskFixture(t)
 	ctx := context.Background()

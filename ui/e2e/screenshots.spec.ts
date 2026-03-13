@@ -634,6 +634,15 @@ const MOCK_EPIC_ACTIVE = {
 	updated_at: '2025-06-01T10:00:00Z'
 };
 
+// Epic in planning+claimed state — agent is actively planning, stop button visible.
+const MOCK_EPIC_PLANNING_CLAIMED = {
+	...MOCK_EPIC_PLANNING,
+	id: 'epc_planningclaimed01',
+	number: 5,
+	claimed_at: '2025-06-01T10:10:00Z',
+	last_heartbeat_at: '2025-06-01T10:15:00Z'
+};
+
 // All mock epics, used by the dashboard's epic list.
 const MOCK_EPICS = [MOCK_EPIC_DRAFT, MOCK_EPIC_PLANNING, MOCK_EPIC_READY, MOCK_EPIC_ACTIVE];
 
@@ -641,6 +650,7 @@ const MOCK_EPICS = [MOCK_EPIC_DRAFT, MOCK_EPIC_PLANNING, MOCK_EPIC_READY, MOCK_E
 const MOCK_EPIC_MAP: Record<string, typeof MOCK_EPIC_DRAFT> = {
 	epc_draft01: MOCK_EPIC_DRAFT,
 	epc_planning01: MOCK_EPIC_PLANNING,
+	epc_planningclaimed01: MOCK_EPIC_PLANNING_CLAIMED,
 	epc_ready01: MOCK_EPIC_READY,
 	epc_active01: MOCK_EPIC_ACTIVE
 };
@@ -650,7 +660,8 @@ const MOCK_EPIC_BY_NUMBER: Record<number, typeof MOCK_EPIC_DRAFT> = {
 	1: MOCK_EPIC_DRAFT,
 	2: MOCK_EPIC_PLANNING,
 	3: MOCK_EPIC_READY,
-	4: MOCK_EPIC_ACTIVE
+	4: MOCK_EPIC_ACTIVE,
+	5: MOCK_EPIC_PLANNING_CLAIMED
 };
 
 // --- Mock Conversation Data ---
@@ -1262,6 +1273,9 @@ async function setupMockAPI(
 	await page.route('**/api/v1/epics/*/close', (route) =>
 		route.fulfill({ json: { data: { ...MOCK_EPIC_DRAFT, status: 'closed' } } })
 	);
+	await page.route('**/api/v1/epics/*/stop', (route) =>
+		route.fulfill({ json: { data: { ...MOCK_EPIC_PLANNING_CLAIMED, status: 'draft', claimed_at: null } } })
+	);
 
 	// Individual epic detail (generic catch-all for /epics/*).
 	await page.route('**/api/v1/epics/*', (route) => {
@@ -1632,6 +1646,18 @@ test.describe('UI Screenshots', () => {
 
 		await page.screenshot({
 			path: `screenshots/epic-planning-${testInfo.project.name}.png`,
+			fullPage: true
+		});
+	});
+
+	test('epic detail - planning claimed with stop button', async ({ page }, testInfo) => {
+		await setupMockAPI(page);
+		await page.goto('/acme/webapp/epics/5');
+
+		await page.waitForTimeout(2000);
+
+		await page.screenshot({
+			path: `screenshots/epic-planning-claimed-${testInfo.project.name}.png`,
 			fullPage: true
 		});
 	});

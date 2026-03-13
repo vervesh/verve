@@ -18,14 +18,20 @@ type Store struct {
 	broker    *Broker
 	pendingMu sync.Mutex
 	pendingCh chan struct{}
+
+	// Stop queue: IDs of tasks that have been stopped, delivered via poll.
+	pendingStopsMu sync.Mutex
+	pendingStops   []TaskID
+	pendingStopCh  chan struct{} // buffered(1), signals when stops are queued
 }
 
 // NewStore creates a new Store backed by the given Repository and Broker.
 func NewStore(repo Repository, broker *Broker) *Store {
 	return &Store{
-		repo:      repo,
-		broker:    broker,
-		pendingCh: make(chan struct{}, 1),
+		repo:          repo,
+		broker:        broker,
+		pendingCh:     make(chan struct{}, 1),
+		pendingStopCh: make(chan struct{}, 1),
 	}
 }
 
@@ -682,8 +688,41 @@ func (s *Store) StopTask(ctx context.Context, id TaskID, reason string) error {
 	if !ok {
 		return nil // task was not in running status
 	}
+	s.queueStop(id)
 	s.publishTaskUpdated(ctx, id)
 	return nil
+}
+
+// queueStop appends a task ID to the pending stops list and signals
+// the stop channel so the poll-based stop loop can deliver it.
+func (s *Store) queueStop(id TaskID) {
+	s.pendingStopsMu.Lock()
+	s.pendingStops = append(s.pendingStops, id)
+	s.pendingStopsMu.Unlock()
+
+	select {
+	case s.pendingStopCh <- struct{}{}:
+	default:
+	}
+}
+
+// WaitForStop returns a channel that signals when stop signals are queued.
+func (s *Store) WaitForStop() <-chan struct{} {
+	s.pendingStopsMu.Lock()
+	defer s.pendingStopsMu.Unlock()
+	return s.pendingStopCh
+}
+
+// DrainStops returns and clears all pending stop task IDs.
+func (s *Store) DrainStops() []TaskID {
+	s.pendingStopsMu.Lock()
+	defer s.pendingStopsMu.Unlock()
+	if len(s.pendingStops) == 0 {
+		return nil
+	}
+	stops := s.pendingStops
+	s.pendingStops = nil
+	return stops
 }
 
 // CloseTask closes a task with an optional reason.

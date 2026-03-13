@@ -140,6 +140,10 @@ func (f *fixture) pollURL() string {
 	return fmt.Sprintf("%s/api/v1/agent/poll", f.Server.Address())
 }
 
+func (f *fixture) pollStopURL() string {
+	return fmt.Sprintf("%s/api/v1/agent/poll?accept=stop", f.Server.Address())
+}
+
 // --- Seed helpers ---
 
 func (f *fixture) seedRunningTask() *task.Task {
