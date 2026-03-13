@@ -123,17 +123,16 @@
 
 ## Database
 
-- **Dual backend**: PostgreSQL (production) and SQLite in-memory (development)
-- **Repository pattern**: Interface-based abstraction with interchangeable implementations
+- **SQLite backend**: File-backed SQLite with Turso/libSQL support for cloud deployments
+- **Repository pattern**: Interface-based abstraction with SQLite implementation
 - **Auto-migrations**: Embedded SQL migrations run on startup
 - **sqlc generation**: Type-safe queries generated from SQL definitions
-- **PostgreSQL features**: Connection pooling (pgx/v5), NOTIFY/LISTEN for cross-instance events, ENUM types, array support
-- **SQLite features**: Zero-config in-memory mode, JSON array encoding for complex fields
+- **SQLite features**: Zero-config in-memory mode, file-backed persistence, JSON array encoding for complex fields
 
 ## Event System
 
 - **In-process fan-out**: Broker distributes events to SSE subscribers with buffered channels
-- **PostgreSQL NOTIFY/LISTEN**: Multi-instance event distribution with auto-reconnect
+- **Cross-instance events**: Broker supports optional notifier for multi-instance event distribution
 - **Event types**: `task_created`, `task_updated`, `logs_appended`
 - **Init snapshot**: SSE connections receive full task list on connect
 

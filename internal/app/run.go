@@ -19,11 +19,11 @@ import (
 	"github.com/joshjon/verve/internal/conversationapi"
 	"github.com/joshjon/verve/internal/epic"
 	"github.com/joshjon/verve/internal/epicapi"
+	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/eventapi"
 	"github.com/joshjon/verve/internal/frontend"
 	"github.com/joshjon/verve/internal/github"
 	"github.com/joshjon/verve/internal/githubtoken"
-	"github.com/joshjon/verve/internal/logkey"
 	"github.com/joshjon/verve/internal/metric"
 	"github.com/joshjon/verve/internal/metricapi"
 	"github.com/joshjon/verve/internal/repo"
@@ -46,7 +46,7 @@ type stores struct {
 	setting      *setting.Service
 }
 
-// Run starts the API server.
+// Run starts the API server using SQLite as the database backend.
 func Run(ctx context.Context, logger log.Logger, cfg Config) error {
 	var encryptionKey []byte
 	if cfg.EncryptionKey != "" {

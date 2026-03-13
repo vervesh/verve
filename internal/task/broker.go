@@ -26,9 +26,9 @@ type Event struct {
 	Repo    any      `json:"repo,omitempty"`
 }
 
-// Notifier sends event payloads to an external notification system.
-// The listen side of the notification system calls Broker.Receive to
-// complete the fan-out.
+// Notifier sends event payloads to an external notification system for
+// cross-instance fan-out. The listen side calls Broker.Receive to complete
+// the fan-out.
 type Notifier interface {
 	Notify(ctx context.Context, payload []byte) error
 }

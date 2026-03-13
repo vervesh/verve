@@ -113,7 +113,8 @@ the same code. Write the --learnings field as if briefing a colleague.
 The task store uses a broker pattern for real-time events. Mutations in store.go
 publish to an in-memory broker, which fans out to SSE subscribers. When adding new
 mutation methods, always call s.broker.Publish() after the DB write or SSE clients
-won't update. The SQLite path uses local-only fan-out (nil notifier).
+won't update. The broker supports an optional notifier for cross-instance fan-out,
+but currently uses local-only fan-out (nil notifier).
 
 ## When to Use
 

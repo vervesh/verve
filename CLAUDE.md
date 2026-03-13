@@ -94,7 +94,7 @@ make clean                        # Remove binaries, UI dist, and agent image
 - **Language**: Go 1.25+
 - **CLI Framework**: urfave/cli/v2
 - **HTTP Framework**: Echo v4
-- **Database**: SQLite (file-backed, in-memory, or Turso/libSQL)
+- **Database**: SQLite (via modernc.org/sqlite), with Turso/libSQL support
 - **SQL Generation**: sqlc (via `go tool sqlc`)
 - **Container Runtime**: Docker (via Docker SDK for Go)
 - **Utilities**: `github.com/joshjon/kit` (sqlitedb, errtag, id)
@@ -105,8 +105,8 @@ make clean                        # Remove binaries, UI dist, and agent image
 ```
 Internal Cloud                          User Environment
 ┌─────────────────────────┐            ┌─────────────────────────┐
-│ SQLite ◄─► API Server   │◄── HTTPS ──│ Orchestrator Worker     │
-│             ◄─► UI      │            │   └─► Agent containers  │
+│ SQLite  ◄─► API Server  │◄── HTTPS ──│ Orchestrator Worker     │
+│              ◄─► UI     │            │   └─► Agent containers  │
 └─────────────────────────┘            └─────────────────────────┘
 ```
 
@@ -120,7 +120,7 @@ verve/
 ├── internal/
 │   ├── app/
 │   │   ├── config.go               # Config, GitHubConfig
-│   │   └── run.go                  # Run (initializes SQLite stores)
+│   │   └── run.go                  # Run (initializes SQLite)
 │   ├── logkey/
 │   │   └── keys.go                 # Structured request log keys (TaskID, RepoID, EpicID)
 │   ├── keymanager/
@@ -176,13 +176,13 @@ verve/
 ## Database Layer
 
 ### Repository Pattern
-- Domain types and `Repository` interface defined in `internal/{entity}/`
+- Domain types and `Repository` interface defined in `internal/task/`
 - SQLite implementation in `internal/sqlite/` using database/sql + modernc.org/sqlite
 
 ### SQLC Conventions
 - Query files in `internal/sqlite/queries/*.sql`
 - Use `-- name: QueryName :one/:many/:exec` comment syntax
-- Generated code in `internal/sqlite/sqlc/` — never edit manually
+- Generated code in `sqlc/` directories — never edit manually
 - Run `make generate` after changing queries or migrations
 - SQLite stores array fields (logs, depends_on) as JSON text
 
@@ -387,13 +387,3 @@ for _, tt := range tests {
 - Task queue uses long-polling (worker initiates connection, server holds until task available)
 - Agents are ephemeral - one process per task, destroyed after completion
 - PR creation happens on user side using their Git credentials
-
-<!-- tome:start -->
-## Session Memory (Tome)
-
-Use the /tome skill to manage session memory:
-- **Before starting work**: Search for relevant prior sessions to find useful context
-- **After completing work**: Record a structured summary of what was done, key decisions, and learnings
-
-This helps maintain continuity across sessions so future work can build on past context.
-<!-- tome:end -->
