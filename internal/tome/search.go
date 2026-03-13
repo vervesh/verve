@@ -33,7 +33,7 @@ func (t *Tome) searchBM25(ctx context.Context, query string, opts SearchOpts) ([
 	}
 
 	q := `
-		SELECT s.id, s.summary, s.learnings, s.content, s.tags, s.files, s.branch, s.status, s.transcript_hash, s.user, s.created_at,
+		SELECT s.id, s.summary, s.learnings, s.content, s.tags, s.files, s.branch, s.status, s.transcript_hash, s.user, s.repo, s.created_at,
 		       session_fts.rank
 		FROM session_fts
 		JOIN session s ON session_fts.rowid = s.rowid
@@ -47,6 +47,10 @@ func (t *Tome) searchBM25(ctx context.Context, query string, opts SearchOpts) ([
 	if opts.FilePattern != "" {
 		q += ` AND s.files LIKE ?`
 		args = append(args, "%"+opts.FilePattern+"%")
+	}
+	if opts.Repo != "" {
+		q += ` AND s.repo = ?`
+		args = append(args, opts.Repo)
 	}
 
 	q += ` ORDER BY session_fts.rank LIMIT ?`
@@ -67,7 +71,7 @@ func (t *Tome) searchBM25(ctx context.Context, query string, opts SearchOpts) ([
 
 		err := rows.Scan(
 			&r.Session.ID, &r.Session.Summary, &r.Session.Learnings, &r.Session.Content,
-			&tagsJSON, &filesJSON, &r.Session.Branch, &r.Session.Status, &transcriptHash, &r.Session.User, &createdAt,
+			&tagsJSON, &filesJSON, &r.Session.Branch, &r.Session.Status, &transcriptHash, &r.Session.User, &r.Session.Repo, &createdAt,
 			&r.Score,
 		)
 		if err != nil {
@@ -105,6 +109,7 @@ func (t *Tome) searchHybrid(ctx context.Context, query string, opts SearchOpts, 
 	bm25Opts := SearchOpts{
 		Status:      opts.Status,
 		FilePattern: opts.FilePattern,
+		Repo:        opts.Repo,
 		Limit:       50,
 		BM25Only:    true,
 	}
@@ -141,6 +146,9 @@ func (t *Tome) searchHybrid(ctx context.Context, query string, opts SearchOpts, 
 				continue
 			}
 			if opts.FilePattern != "" && !matchesFilePattern(r.Session.Files, opts.FilePattern) {
+				continue
+			}
+			if opts.Repo != "" && r.Session.Repo != opts.Repo {
 				continue
 			}
 			byID[r.Session.ID] = &candidate{

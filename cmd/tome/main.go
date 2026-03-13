@@ -67,6 +67,7 @@ func searchCmd() *cli.Command {
 			&cli.IntFlag{Name: "limit", Aliases: []string{"n"}, Value: 5, Usage: "Max results"},
 			&cli.BoolFlag{Name: "json", Usage: "Output as JSON"},
 			&cli.BoolFlag{Name: "bm25-only", Usage: "Force BM25-only search (skip LSA)"},
+			&cli.BoolFlag{Name: "all-repos", Usage: "Search across all repos (default: current repo only)"},
 		},
 		Action: func(c *cli.Context) error {
 			query := c.Args().First()
@@ -80,9 +81,15 @@ func searchCmd() *cli.Command {
 			}
 			defer func() { _ = t.Close() }()
 
+			var repo string
+			if !c.Bool("all-repos") {
+				repo = detectRepo(c.Context)
+			}
+
 			results, err := t.Search(c.Context, query, tome.SearchOpts{
 				FilePattern: c.String("file"),
 				Status:      c.String("status"),
+				Repo:        repo,
 				Limit:       c.Int("limit"),
 				BM25Only:    c.Bool("bm25-only"),
 			})
@@ -145,6 +152,7 @@ func recordCmd() *cli.Command {
 			&cli.StringFlag{Name: "status", Value: "succeeded", Usage: "Session status (succeeded/failed)"},
 			&cli.StringFlag{Name: "branch", Usage: "Git branch (auto-detected if not set)"},
 			&cli.StringFlag{Name: "user", Usage: "Session user (auto-detected from git config if not set)"},
+			&cli.StringFlag{Name: "repo", Usage: "Repository owner/name (auto-detected if not set)"},
 		},
 		Action: func(c *cli.Context) error {
 			t, err := openTome()
@@ -165,6 +173,11 @@ func recordCmd() *cli.Command {
 				user = detectUser()
 			}
 
+			repo := c.String("repo")
+			if repo == "" {
+				repo = detectRepo(c.Context)
+			}
+
 			s := tome.Session{
 				Summary:   c.String("summary"),
 				Learnings: c.String("learnings"),
@@ -173,6 +186,7 @@ func recordCmd() *cli.Command {
 				Status:    c.String("status"),
 				Branch:    branch,
 				User:      user,
+				Repo:      repo,
 			}
 
 			if err := t.Record(c.Context, s); err != nil {
@@ -192,6 +206,7 @@ func logCmd() *cli.Command {
 		Flags: []cli.Flag{
 			&cli.IntFlag{Name: "limit", Aliases: []string{"n"}, Value: 10, Usage: "Number of sessions"},
 			&cli.BoolFlag{Name: "json", Usage: "Output as JSON"},
+			&cli.BoolFlag{Name: "all-repos", Usage: "Show sessions from all repos (default: current repo only)"},
 		},
 		Action: func(c *cli.Context) error {
 			t, err := openTome()
@@ -200,7 +215,12 @@ func logCmd() *cli.Command {
 			}
 			defer func() { _ = t.Close() }()
 
-			sessions, err := t.Log(c.Context, c.Int("limit"))
+			var repo string
+			if !c.Bool("all-repos") {
+				repo = detectRepo(c.Context)
+			}
+
+			sessions, err := t.Log(c.Context, c.Int("limit"), repo)
 			if err != nil {
 				return err
 			}
@@ -426,6 +446,14 @@ func detectUser() string {
 		return strings.TrimSpace(string(out))
 	}
 	return ""
+}
+
+func detectRepo(ctx context.Context) string {
+	repoDir, err := resolveRepoDir()
+	if err != nil {
+		return ""
+	}
+	return tome.DetectRepo(ctx, repoDir)
 }
 
 func splitCSV(s string) []string {

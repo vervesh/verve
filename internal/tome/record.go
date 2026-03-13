@@ -37,9 +37,9 @@ func (t *Tome) Record(ctx context.Context, s Session) error {
 	}
 
 	_, err = t.db.ExecContext(ctx, `
-		INSERT INTO session (id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at, exported)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-	`, s.ID, s.Summary, s.Learnings, s.Content, string(tags), string(files), s.Branch, s.Status, nullString(s.TranscriptHash), s.User, s.CreatedAt.Unix())
+		INSERT INTO session (id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at, exported)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+	`, s.ID, s.Summary, s.Learnings, s.Content, string(tags), string(files), s.Branch, s.Status, nullString(s.TranscriptHash), s.User, s.Repo, s.CreatedAt.Unix())
 	return err
 }
 

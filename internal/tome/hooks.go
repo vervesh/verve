@@ -61,6 +61,7 @@ Before starting work, search for relevant prior sessions:
 tome search "authentication middleware"    # semantic + keyword search
 tome search --file "src/auth" "token"      # filter by files touched
 tome search -n 10 "database migration"     # more results
+tome search --all-repos "shared pattern"   # search across all repos
 ` + "```" + `
 
 Search returns sessions with a match snippet. To drill into a specific session:

@@ -14,6 +14,7 @@ type Session struct {
 	Status         string    `json:"status"`
 	TranscriptHash string    `json:"transcript_hash,omitempty"`
 	User           string    `json:"user"`
+	Repo           string    `json:"repo"`
 	CreatedAt      time.Time `json:"created_at"`
 }
 
@@ -21,6 +22,7 @@ type Session struct {
 type SearchOpts struct {
 	FilePattern string // filter sessions by files touched
 	Status      string // filter by outcome
+	Repo        string // filter by repo (owner/name)
 	Limit       int    // max results (default 5)
 	BM25Only    bool   // force BM25-only mode (skip LSA)
 }

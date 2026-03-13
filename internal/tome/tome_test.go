@@ -168,7 +168,7 @@ func TestLog(t *testing.T) {
 		CreatedAt: time.Now(),
 	}))
 
-	sessions, err := tm.Log(ctx, 10)
+	sessions, err := tm.Log(ctx, 10, "")
 	require.NoError(t, err)
 	require.Len(t, sessions, 3)
 	// Most recent first
@@ -188,7 +188,7 @@ func TestLogLimit(t *testing.T) {
 		}))
 	}
 
-	sessions, err := tm.Log(ctx, 3)
+	sessions, err := tm.Log(ctx, 3, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions, 3)
 }
@@ -202,7 +202,7 @@ func TestRecordAutoFields(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	sessions, err := tm.Log(ctx, 1)
+	sessions, err := tm.Log(ctx, 1, "")
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 
@@ -213,4 +213,64 @@ func TestRecordAutoFields(t *testing.T) {
 	assert.False(t, s.CreatedAt.IsZero())
 	assert.Equal(t, []string{}, s.Tags)
 	assert.Equal(t, []string{}, s.Files)
+}
+
+func TestSearchFiltersByRepo(t *testing.T) {
+	tm := openTestTome(t)
+	ctx := context.Background()
+
+	require.NoError(t, tm.Record(ctx, tome.Session{
+		Summary:   "Auth work in puntr",
+		Learnings: "JWT tokens for auth",
+		Repo:      "joshjon/puntr",
+	}))
+	require.NoError(t, tm.Record(ctx, tome.Session{
+		Summary:   "Auth work in verve",
+		Learnings: "API keys for auth",
+		Repo:      "joshjon/verve",
+	}))
+
+	// Search scoped to puntr.
+	results, err := tm.Search(ctx, "auth", tome.SearchOpts{Repo: "joshjon/puntr"})
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, "Auth work in puntr", results[0].Session.Summary)
+
+	// Search without repo filter returns both.
+	results, err = tm.Search(ctx, "auth", tome.SearchOpts{})
+	require.NoError(t, err)
+	assert.Len(t, results, 2)
+}
+
+func TestLogFiltersByRepo(t *testing.T) {
+	tm := openTestTome(t)
+	ctx := context.Background()
+
+	require.NoError(t, tm.Record(ctx, tome.Session{
+		Summary:   "Session in repo A",
+		Repo:      "owner/repo-a",
+		CreatedAt: time.Now().Add(-2 * time.Hour),
+	}))
+	require.NoError(t, tm.Record(ctx, tome.Session{
+		Summary:   "Session in repo B",
+		Repo:      "owner/repo-b",
+		CreatedAt: time.Now().Add(-1 * time.Hour),
+	}))
+	require.NoError(t, tm.Record(ctx, tome.Session{
+		Summary:   "Another in repo A",
+		Repo:      "owner/repo-a",
+		CreatedAt: time.Now(),
+	}))
+
+	// Log scoped to repo A.
+	sessions, err := tm.Log(ctx, 10, "owner/repo-a")
+	require.NoError(t, err)
+	require.Len(t, sessions, 2)
+	assert.Equal(t, "Another in repo A", sessions[0].Summary)
+	assert.Equal(t, "Session in repo A", sessions[1].Summary)
+
+	// Log without repo filter returns all.
+	sessions, err = tm.Log(ctx, 10, "")
+	require.NoError(t, err)
+	assert.Len(t, sessions, 3)
 }

@@ -19,6 +19,8 @@ type CheckpointResult struct {
 // Checkpoint discovers Claude Code transcripts, deduplicates by file hash,
 // parses new or changed transcripts, and records them as sessions.
 func (t *Tome) Checkpoint(ctx context.Context, repoRoot string) (CheckpointResult, error) {
+	repo := DetectRepo(ctx, repoRoot)
+
 	transcriptDir, err := TranscriptDir(repoRoot)
 	if err != nil {
 		return CheckpointResult{}, err
@@ -71,6 +73,7 @@ func (t *Tome) Checkpoint(ctx context.Context, repoRoot string) (CheckpointResul
 		}
 
 		session.TranscriptHash = hash
+		session.Repo = repo
 
 		if err := t.Record(ctx, session); err != nil {
 			continue

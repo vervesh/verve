@@ -36,7 +36,7 @@ func TestCheckpointDiscoversTranscripts(t *testing.T) {
 	assert.Equal(t, 0, result.Skipped)
 
 	// Verify the session was recorded.
-	sessions, err := tm.Log(ctx, 10)
+	sessions, err := tm.Log(ctx, 10, "")
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 	assert.Equal(t, "Add feature X", sessions[0].Summary)
@@ -68,7 +68,7 @@ func TestCheckpointDeduplicates(t *testing.T) {
 	assert.Equal(t, 1, result2.Skipped)
 
 	// Only one session should exist.
-	sessions, err := tm.Log(ctx, 10)
+	sessions, err := tm.Log(ctx, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions, 1)
 }
@@ -105,7 +105,7 @@ func TestCheckpointReprocessesChangedFile(t *testing.T) {
 	assert.Equal(t, 1, result2.Processed)
 
 	// Should still have only one session (old one replaced).
-	sessions, err := tm.Log(ctx, 10)
+	sessions, err := tm.Log(ctx, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions, 1)
 	assert.Equal(t, "Updated task", sessions[0].Summary)

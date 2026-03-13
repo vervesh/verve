@@ -20,6 +20,7 @@ type jsonlSession struct {
 	Status         string   `json:"status"`
 	TranscriptHash string   `json:"transcript_hash,omitempty"`
 	User           string   `json:"user,omitempty"`
+	Repo           string   `json:"repo,omitempty"`
 	CreatedAt      string   `json:"created_at"`
 }
 
@@ -35,6 +36,7 @@ func sessionToJSONL(s Session) jsonlSession {
 		Status:         s.Status,
 		TranscriptHash: s.TranscriptHash,
 		User:           s.User,
+		Repo:           s.Repo,
 		CreatedAt:      s.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
@@ -55,6 +57,7 @@ func jsonlToSession(j jsonlSession) (Session, error) {
 		Status:         j.Status,
 		TranscriptHash: j.TranscriptHash,
 		User:           j.User,
+		Repo:           j.Repo,
 		CreatedAt:      t,
 	}
 	if s.Tags == nil {

@@ -76,6 +76,9 @@ func formatSession(w io.Writer, s Session) {
 	if len(s.Tags) > 0 {
 		_, _ = fmt.Fprintf(w, "Tags:  %s\n", strings.Join(s.Tags, ", "))
 	}
+	if s.Repo != "" {
+		_, _ = fmt.Fprintf(w, "Repo: %s\n", s.Repo)
+	}
 	if s.Branch != "" {
 		_, _ = fmt.Fprintf(w, "Branch: %s\n", s.Branch)
 	}

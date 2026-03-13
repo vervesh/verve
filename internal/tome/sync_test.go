@@ -115,7 +115,7 @@ func TestSyncPullImportsSessions(t *testing.T) {
 	assert.Equal(t, 1, result.Imported)
 
 	// Verify the session was imported.
-	sessions, err := tm2.Log(ctx, 10)
+	sessions, err := tm2.Log(ctx, 10, "")
 	require.NoError(t, err)
 	require.Len(t, sessions, 1)
 	assert.Equal(t, "Session from user1", sessions[0].Summary)
@@ -155,11 +155,11 @@ func TestSyncBidirectional(t *testing.T) {
 	assert.Equal(t, 1, result2.Imported)
 
 	// Both should now have 2 sessions.
-	sessions1, err := tm1.Log(ctx, 10)
+	sessions1, err := tm1.Log(ctx, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions1, 2)
 
-	sessions2, err := tm2.Log(ctx, 10)
+	sessions2, err := tm2.Log(ctx, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions2, 2)
 }
@@ -188,7 +188,7 @@ func TestSyncDeduplicates(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.Imported)
 
-	sessions, err := tm2.Log(ctx, 10)
+	sessions, err := tm2.Log(ctx, 10, "")
 	require.NoError(t, err)
 	assert.Len(t, sessions, 1)
 }

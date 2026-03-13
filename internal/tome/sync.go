@@ -91,6 +91,9 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 		return 0, nil //nolint:nilerr // no tome branches is not an error
 	}
 
+	// Detect repo for backfilling old sessions that lack one.
+	repo := DetectRepo(ctx, repoDir)
+
 	// Collect existing session IDs to dedup.
 	existingIDs, err := t.allSessionIDs(ctx)
 	if err != nil {
@@ -113,6 +116,10 @@ func (t *Tome) pull(ctx context.Context, repoDir string) (int, error) {
 		for _, s := range sessions {
 			if existingIDs[s.ID] {
 				continue
+			}
+			// Backfill repo for old sessions that lack one.
+			if s.Repo == "" {
+				s.Repo = repo
 			}
 			if err := t.importSession(ctx, s); err != nil {
 				continue
@@ -242,16 +249,16 @@ func (t *Tome) importSession(ctx context.Context, s Session) error {
 	filesJSON, _ := json.Marshal(s.Files)
 
 	_, err := t.db.ExecContext(ctx, `
-		INSERT INTO session (id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at, exported)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-	`, s.ID, s.Summary, s.Learnings, s.Content, string(tagsJSON), string(filesJSON), s.Branch, s.Status, nullString(s.TranscriptHash), s.User, s.CreatedAt.Unix())
+		INSERT INTO session (id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at, exported)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+	`, s.ID, s.Summary, s.Learnings, s.Content, string(tagsJSON), string(filesJSON), s.Branch, s.Status, nullString(s.TranscriptHash), s.User, s.Repo, s.CreatedAt.Unix())
 	return err
 }
 
 // unexportedSessions returns all sessions not yet pushed to a remote.
 func (t *Tome) unexportedSessions(ctx context.Context) ([]Session, error) {
 	rows, err := t.db.QueryContext(ctx, `
-		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at
+		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at
 		FROM session
 		WHERE exported = 0
 		ORDER BY created_at ASC

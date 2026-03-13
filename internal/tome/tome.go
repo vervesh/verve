@@ -58,17 +58,26 @@ func (t *Tome) Close() error {
 }
 
 // Log returns the most recent sessions ordered by creation time (newest first).
-func (t *Tome) Log(ctx context.Context, limit int) ([]Session, error) {
+// When repo is non-empty, only sessions matching that repo are returned.
+func (t *Tome) Log(ctx context.Context, limit int, repo string) ([]Session, error) {
 	if limit <= 0 {
 		limit = 10
 	}
 
-	rows, err := t.db.QueryContext(ctx, `
-		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at
-		FROM session
-		ORDER BY created_at DESC
-		LIMIT ?
-	`, limit)
+	q := `
+		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at
+		FROM session`
+	args := []any{}
+
+	if repo != "" {
+		q += ` WHERE repo = ?`
+		args = append(args, repo)
+	}
+
+	q += ` ORDER BY created_at DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := t.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +97,7 @@ func (t *Tome) Log(ctx context.Context, limit int) ([]Session, error) {
 // Get returns a single session by ID.
 func (t *Tome) Get(ctx context.Context, id string) (Session, error) {
 	row := t.db.QueryRowContext(ctx, `
-		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at
+		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at
 		FROM session
 		WHERE id = ?
 	`, id)
@@ -148,7 +157,7 @@ func (t *Tome) ensureLSA(ctx context.Context) *LSAIndex {
 // allSessions loads every session from the database.
 func (t *Tome) allSessions(ctx context.Context) ([]Session, error) {
 	rows, err := t.db.QueryContext(ctx, `
-		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, created_at
+		SELECT id, summary, learnings, content, tags, files, branch, status, transcript_hash, user, repo, created_at
 		FROM session
 		ORDER BY created_at ASC
 	`)
@@ -178,7 +187,7 @@ func scanSession(row scanner) (Session, error) {
 	var createdAt int64
 	var transcriptHash sql.NullString
 
-	err := row.Scan(&s.ID, &s.Summary, &s.Learnings, &s.Content, &tagsJSON, &filesJSON, &s.Branch, &s.Status, &transcriptHash, &s.User, &createdAt)
+	err := row.Scan(&s.ID, &s.Summary, &s.Learnings, &s.Content, &tagsJSON, &filesJSON, &s.Branch, &s.Status, &transcriptHash, &s.User, &s.Repo, &createdAt)
 	if err != nil {
 		return Session{}, err
 	}
