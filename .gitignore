@@ -18,7 +18,5 @@ dist/
 internal/frontend/dist/*
 !internal/frontend/dist/placeholder.html
 
-.rekal/
 .claude/skills/
-.tome/
 agent/tome
