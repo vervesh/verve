@@ -521,7 +521,14 @@ func TestStore_WaitForPending(t *testing.T) {
 	}
 }
 
-func TestStore_StopTask_NotifiesWatcher(t *testing.T) {
+func TestStore_DrainStops_Empty(t *testing.T) {
+	f := newTestTaskFixture(t)
+
+	stops := f.store.DrainStops()
+	assert.Nil(t, stops, "expected nil stops on fresh store")
+}
+
+func TestStore_StopTask_QueuesStop(t *testing.T) {
 	f := newTestTaskFixture(t)
 	ctx := context.Background()
 
@@ -529,20 +536,17 @@ func TestStore_StopTask_NotifiesWatcher(t *testing.T) {
 	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
 	require.NoError(t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
 
-	// Watch for stop signal
-	stopCh := f.store.WatchStop(tsk.ID)
-	defer f.store.UnwatchStop(tsk.ID)
-
 	// Stop the task
 	require.NoError(t, f.store.StopTask(ctx, tsk.ID, "test stop"))
 
-	// The stop channel should be closed immediately
-	select {
-	case <-stopCh:
-		// Good — received stop signal
-	default:
-		assert.Fail(t, "expected stop channel to be closed after StopTask")
-	}
+	// DrainStops should return the stopped task ID
+	stops := f.store.DrainStops()
+	require.Len(t, stops, 1)
+	assert.Equal(t, tsk.ID, stops[0])
+
+	// Second drain should return nil
+	stops = f.store.DrainStops()
+	assert.Nil(t, stops)
 
 	// Verify task transitioned to pending/not-ready
 	read, err := f.taskRepo.ReadTask(ctx, tsk.ID)
@@ -551,7 +555,7 @@ func TestStore_StopTask_NotifiesWatcher(t *testing.T) {
 	assert.False(t, read.Ready)
 }
 
-func TestStore_StopTask_NoWatcher(t *testing.T) {
+func TestStore_WaitForStop_Signals(t *testing.T) {
 	f := newTestTaskFixture(t)
 	ctx := context.Background()
 
@@ -559,9 +563,39 @@ func TestStore_StopTask_NoWatcher(t *testing.T) {
 	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
 	require.NoError(t, f.taskRepo.UpdateTaskStatus(ctx, tsk.ID, task.StatusRunning))
 
-	// StopTask should succeed even without a watcher
-	err := f.store.StopTask(ctx, tsk.ID, "no watcher")
+	// Channel should not be signaled initially
+	ch := f.store.WaitForStop()
+	select {
+	case <-ch:
+		assert.Fail(t, "expected no stop signal initially")
+	default:
+	}
+
+	// Stop the task — channel should signal
+	require.NoError(t, f.store.StopTask(ctx, tsk.ID, "test stop"))
+
+	select {
+	case <-ch:
+		// Good — received stop signal
+	default:
+		assert.Fail(t, "expected stop signal after StopTask")
+	}
+}
+
+func TestStore_StopTask_NotRunning(t *testing.T) {
+	f := newTestTaskFixture(t)
+	ctx := context.Background()
+
+	tsk := f.newTask("title", "desc", true)
+	require.NoError(t, f.taskRepo.CreateTask(ctx, tsk))
+
+	// StopTask on a pending task should be a no-op
+	err := f.store.StopTask(ctx, tsk.ID, "not running")
 	require.NoError(t, err)
+
+	// No stops should be queued
+	stops := f.store.DrainStops()
+	assert.Nil(t, stops)
 
 	read, err := f.taskRepo.ReadTask(ctx, tsk.ID)
 	require.NoError(t, err)

@@ -24,6 +24,7 @@
 		Link2,
 		MessageSquare,
 		PauseCircle,
+		StopCircle,
 		CheckCircle2,
 		AlertCircle,
 		AlertTriangle,
@@ -63,6 +64,8 @@
 	let isDraft = $derived(epic?.status === 'draft' || epic?.status === 'ready');
 	let isEditable = $derived(isDraft);
 	let isClaimed = $derived(!!epic?.claimed_at);
+	let canStopPlanning = $derived(isPlanning && isClaimed);
+	let stopping = $state(false);
 
 	// Change request state
 	let changeMessage = $state('');
@@ -286,6 +289,21 @@
 		}
 	}
 
+	async function handleStopPlanning() {
+		if (!epic) return;
+		stopping = true;
+		error = null;
+		try {
+			epic = await client.stopEpic(epic.id);
+			epicStore.updateEpic(epic);
+			stopPolling();
+		} catch (err) {
+			error = (err as Error).message;
+		} finally {
+			stopping = false;
+		}
+	}
+
 	async function handleClose() {
 		if (!epic) return;
 		closing = true;
@@ -471,23 +489,35 @@
 		{#if isPlanning}
 			<Card.Root class="mb-6 border-violet-500/20 bg-violet-500/5">
 				<Card.Content class="p-4">
-					<div class="flex items-center gap-3">
-						{#if isClaimed}
-							<Loader2 class="w-5 h-5 animate-spin text-violet-400 shrink-0" />
-							<div>
-								<p class="text-sm font-medium text-violet-400">Agent is planning...</p>
-								<p class="text-xs text-muted-foreground mt-0.5">
-									The AI agent is analyzing the codebase and generating a task breakdown. The agent will propose tasks when done.
-								</p>
-							</div>
-						{:else}
-							<Clock class="w-5 h-5 text-muted-foreground shrink-0" />
-							<div>
-								<p class="text-sm font-medium text-muted-foreground">Queued for planning...</p>
-								<p class="text-xs text-muted-foreground mt-0.5">
-									This epic is in the planning queue and will be picked up by the next available worker.
-								</p>
-							</div>
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-3">
+							{#if isClaimed}
+								<Loader2 class="w-5 h-5 animate-spin text-violet-400 shrink-0" />
+								<div>
+									<p class="text-sm font-medium text-violet-400">Agent is planning...</p>
+									<p class="text-xs text-muted-foreground mt-0.5">
+										The AI agent is analyzing the codebase and generating a task breakdown. The agent will propose tasks when done.
+									</p>
+								</div>
+							{:else}
+								<Clock class="w-5 h-5 text-muted-foreground shrink-0" />
+								<div>
+									<p class="text-sm font-medium text-muted-foreground">Queued for planning...</p>
+									<p class="text-xs text-muted-foreground mt-0.5">
+										This epic is in the planning queue and will be picked up by the next available worker.
+									</p>
+								</div>
+							{/if}
+						</div>
+						{#if canStopPlanning}
+							<Button variant="outline" size="sm" onclick={handleStopPlanning} disabled={stopping} class="gap-1.5 text-red-400 border-red-500/30 hover:bg-red-500/10 shrink-0">
+								{#if stopping}
+									<Loader2 class="w-3.5 h-3.5 animate-spin" />
+								{:else}
+									<StopCircle class="w-3.5 h-3.5" />
+								{/if}
+								Stop Planning
+							</Button>
 						{/if}
 					</div>
 				</Card.Content>

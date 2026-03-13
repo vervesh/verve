@@ -19,39 +19,26 @@ import (
 	"github.com/joshjon/verve/internal/workertracker"
 )
 
-// DefaultHeartbeatHoldDuration is how long the heartbeat endpoint holds the
-// connection open waiting for a stop signal. This enables near-instant
-// propagation of stop requests to the worker without frequent polling.
-const DefaultHeartbeatHoldDuration = 4 * time.Second
-
 // HTTPHandler handles agent-facing API requests.
 type HTTPHandler struct {
-	taskStore              *task.Store
-	epicStore              *epic.Store
-	repoStore              *repo.Store
-	conversationStore      *conversation.Store
-	githubToken            *githubtoken.Service
-	workerRegistry         *workertracker.Registry
-	heartbeatHoldDuration  time.Duration
+	taskStore         *task.Store
+	epicStore         *epic.Store
+	repoStore         *repo.Store
+	conversationStore *conversation.Store
+	githubToken       *githubtoken.Service
+	workerRegistry    *workertracker.Registry
 }
 
 // NewHTTPHandler creates a new HTTPHandler.
 func NewHTTPHandler(taskStore *task.Store, epicStore *epic.Store, repoStore *repo.Store, conversationStore *conversation.Store, githubToken *githubtoken.Service, workerRegistry *workertracker.Registry) *HTTPHandler {
 	return &HTTPHandler{
-		taskStore:              taskStore,
-		epicStore:              epicStore,
-		repoStore:              repoStore,
-		conversationStore:      conversationStore,
-		githubToken:            githubToken,
-		workerRegistry:         workerRegistry,
-		heartbeatHoldDuration:  DefaultHeartbeatHoldDuration,
+		taskStore:         taskStore,
+		epicStore:         epicStore,
+		repoStore:         repoStore,
+		conversationStore: conversationStore,
+		githubToken:       githubToken,
+		workerRegistry:    workerRegistry,
 	}
-}
-
-// SetHeartbeatHoldDuration overrides the default hold duration for the
-// long-polling heartbeat endpoint. Useful in tests to avoid waiting.
-func (h *HTTPHandler) SetHeartbeatHoldDuration(d time.Duration) {
-	h.heartbeatHoldDuration = d
 }
 
 // Register adds the agent endpoints to the provided Echo router group.
@@ -83,7 +70,12 @@ func (h *HTTPHandler) Register(g *echo.Group) {
 }
 
 // Poll handles GET /poll — unified long-poll for available work.
+// When called with ?accept=stop, it long-polls for stop signals only.
 func (h *HTTPHandler) Poll(c echo.Context) error {
+	if c.QueryParam("accept") == "stop" {
+		return h.pollForStops(c)
+	}
+
 	timeout := 30 * time.Second
 	deadline := time.Now().Add(timeout)
 	ctx := c.Request().Context()
@@ -249,6 +241,45 @@ func (h *HTTPHandler) buildTaskPollResponse(c echo.Context, t *task.Task) (*Poll
 	}, nil
 }
 
+// pollForStops long-polls for stop signals from both task and epic stores.
+func (h *HTTPHandler) pollForStops(c echo.Context) error {
+	timeout := 30 * time.Second
+	deadline := time.Now().Add(timeout)
+	ctx := c.Request().Context()
+
+	for {
+		var signals []StopSignal
+
+		for _, id := range h.taskStore.DrainStops() {
+			signals = append(signals, StopSignal{EntityType: "task", EntityID: id.String()})
+		}
+		for _, id := range h.epicStore.DrainStops() {
+			signals = append(signals, StopSignal{EntityType: "epic", EntityID: id.String()})
+		}
+
+		if len(signals) > 0 {
+			return server.SetResponse(c, http.StatusOK, &PollResponse{
+				Type:  "stop",
+				Stops: signals,
+			})
+		}
+
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return c.NoContent(http.StatusNoContent)
+		}
+
+		select {
+		case <-h.taskStore.WaitForStop():
+		case <-h.epicStore.WaitForStop():
+		case <-time.After(remaining):
+			return c.NoContent(http.StatusNoContent)
+		case <-ctx.Done():
+			return c.NoContent(http.StatusNoContent)
+		}
+	}
+}
+
 // --- Task Agent Endpoints ---
 
 // TaskAppendLogs handles POST /tasks/:id/logs
@@ -271,10 +302,9 @@ func (h *HTTPHandler) TaskAppendLogs(c echo.Context) error {
 }
 
 // TaskHeartbeat handles POST /tasks/:id/heartbeat.
-// It uses long-polling: if the task is still running, it blocks for up to
-// heartbeatHoldDuration waiting for a stop signal before responding. This
-// allows stop requests to propagate to the worker almost immediately instead
-// of waiting for the next polling interval.
+// Returns immediately with the task's stop status from the database.
+// Stop signals are delivered primarily via the poll-based stop channel;
+// the heartbeat acts as a safety net.
 func (h *HTTPHandler) TaskHeartbeat(c echo.Context) error {
 	req, err := server.BindRequest[TaskIDRequest](c)
 	if err != nil {
@@ -283,42 +313,14 @@ func (h *HTTPHandler) TaskHeartbeat(c echo.Context) error {
 	id := task.MustParseTaskID(req.ID)
 	c.Set(logkey.TaskID, id.String())
 
-	ctx := c.Request().Context()
-	stillRunning, err := h.taskStore.Heartbeat(ctx, id)
+	stillRunning, err := h.taskStore.Heartbeat(c.Request().Context(), id)
 	if err != nil {
 		return err
 	}
-
-	// If the task is already stopped, return immediately.
-	if !stillRunning {
-		return server.SetResponse(c, http.StatusOK, map[string]interface{}{
-			"status":  "ok",
-			"stopped": true,
-		})
-	}
-
-	// Task is still running — long-poll until a stop signal arrives or the
-	// hold duration elapses. This makes stop nearly instantaneous.
-	stopCh := h.taskStore.WatchStop(id)
-	defer h.taskStore.UnwatchStop(id)
-
-	select {
-	case <-stopCh:
-		// Task was stopped while we were waiting.
-		return server.SetResponse(c, http.StatusOK, map[string]interface{}{
-			"status":  "ok",
-			"stopped": true,
-		})
-	case <-time.After(h.heartbeatHoldDuration):
-		// No stop signal within the hold window — return normally.
-		return server.SetResponse(c, http.StatusOK, map[string]interface{}{
-			"status":  "ok",
-			"stopped": false,
-		})
-	case <-ctx.Done():
-		// Client disconnected.
-		return ctx.Err()
-	}
+	return server.SetResponse(c, http.StatusOK, map[string]interface{}{
+		"status":  "ok",
+		"stopped": !stillRunning,
+	})
 }
 
 // TaskComplete handles POST /tasks/:id/complete
@@ -421,7 +423,9 @@ func (h *HTTPHandler) EpicComplete(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// EpicHeartbeat handles POST /epics/:id/heartbeat
+// EpicHeartbeat handles POST /epics/:id/heartbeat.
+// Returns JSON with a stopped flag so the worker can detect stop signals
+// as a safety net (primary delivery is via the poll-based stop channel).
 func (h *HTTPHandler) EpicHeartbeat(c echo.Context) error {
 	req, err := server.BindRequest[EpicIDRequest](c)
 	if err != nil {
@@ -430,10 +434,23 @@ func (h *HTTPHandler) EpicHeartbeat(c echo.Context) error {
 	id := epic.MustParseEpicID(req.ID)
 	c.Set(logkey.EpicID, id.String())
 
-	if err := h.epicStore.EpicHeartbeat(c.Request().Context(), id); err != nil {
+	ctx := c.Request().Context()
+	if err := h.epicStore.EpicHeartbeat(ctx, id); err != nil {
 		return err
 	}
-	return c.NoContent(http.StatusNoContent)
+
+	e, err := h.epicStore.ReadEpic(ctx, id)
+	if err != nil {
+		return server.SetResponse(c, http.StatusOK, map[string]interface{}{
+			"status":  "ok",
+			"stopped": true,
+		})
+	}
+	stopped := e.ClaimedAt == nil || e.Status != epic.StatusPlanning
+	return server.SetResponse(c, http.StatusOK, map[string]interface{}{
+		"status":  "ok",
+		"stopped": stopped,
+	})
 }
 
 // EpicAppendLogs handles POST /epics/:id/logs

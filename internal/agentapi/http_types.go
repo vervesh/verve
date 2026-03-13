@@ -9,9 +9,15 @@ import (
 	"github.com/joshjon/verve/internal/task"
 )
 
+// StopSignal identifies an entity that should be stopped.
+type StopSignal struct {
+	EntityType string `json:"entity_type"` // "task" or "epic"
+	EntityID   string `json:"entity_id"`
+}
+
 // PollResponse is the discriminated union returned by the unified poll endpoint.
 type PollResponse struct {
-	Type string `json:"type"` // "task", "epic", "setup", or "conversation"
+	Type string `json:"type"` // "task", "epic", "setup", "conversation", or "stop"
 
 	// Task fields (present when Type == "task")
 	Task *task.Task `json:"task,omitempty"`
@@ -24,6 +30,9 @@ type PollResponse struct {
 
 	// Conversation fields (present when Type == "conversation")
 	Conversation *conversation.Conversation `json:"conversation,omitempty"`
+
+	// Stop signals (present when Type == "stop")
+	Stops []StopSignal `json:"stops,omitempty"`
 
 	// Common fields
 	GitHubToken  string `json:"github_token,omitempty"`

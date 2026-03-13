@@ -97,11 +97,12 @@ type Conversation struct {
 
 // PollResponse is a discriminated union returned by the unified poll endpoint.
 type PollResponse struct {
-	Type         string        `json:"type"` // "task", "epic", "setup", or "conversation"
+	Type         string        `json:"type"` // "task", "epic", "setup", "conversation", or "stop"
 	Task         *Task         `json:"task,omitempty"`
 	Epic         *Epic         `json:"epic,omitempty"`
 	Setup        *Setup        `json:"setup,omitempty"`
 	Conversation *Conversation `json:"conversation,omitempty"`
+	Stops        []StopSignal  `json:"stops,omitempty"`
 	GitHubToken  string        `json:"github_token"`
 	RepoFullName string        `json:"repo_full_name"`
 
@@ -109,6 +110,12 @@ type PollResponse struct {
 	RepoSummary      string `json:"repo_summary,omitempty"`
 	RepoExpectations string `json:"repo_expectations,omitempty"`
 	RepoTechStack    string `json:"repo_tech_stack,omitempty"`
+}
+
+// StopSignal identifies an entity that should be stopped (mirrors agentapi.StopSignal).
+type StopSignal struct {
+	EntityType string `json:"entity_type"`
+	EntityID   string `json:"entity_id"`
 }
 
 type Worker struct {
@@ -127,6 +134,10 @@ type Worker struct {
 	wg            sync.WaitGroup
 	activeTasks   int
 	activeMu      sync.Mutex
+
+	// Running execution contexts for stop-signal cancellation
+	runningCtxsMu sync.Mutex
+	runningCtxs   map[string]context.CancelFunc // entityID → cancel
 }
 
 func New(cfg Config, logger log.Logger) (*Worker, error) {
@@ -150,11 +161,34 @@ func New(cfg Config, logger log.Logger) (*Worker, error) {
 		workerID:      uuid.New().String(),
 		maxConcurrent: maxConcurrent,
 		semaphore:     make(chan struct{}, maxConcurrent),
+		runningCtxs:   make(map[string]context.CancelFunc),
 	}, nil
 }
 
 func (w *Worker) Close() error {
 	return w.docker.Close()
+}
+
+func (w *Worker) trackRunning(id string, cancel context.CancelFunc) {
+	w.runningCtxsMu.Lock()
+	defer w.runningCtxsMu.Unlock()
+	w.runningCtxs[id] = cancel
+}
+
+func (w *Worker) untrackRunning(id string) {
+	w.runningCtxsMu.Lock()
+	defer w.runningCtxsMu.Unlock()
+	delete(w.runningCtxs, id)
+}
+
+func (w *Worker) cancelRunning(id, entityType string) {
+	w.runningCtxsMu.Lock()
+	cancel, ok := w.runningCtxs[id]
+	w.runningCtxsMu.Unlock()
+	if ok {
+		w.logger.Info("cancelling execution via stop signal", entityType+".id", id)
+		cancel()
+	}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
@@ -170,6 +204,9 @@ func (w *Worker) Run(ctx context.Context) error {
 		return err
 	}
 	w.logger.Info("agent image verified", "agent.image", w.docker.AgentImage())
+
+	// Start stop-poll goroutine to receive stop signals via dedicated poll channel.
+	go w.stopPollLoop(ctx)
 
 	for {
 		select {
@@ -316,6 +353,65 @@ func (w *Worker) poll(ctx context.Context) (*PollResponse, error) {
 	}
 
 	return &envelope.Data, nil
+}
+
+func (w *Worker) stopPollLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		stops, err := w.pollForStops(ctx)
+		if err != nil {
+			if ctx.Err() != nil {
+				return
+			}
+			w.logger.Error("error polling for stops", "error", err)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		for _, s := range stops {
+			w.cancelRunning(s.EntityID, s.EntityType)
+		}
+	}
+}
+
+func (w *Worker) pollForStops(ctx context.Context) ([]StopSignal, error) {
+	pollURL := w.config.APIURL + "/api/v1/agent/poll?accept=stop"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pollURL, http.NoBody)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := w.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, body)
+	}
+
+	var envelope struct {
+		Data struct {
+			Stops []StopSignal `json:"stops"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, err
+	}
+
+	return envelope.Data.Stops, nil
 }
 
 // logStreamer buffers log lines and periodically sends them to the API server
@@ -606,9 +702,11 @@ func (w *Worker) executeTask(ctx context.Context, poll *PollResponse) {
 	}
 
 	// Create a cancellable context for the agent execution.
-	// The heartbeat loop can cancel this if the task is stopped.
+	// The stop-poll goroutine or heartbeat safety net can cancel this.
 	execCtx, cancelExec := context.WithCancel(ctx)
 	defer cancelExec()
+	w.trackRunning(task.ID, cancelExec)
+	defer w.untrackRunning(task.ID)
 
 	// Start heartbeat goroutine
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
@@ -721,10 +819,16 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, poll *PollResponse) {
 		RepoTechStack:             poll.RepoTechStack,
 	}
 
+	// Create a cancellable context for epic execution.
+	execCtx, cancelExec := context.WithCancel(ctx)
+	defer cancelExec()
+	w.trackRunning(ep.ID, cancelExec)
+	defer w.untrackRunning(ep.ID)
+
 	// Start heartbeat goroutine
 	heartbeatCtx, cancelHeartbeat := context.WithCancel(ctx)
 	defer cancelHeartbeat()
-	go w.epicHeartbeatLoop(heartbeatCtx, ep.ID)
+	go w.epicHeartbeatLoop(heartbeatCtx, ep.ID, cancelExec)
 
 	// Log callback for epic planning
 	onLog := func(line string) {
@@ -732,10 +836,18 @@ func (w *Worker) executeEpicPlanning(ctx context.Context, poll *PollResponse) {
 		streamer.AddLine(line)
 	}
 
-	result := w.docker.RunAgent(ctx, agentCfg, onLog)
+	result := w.docker.RunAgent(execCtx, agentCfg, onLog)
 
 	// Stop heartbeat before completing
 	cancelHeartbeat()
+
+	// If the execution was cancelled because the epic was stopped,
+	// don't report completion — the server already moved it to draft.
+	if execCtx.Err() != nil && ctx.Err() == nil {
+		epicLogger.Info("epic planning cancelled (stopped by user)")
+		streamer.Stop()
+		return
+	}
 
 	// Stop the streamer and flush remaining logs
 	streamer.Stop()
@@ -1096,35 +1208,52 @@ func (w *Worker) sendTaskHeartbeat(ctx context.Context, taskID string) (stopped 
 	return result.Data.Stopped
 }
 
-func (w *Worker) epicHeartbeatLoop(ctx context.Context, epicID string) {
+func (w *Worker) epicHeartbeatLoop(ctx context.Context, epicID string, cancelExecution context.CancelFunc) {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 
-	_ = w.sendEpicHeartbeat(ctx, epicID)
+	if stopped := w.sendEpicHeartbeat(ctx, epicID); stopped {
+		w.logger.Info("epic was stopped, cancelling execution", "epic.id", epicID)
+		cancelExecution()
+		return
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			_ = w.sendEpicHeartbeat(ctx, epicID)
+			if stopped := w.sendEpicHeartbeat(ctx, epicID); stopped {
+				w.logger.Info("epic was stopped, cancelling execution", "epic.id", epicID)
+				cancelExecution()
+				return
+			}
 		}
 	}
 }
 
-func (w *Worker) sendEpicHeartbeat(ctx context.Context, epicID string) error {
+func (w *Worker) sendEpicHeartbeat(ctx context.Context, epicID string) (stopped bool) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
 		w.config.APIURL+"/api/v1/agent/epics/"+epicID+"/heartbeat", http.NoBody)
 	if err != nil {
-		return err
+		return false
 	}
 
 	resp, err := w.client.Do(req)
 	if err != nil {
-		return err
+		return false
 	}
-	_ = resp.Body.Close()
-	return nil
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Data struct {
+			Stopped bool `json:"stopped"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false
+	}
+	return result.Data.Stopped
 }
 
 func (w *Worker) completeTask(ctx context.Context, taskID string, success bool, errMsg, prURL string, prNumber int, branchName, agentStatus string, costUSD float64, noChanges, retryable bool) error {

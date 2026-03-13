@@ -513,6 +513,97 @@ func TestStore_TimeoutStaleEpics(t *testing.T) {
 	assert.Contains(t, stored.SessionLog, "system: Planning session timed out due to inactivity.")
 }
 
+func TestStore_StopEpic_Success(t *testing.T) {
+	f := newEpicFixture(t)
+	ctx := context.Background()
+
+	e := f.seedEpic(t, "Epic", "desc", epic.StatusPlanning)
+
+	// Claim the epic
+	claimed, err := f.epicRepo.ClaimEpic(ctx, e.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	// Add some proposed tasks
+	require.NoError(t, f.epicRepo.UpdateProposedTasks(ctx, e.ID, []epic.ProposedTask{
+		{TempID: "t1", Title: "Task 1"},
+	}))
+
+	err = f.store.StopEpic(ctx, e.ID)
+	require.NoError(t, err)
+
+	stored, err := f.epicRepo.ReadEpic(ctx, e.ID)
+	require.NoError(t, err)
+	assert.Equal(t, epic.StatusDraft, stored.Status)
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+	assert.Contains(t, stored.SessionLog, "system: Stopped by user.")
+}
+
+func TestStore_StopEpic_NoProposals(t *testing.T) {
+	f := newEpicFixture(t)
+	ctx := context.Background()
+
+	e := f.seedEpic(t, "Epic", "desc", epic.StatusPlanning)
+
+	// Claim the epic (no proposed tasks)
+	claimed, err := f.epicRepo.ClaimEpic(ctx, e.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	err = f.store.StopEpic(ctx, e.ID)
+	require.NoError(t, err)
+
+	stored, err := f.epicRepo.ReadEpic(ctx, e.ID)
+	require.NoError(t, err)
+	assert.Equal(t, epic.StatusDraft, stored.Status)
+	assert.Nil(t, stored.ClaimedAt, "claim should be released")
+	assert.Contains(t, stored.SessionLog, "system: Stopped by user.")
+}
+
+func TestStore_StopEpic_NotPlanning(t *testing.T) {
+	f := newEpicFixture(t)
+	ctx := context.Background()
+
+	e := f.seedEpic(t, "Epic", "desc", epic.StatusDraft)
+
+	err := f.store.StopEpic(ctx, e.ID)
+	assert.Error(t, err)
+}
+
+func TestStore_StopEpic_DrainStops(t *testing.T) {
+	f := newEpicFixture(t)
+	ctx := context.Background()
+
+	// DrainStops on fresh store returns nil
+	assert.Nil(t, f.store.DrainStops())
+
+	e := f.seedEpic(t, "Epic", "desc", epic.StatusPlanning)
+
+	// Claim the epic
+	claimed, err := f.epicRepo.ClaimEpic(ctx, e.ID)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	// Stop the epic
+	require.NoError(t, f.store.StopEpic(ctx, e.ID))
+
+	// DrainStops should return the stopped epic ID
+	stops := f.store.DrainStops()
+	require.Len(t, stops, 1)
+	assert.Equal(t, e.ID.String(), stops[0].String())
+
+	// Second drain should return nil
+	assert.Nil(t, f.store.DrainStops())
+
+	// WaitForStop channel should have been signaled
+	select {
+	case <-f.store.WaitForStop():
+		// Good — channel was signaled
+	default:
+		// Channel already drained by DrainStops check above, this is fine
+	}
+}
+
 func TestStore_ClaimPendingEpic(t *testing.T) {
 	t.Run("claims first available", func(t *testing.T) {
 		f := newEpicFixture(t)

@@ -60,7 +60,6 @@ func newFixture(t *testing.T) *fixture {
 	convStore := conversation.NewStore(convRepo, logger)
 
 	handler := agentapi.NewHTTPHandler(taskStore, epicStore, repoStore, convStore, nil, registry)
-	handler.SetHeartbeatHoldDuration(50 * time.Millisecond) // short hold for fast tests
 
 	srv, err := server.NewServer(testutil.GetFreePort(t))
 	require.NoError(t, err)
@@ -139,6 +138,10 @@ func (f *fixture) conversationLogsURL(id conversation.ConversationID) string {
 
 func (f *fixture) pollURL() string {
 	return fmt.Sprintf("%s/api/v1/agent/poll", f.Server.Address())
+}
+
+func (f *fixture) pollStopURL() string {
+	return fmt.Sprintf("%s/api/v1/agent/poll?accept=stop", f.Server.Address())
 }
 
 // --- Seed helpers ---

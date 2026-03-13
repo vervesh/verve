@@ -29,15 +29,21 @@ type Store struct {
 	// Pending epic notification (same pattern as task.Store)
 	pendingMu sync.Mutex
 	pendingCh chan struct{}
+
+	// Stop queue: IDs of epics that have been stopped, delivered via poll.
+	stopMu        sync.Mutex
+	pendingStops  []EpicID
+	pendingStopCh chan struct{} // buffered(1)
 }
 
 // NewStore creates a new Store backed by the given Repository.
 func NewStore(repo Repository, taskCreator TaskCreator, logger log.Logger) *Store {
 	return &Store{
-		repo:        repo,
-		taskCreator: taskCreator,
-		logger:      logger.With("component", "epic_store"),
-		pendingCh:   make(chan struct{}, 1),
+		repo:          repo,
+		taskCreator:   taskCreator,
+		logger:        logger.With("component", "epic_store"),
+		pendingCh:     make(chan struct{}, 1),
+		pendingStopCh: make(chan struct{}, 1),
 	}
 }
 
@@ -282,6 +288,63 @@ func (s *Store) ReleaseEpicClaim(ctx context.Context, id EpicID) error {
 	}
 	s.notifyPending()
 	return nil
+}
+
+// StopEpic stops a claimed planning epic, releasing its claim and moving it
+// to draft status. The epic won't be picked up again until the user triggers
+// another planning session.
+func (s *Store) StopEpic(ctx context.Context, id EpicID) error {
+	e, err := s.repo.ReadEpic(ctx, id)
+	if err != nil {
+		return err
+	}
+	if e.Status != StatusPlanning || e.ClaimedAt == nil {
+		return fmt.Errorf("epic must be in planning status and claimed to stop")
+	}
+
+	if err := s.repo.AppendSessionLog(ctx, id, []string{"system: Stopped by user."}); err != nil {
+		return err
+	}
+	if err := s.repo.ReleaseEpicClaim(ctx, id); err != nil {
+		return err
+	}
+	if err := s.repo.UpdateEpicStatus(ctx, id, StatusDraft); err != nil {
+		return err
+	}
+	s.queueStop(id)
+	return nil
+}
+
+// queueStop appends an epic ID to the pending stops list and signals
+// the stop channel so the poll-based stop loop can deliver it.
+func (s *Store) queueStop(id EpicID) {
+	s.stopMu.Lock()
+	s.pendingStops = append(s.pendingStops, id)
+	s.stopMu.Unlock()
+
+	select {
+	case s.pendingStopCh <- struct{}{}:
+	default:
+	}
+}
+
+// WaitForStop returns a channel that signals when stop signals are queued.
+func (s *Store) WaitForStop() <-chan struct{} {
+	s.stopMu.Lock()
+	defer s.stopMu.Unlock()
+	return s.pendingStopCh
+}
+
+// DrainStops returns and clears all pending stop epic IDs.
+func (s *Store) DrainStops() []EpicID {
+	s.stopMu.Lock()
+	defer s.stopMu.Unlock()
+	if len(s.pendingStops) == 0 {
+		return nil
+	}
+	stops := s.pendingStops
+	s.pendingStops = nil
+	return stops
 }
 
 // TimeoutStaleEpics releases claimed epics whose heartbeat has expired.
