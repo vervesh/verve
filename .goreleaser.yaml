@@ -61,7 +61,7 @@ changelog:
 
 release:
   github:
-    owner: joshjon
+    owner: vervesh
     name: verve
   draft: false
   prerelease: auto
