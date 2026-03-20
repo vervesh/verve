@@ -80,6 +80,11 @@ if [ "$TOME_ENABLED" != "false" ] && command -v tome &>/dev/null; then
     else
         log_agent "Tome initialization skipped (no writable data directory)"
     fi
+elif [ "$TOME_ENABLED" = "false" ] && command -v tome &>/dev/null; then
+    # Remove any tome artifacts (CLAUDE.md section, skill, hooks) that may
+    # already exist in the cloned repo so the agent doesn't see them.
+    tome clean >/dev/null 2>&1 || true
+    log_agent "Tome disabled — cleaned repo artifacts"
 fi
 
 # ── Dry run shortcut ────────────────────────────────────────────────
