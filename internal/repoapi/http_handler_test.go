@@ -146,6 +146,28 @@ func TestUpdateSetup_MarkReady(t *testing.T) {
 	assert.NotNil(t, res.Data.SetupCompletedAt, "setup_completed_at should be set")
 }
 
+func TestUpdateSetup_MarkReadyWhenAlreadyReady(t *testing.T) {
+	f := newFixture(t)
+	r := f.addRepo("owner/test-repo")
+
+	// Move repo to ready (pending → scanning → ready)
+	ctx := context.Background()
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusScanning))
+	require.NoError(t, f.RepoStore.UpdateRepoSetupStatus(ctx, r.ID, repo.SetupStatusReady))
+
+	// Editing expectations from settings dialog when repo is already ready
+	// should not fail with internal server error.
+	expectations := "## Updated expectations"
+	req := repoapi.UpdateSetupRequest{
+		Expectations: &expectations,
+		MarkReady:    true,
+	}
+	res := doPatch[server.Response[repo.Repo]](t, f.repoSetupURL(r.ID), req)
+	assert.Equal(t, "## Updated expectations", res.Data.Expectations)
+	assert.Equal(t, repo.SetupStatusReady, res.Data.SetupStatus, "should remain ready")
+	assert.NotNil(t, res.Data.SetupCompletedAt, "setup_completed_at should be set")
+}
+
 func TestUpdateSetup_Combined(t *testing.T) {
 	f := newFixture(t)
 	r := f.addRepo("owner/test-repo")

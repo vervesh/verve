@@ -78,6 +78,9 @@ func (s *Store) UpdateRepoSetupStatus(ctx context.Context, id RepoID, status str
 	if err != nil {
 		return err
 	}
+	if current.SetupStatus == status {
+		return nil
+	}
 	if !isValidTransition(current.SetupStatus, status) {
 		return fmt.Errorf("invalid setup status transition from %q to %q", current.SetupStatus, status)
 	}
