@@ -100,7 +100,7 @@ ${REPO_EXPECTATIONS}
     fi
 
     # Add tome session memory instructions if available
-    if command -v tome &>/dev/null; then
+    if [ "$TOME_ENABLED" != "false" ] && command -v tome &>/dev/null; then
         prompt+='
 
 SESSION MEMORY: Use the /tome skill to search for prior session context before starting work and to record what you learned after completing work.'

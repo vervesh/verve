@@ -129,6 +129,11 @@ func main() {
 			Usage:   "Mount a host volume for dependency caching between agent runs",
 			Value:   true,
 		},
+		&cli.BoolFlag{
+			Name:    "tome",
+			EnvVars: []string{"TOME"},
+			Usage:   "Enable tome session memory in agent containers",
+		},
 		&cli.StringFlag{
 			Name:    "cache-dir",
 			EnvVars: []string{"CACHE_DIR"},
@@ -335,6 +340,7 @@ func buildWorkerConfig(c *cli.Context) worker.Config {
 		StripAnthropicBetaHeaders: c.Bool("strip-anthropic-beta-headers"),
 		CacheEnabled:              c.Bool("cache"),
 		CacheDir:                  c.String("cache-dir"),
+		TomeEnabled:               c.Bool("tome"),
 	}
 }
 
@@ -351,6 +357,7 @@ func logWorkerConfig(logger log.Logger, cfg worker.Config) {
 		"worker.dry_run", cfg.DryRun,
 		"worker.cache_enabled", cfg.CacheEnabled,
 		"worker.cache_dir", cfg.CacheDir,
+		"worker.tome_enabled", cfg.TomeEnabled,
 	)
 }
 

@@ -73,7 +73,7 @@ detect_default_branch
 setup_branch
 
 # ── Initialize tome (session memory) ──────────────────────────────
-if command -v tome &>/dev/null; then
+if [ "$TOME_ENABLED" != "false" ] && command -v tome &>/dev/null; then
     if tome init --no-hooks >/dev/null 2>&1; then
         log_agent "Tome session memory initialized"
         tome sync --pull >/dev/null 2>&1 || true
@@ -114,7 +114,7 @@ else
 fi
 
 # ── Sync tome sessions to remote ─────────────────────────────────
-if command -v tome &>/dev/null; then
+if [ "$TOME_ENABLED" != "false" ] && command -v tome &>/dev/null; then
     _tome_out=$(tome sync --push 2>/dev/null) || true
     if [ -n "$_tome_out" ]; then
         log_agent "Tome: $_tome_out"

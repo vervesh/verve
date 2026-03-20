@@ -47,6 +47,7 @@ type Config struct {
 	StripAnthropicBetaHeaders bool   // Strip anthropic-beta headers via reverse proxy inside agent containers (for Bedrock proxy compatibility)
 	CacheEnabled              bool   // Mount a host volume for dependency caching between agent runs (default: true)
 	CacheDir                  string // Host directory for cache volume (default: ~/.cache/verve)
+	TomeEnabled               bool   // Enable tome session memory in agent containers (default: true)
 }
 
 type Task struct {
@@ -141,7 +142,7 @@ type Worker struct {
 }
 
 func New(cfg Config, logger log.Logger) (*Worker, error) {
-	docker, err := NewDockerRunner(cfg.AgentImage, cfg.CacheEnabled, cfg.CacheDir, logger)
+	docker, err := NewDockerRunner(cfg.AgentImage, cfg.CacheEnabled, cfg.CacheDir, cfg.TomeEnabled, logger)
 	if err != nil {
 		return nil, err
 	}

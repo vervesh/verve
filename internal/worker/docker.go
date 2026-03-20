@@ -28,10 +28,11 @@ type DockerRunner struct {
 	agentImage   string
 	cacheEnabled bool
 	cacheDir     string
+	tomeEnabled  bool
 	logger       log.Logger
 }
 
-func NewDockerRunner(agentImage string, cacheEnabled bool, cacheDir string, logger log.Logger) (*DockerRunner, error) {
+func NewDockerRunner(agentImage string, cacheEnabled bool, cacheDir string, tomeEnabled bool, logger log.Logger) (*DockerRunner, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %w", err)
@@ -42,7 +43,7 @@ func NewDockerRunner(agentImage string, cacheEnabled bool, cacheDir string, logg
 	if cacheDir == "" {
 		cacheDir = DefaultCacheDir()
 	}
-	return &DockerRunner{client: cli, agentImage: agentImage, cacheEnabled: cacheEnabled, cacheDir: cacheDir, logger: logger}, nil
+	return &DockerRunner{client: cli, agentImage: agentImage, cacheEnabled: cacheEnabled, cacheDir: cacheDir, tomeEnabled: tomeEnabled, logger: logger}, nil
 }
 
 func (d *DockerRunner) Close() error {
@@ -148,7 +149,10 @@ func (d *DockerRunner) RunAgent(ctx context.Context, cfg AgentConfig, onLog LogC
 		"GITHUB_REPO=" + cfg.GitHubRepo,
 	}
 
-	if d.cacheEnabled {
+	if !d.tomeEnabled {
+		env = append(env, "TOME_ENABLED=false")
+		env = append(env, "TOME_DIR=")
+	} else if d.cacheEnabled {
 		env = append(env, "TOME_DIR="+containerCacheDir+"/tome")
 	} else {
 		// Override the Dockerfile default so tome falls back to repo-local .tome directory.
